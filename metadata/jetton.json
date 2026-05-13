@@ -1,0 +1,15 @@
+{
+  "name": "TG BTC Cat",
+  "symbol": "tgBTCat",
+  "description": "TG BTC Cat is a community DAO jetton on TON built with Acton around the tgBTC narrative. Holders can vote on-chain to shape buy and sell fees, propose temporary wallet-specific fees, and coordinate community events through governance.",
+  "decimals": "9",
+  "image": "https://tgbtcat.fun/logo.png",
+  "websites": [
+    "https://tgbtcat.fun"
+  ],
+  "social_links": [
+    "https://t.me/tgbtcat",
+    "https://t.me/+uiEvHbrudew1YmM6",
+    "https://x.com/tgBTCat"
+  ]
+}
