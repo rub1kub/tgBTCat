@@ -12,6 +12,31 @@ display-name = "TG BTC Cat DAO"
 src = "contracts/TgBtcCatDao.tolk"
 depends = []
 
+[contracts.TgBtcCatJettonMaster]
+display-name = "TG BTC Cat Jetton Master"
+src = "contracts/TgBtcCatJettonMaster.tolk"
+depends = ["TgBtcCatJettonWallet"]
+
+[contracts.TgBtcCatJettonWallet]
+display-name = "TG BTC Cat Jetton Wallet"
+src = "contracts/TgBtcCatJettonWallet.tolk"
+depends = []
+
+[contracts.TgBtcCatFeeController]
+display-name = "TG BTC Cat Fee Controller"
+src = "contracts/TgBtcCatFeeController.tolk"
+depends = []
+
+[contracts.TgBtcCatWalletFeeRegistry]
+display-name = "TG BTC Cat Wallet Fee Registry"
+src = "contracts/TgBtcCatWalletFeeRegistry.tolk"
+depends = []
+
+[contracts.TgBtcCatDexRegistry]
+display-name = "TG BTC Cat DEX Registry"
+src = "contracts/TgBtcCatDexRegistry.tolk"
+depends = []
+
 [test]
 
 [fmt]
