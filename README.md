@@ -1,19 +1,34 @@
 # TG BTC Cat
 
-TG BTC Cat is a community DAO jetton project on TON built with Acton/Tolk around the tgBTC narrative.
+TG BTC Cat is a production-target community DAO jetton project on TON built with Acton/Tolk around the tgBTC narrative.
 
 Holders are intended to govern protocol parameters on-chain, including buy/sell fees, temporary wallet-specific fee proposals, and community event campaigns.
 
 ## Status
 
-This repository currently contains:
+This repository is the source of truth for the full product:
 
 - Acton `1.0.0` project setup for TON smart contract development.
-- `TgBtcCatDao` governance controller scaffold.
 - Token avatar asset and jetton metadata draft.
-- Tests and deployment script for the current scaffold.
+- Production contract architecture and wallet roles.
+- Smart contracts, tests, wrappers, deployment scripts, and web app as they are implemented.
 
-The production jetton, fee controller, wallet fee registry, and event campaign contracts are planned next. Do not treat the current scaffold as a production token contract.
+The target is not an MVP. The target is a full launchable product with production contracts, a public web interface, TON Connect transaction flows, visible vote history, treasury tracking, testnet deployment, verification, and security review.
+
+## Product Scope
+
+The final product includes:
+
+- `tgBTCat` jetton master and custom jetton wallet.
+- Irreversible treasury-to-vote governance.
+- Global buy/sell fee governance from `0%` to `100%`.
+- Wallet-specific buy/sell fee governance from `0%` to `100%`.
+- DEX registry for buy/sell classification.
+- Vote treasury and fee treasury.
+- Public web app with TON Connect.
+- On-chain proposal creation and execution.
+- Vote explorer: voter, side, amount, transaction hash, timestamp, proposal totals.
+- Minimalist brand interface matching TG BTC Cat identity.
 
 ## Metadata
 
@@ -48,4 +63,3 @@ GitHub is used for public source control and asset backup. For token metadata an
 - Primary: Arweave permanent upload.
 - Secondary: IPFS CID pinned by multiple pinning providers.
 - Backup: GitHub release/source asset.
-

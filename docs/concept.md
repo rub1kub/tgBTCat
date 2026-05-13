@@ -47,7 +47,7 @@ The public interface shows every vote transaction, voter address, amount, side, 
 
 ## Proposal Types
 
-MVP proposal types:
+Production proposal types:
 
 - `SetGlobalBuyFee`: set global buy fee from `0%` to `100%`.
 - `SetGlobalSellFee`: set global sell fee from `0%` to `100%`.
