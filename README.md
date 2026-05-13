@@ -2,7 +2,7 @@
 
 TG BTC Cat is a production-target community DAO jetton project on TON built with Acton/Tolk around the tgBTC narrative.
 
-Holders are intended to govern protocol parameters on-chain, including buy/sell fees, temporary wallet-specific fee proposals, and community event campaigns.
+Holders are intended to govern protocol parameters on-chain, including buy/sell fees, wallet-specific fee rules, and community event campaigns.
 
 ## Status
 
