@@ -31,8 +31,8 @@ Responsibilities:
 
 - TEP-0074 transfer, notification, excess, and burn behavior.
 - Fee-aware transfer path.
-- Buy/sell classification through DEX registry.
-- Wallet-specific buy/sell fee override.
+- Buy/sell classification through a local DEX snapshot.
+- Wallet-specific buy/sell fee override through local wallet runtime rules.
 - Fee forwarding to fee treasury.
 - Bounce handling for failed outbound fee/transfer flows.
 
@@ -50,6 +50,8 @@ Responsibilities:
 - Irreversible treasury-to-vote accounting.
 - Quorum and majority checks.
 - Execution routing to controllers.
+- Execution routing to the Jetton Master for wallet runtime updates.
+- Claiming Jetton Master admin authority after bootstrap handoff.
 - Public getters for proposals and vote totals.
 
 Vote payload fields:
@@ -94,7 +96,21 @@ Responsibilities:
 - Accepts add/remove only from Governor.
 - Exposes public getters for classification.
 
-### 8. Event Controller
+### 8. Fee Runtime Propagation
+
+TON contracts cannot synchronously call external getters during a jetton transfer.
+The executable fee state is therefore stored as a local snapshot inside each custom jetton wallet.
+
+Governor-approved proposals can route updates through the Jetton Master to a specific wallet runtime:
+
+- set wallet runtime global buy/sell fee snapshot;
+- mark a wallet runtime as DEX or non-DEX;
+- add/remove DEX addresses known by that wallet runtime;
+- set/clear wallet-specific fee overrides inside that wallet runtime.
+
+The public app/indexer must show both governance registry state and the applied wallet runtime state, because a voted rule only affects transfers after the relevant wallet snapshot has been updated on-chain.
+
+### 9. Event Controller
 
 Responsibilities:
 
@@ -169,4 +185,3 @@ Production release requires:
 10. Mainnet deployment.
 11. Transfer admin authority to governance.
 12. Publish verified contract addresses.
-

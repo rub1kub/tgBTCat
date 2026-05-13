@@ -2,16 +2,21 @@ import "@acton/emulation/network"
 import "@acton/emulation/testing"
 import "@acton/testing/expect"
 
+import "@contracts/errors"
 import "@contracts/governance-types"
 import "@contracts/messages"
 import "@wrappers/TgBtcCatDexRegistry.gen"
 import "@wrappers/TgBtcCatFeeController.gen"
 import "@wrappers/TgBtcCatGovernor.gen"
 import "@wrappers/TgBtcCatJettonMaster.gen"
+import "@wrappers/TgBtcCatJettonWallet.gen"
 import "@wrappers/TgBtcCatWalletFeeRegistry.gen"
 import "@wrappers/utils"
 
 import "jetton-test-utils"
+
+const GOVERNOR_MASTER_ROUTE_VALUE = 500000000
+const GOVERNOR_WALLET_ROUTE_VALUE = 120000000
 
 get fun `test governor counts irreversible votes from real jetton transfer notification`() {
     testing.setNow(1000);
@@ -27,6 +32,8 @@ get fun `test governor counts irreversible votes from real jetton transfer notif
         1,
         1,
         null,
+        null,
+        0,
         100,
         200,
         123,
@@ -79,6 +86,8 @@ get fun `test governor rejects fake vote notification sender`() {
         1,
         1,
         null,
+        null,
+        0,
         0,
         0,
         0,
@@ -114,6 +123,8 @@ get fun `test governor rejects small vote invalid side unknown proposal and late
         1,
         1,
         null,
+        null,
+        0,
         0,
         0,
         0,
@@ -191,6 +202,8 @@ get fun `test governor enforces admin proposal validation and unknown message re
         1,
         1,
         null,
+        null,
+        0,
         0,
         0,
         0,
@@ -208,6 +221,8 @@ get fun `test governor enforces admin proposal validation and unknown message re
         2,
         1,
         null,
+        null,
+        0,
         10001,
         0,
         0,
@@ -225,6 +240,8 @@ get fun `test governor enforces admin proposal validation and unknown message re
         3,
         1,
         null,
+        null,
+        0,
         0,
         0,
         0,
@@ -258,6 +275,14 @@ get fun `test governor persists vote config and rejects non-admin config changes
     val governorAdmin = testing.treasury("config-admin");
     val outsider = testing.treasury("config-outsider");
     val governor = deployGovernor(minter, governorAdmin, 10);
+    val (
+        defaultRuntimeMaster,
+        defaultRuntimeTreasury,
+        defaultRuntimeValue,
+    ) = governor.getWalletRuntimeExecutionConfig();
+    expect(defaultRuntimeMaster).toEqual(null);
+    expect(defaultRuntimeTreasury).toEqual(null);
+    expect(defaultRuntimeValue).toEqual(GOVERNOR_WALLET_ROUTE_VALUE);
 
     val badWallet = governor.sendSetVoteJettonWallet(
         outsider.address,
@@ -325,6 +350,8 @@ get fun `test governor counts against and abstain vote sides independently`() {
         1,
         1,
         null,
+        null,
+        0,
         0,
         0,
         0,
@@ -743,6 +770,319 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
     expect(governor.getProposal(removeDexProposal).executed).toEqual(true);
 }
 
+get fun `test governor claims minter admin and routes wallet runtime proposals`() {
+    testing.setNow(1000);
+    val (minter, admin, _) = setupTest();
+    val governorAdmin = testing.treasury("runtime-route-admin");
+    val executor = testing.treasury("runtime-route-executor");
+    val voter = testing.treasury("runtime-route-voter");
+    val seller = testing.treasury("runtime-route-seller");
+    val dex = testing.treasury("runtime-route-dex");
+    val feeTreasury = testing.treasury("runtime-route-fee-treasury");
+
+    val sellerWallet = mintTo(minter, admin, seller.address, 3000);
+    val governor = deployGovernor(minter, governorAdmin, 10);
+    configureExecutionTargets(
+        governor,
+        governorAdmin,
+        null,
+        null,
+        null,
+        0,
+    );
+    configureRuntimeExecution(governor, governorAdmin, minter, feeTreasury.address);
+    handOffMinterAdminToGovernor(minter, admin, governor, governorAdmin);
+
+    val runtimeProposal = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_WALLET_RUNTIME,
+        seller.address,
+        null,
+        0,
+        0,
+        1000,
+        11,
+        1100,
+    );
+    val runtime = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        runtimeProposal,
+        1,
+        1200,
+    );
+    expect(runtime).toHaveSuccessfulTx<RouteSetWalletFeeRuntime>({
+        from: governor.address,
+        to: minter.address,
+    });
+    expect(runtime).toHaveSuccessfulTx<SetWalletFeeRuntime>({
+        from: minter.address,
+        to: sellerWallet.address,
+    });
+    expect(sellerWallet.getFeeRuntime().globalSellFeeBps).toEqual(1000);
+
+    testing.setNow(1300);
+    val addDexProposal = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_ADD_WALLET_DEX,
+        seller.address,
+        dex.address,
+        0,
+        0,
+        0,
+        12,
+        1400,
+    );
+    expect(governor.getProposal(addDexProposal).auxTarget).toEqual(dex.address);
+    val addDex = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        addDexProposal,
+        2,
+        1500,
+    );
+    expect(addDex).toHaveSuccessfulTx<RouteAddWalletDexAddress>({
+        from: governor.address,
+        to: minter.address,
+    });
+    expect(addDex).toHaveSuccessfulTx<AddWalletDexAddress>({
+        from: minter.address,
+        to: sellerWallet.address,
+    });
+    expect(sellerWallet.isDexWallet(dex.address)).toEqual(true);
+
+    testing.setNow(1600);
+    val setSpecificProposal = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_SET_WALLET_SPECIFIC_FEE,
+        seller.address,
+        seller.address,
+        0,
+        0,
+        2500,
+        13,
+        1700,
+    );
+    val setSpecific = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        setSpecificProposal,
+        3,
+        1800,
+    );
+    expect(setSpecific).toHaveSuccessfulTx<SetWalletSpecificFee>({
+        from: minter.address,
+        to: sellerWallet.address,
+    });
+    expect(sellerWallet.getWalletSpecificFee(seller.address).sellFeeBps).toEqual(2500);
+
+    val firstSell = sellerWallet.sendTransfer(
+        seller.address,
+        ton("1"),
+        1000,
+        dex.address,
+        seller.address,
+        null,
+        0,
+        null,
+    );
+    expect(firstSell).toHaveSuccessfulTx<AskToTransfer>({
+        from: seller.address,
+        to: sellerWallet.address,
+    });
+    expect(userWallet(minter, dex.address).getJettonBalance()).toEqual(750);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(250);
+
+    testing.setNow(1900);
+    val clearSpecificProposal = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_CLEAR_WALLET_SPECIFIC_FEE,
+        seller.address,
+        seller.address,
+        0,
+        0,
+        0,
+        14,
+        2000,
+    );
+    val clearSpecific = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        clearSpecificProposal,
+        4,
+        2100,
+    );
+    expect(clearSpecific).toHaveSuccessfulTx<ClearWalletSpecificFee>({
+        from: minter.address,
+        to: sellerWallet.address,
+    });
+    expect(sellerWallet.getWalletSpecificFee(seller.address).isSet).toEqual(false);
+
+    val secondSell = sellerWallet.sendTransfer(
+        seller.address,
+        ton("1"),
+        1000,
+        dex.address,
+        seller.address,
+        null,
+        0,
+        null,
+    );
+    expect(secondSell).toHaveSuccessfulTx<AskToTransfer>({
+        from: seller.address,
+        to: sellerWallet.address,
+    });
+    expect(userWallet(minter, dex.address).getJettonBalance()).toEqual(1650);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(350);
+
+    testing.setNow(2200);
+    val removeDexProposal = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_REMOVE_WALLET_DEX,
+        seller.address,
+        dex.address,
+        0,
+        0,
+        0,
+        15,
+        2300,
+    );
+    val removeDex = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        removeDexProposal,
+        5,
+        2400,
+    );
+    expect(removeDex).toHaveSuccessfulTx<RemoveWalletDexAddress>({
+        from: minter.address,
+        to: sellerWallet.address,
+    });
+    expect(sellerWallet.isDexWallet(dex.address)).toEqual(false);
+
+    val thirdSell = sellerWallet.sendTransfer(
+        seller.address,
+        ton("1"),
+        1000,
+        dex.address,
+        seller.address,
+        null,
+        0,
+        null,
+    );
+    expect(thirdSell).toHaveSuccessfulTx<AskToTransfer>({
+        from: seller.address,
+        to: sellerWallet.address,
+    });
+    expect(userWallet(minter, dex.address).getJettonBalance()).toEqual(2650);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(350);
+}
+
+get fun `test governor rolls back runtime route proposal when master rejects it`() {
+    testing.setNow(1000);
+    val (minter, _, _) = setupTest();
+    val governorAdmin = testing.treasury("runtime-bounce-admin");
+    val executor = testing.treasury("runtime-bounce-executor");
+    val voter = testing.treasury("runtime-bounce-voter");
+    val target = testing.treasury("runtime-bounce-target");
+    val feeTreasury = testing.treasury("runtime-bounce-fee-treasury");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+    configureExecutionTargets(
+        governor,
+        governorAdmin,
+        null,
+        null,
+        null,
+        0,
+    );
+    configureRuntimeExecution(governor, governorAdmin, minter, feeTreasury.address);
+
+    val proposalId = createExtendedProposal(
+        governor,
+        governorAdmin,
+        ACTION_ROUTE_WALLET_RUNTIME,
+        target.address,
+        null,
+        0,
+        100,
+        200,
+        21,
+        1100,
+    );
+    voteDirect(
+        minter,
+        governor,
+        voter.address,
+        proposalId,
+        100,
+        VOTE_SIDE_FOR,
+    );
+    testing.setNow(1200);
+
+    val execute = governor.sendExecuteProposal(
+        executor.address,
+        1,
+        proposalId,
+        { value: ton("0.05") },
+    );
+    expect(execute).toHaveSuccessfulTx<ExecuteProposal>({
+        from: executor.address,
+        to: governor.address,
+    });
+    expect(execute).toHaveFailedTx<RouteSetWalletFeeRuntime>({
+        from: governor.address,
+        to: minter.address,
+        exitCode: Errors.NotOwner,
+    });
+    expect(governor.getProposal(proposalId).executed).toEqual(false);
+}
+
+get fun `test governor handles execution bounce query ids defensively`() {
+    testing.setNow(1000);
+    val (minter, _, _) = setupTest();
+    val governorAdmin = testing.treasury("bounce-defensive-admin");
+    val sender = testing.treasury("bounce-defensive-sender");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+
+    val unknownProposalBounce = sendGovernorBouncedExecution(
+        governor,
+        sender.address,
+        0x10010001,
+        999,
+    );
+    expect(unknownProposalBounce).toHaveSuccessfulTx({
+        from: sender.address,
+        to: governor.address,
+    });
+
+    val invalidOpcodeBounce = sendGovernorBouncedExecution(
+        governor,
+        sender.address,
+        0xdeadbeef,
+        0,
+    );
+    expect(invalidOpcodeBounce).toHaveFailedTx({
+        from: sender.address,
+        to: governor.address,
+        exitCode: GovErrors.InvalidMessage,
+    });
+}
+
 get fun `test governor rejects invalid execution inputs`() {
     testing.setNow(1000);
     val (minter, _, _) = setupTest();
@@ -775,6 +1115,7 @@ get fun `test governor rejects invalid execution inputs`() {
     });
     val (_, _, _, _, executionValue) = governor.getExecutionConfig();
     expect(executionValue).toEqual(123456789);
+    configureRuntimeExecution(governor, governorAdmin, minter, null);
 
     val unknown = governor.sendExecuteProposal(
         executor.address,
@@ -820,11 +1161,13 @@ get fun `test governor rejects invalid execution inputs`() {
     });
 
     testing.setNow(1300);
-    val invalidActionProposal = createProposal(
+    val missingAuxProposal = createExtendedProposal(
         governor,
         governorAdmin,
-        99,
-        testing.treasury("invalid-action-target").address,
+        ACTION_ROUTE_ADD_WALLET_DEX,
+        testing.treasury("missing-aux-wallet-owner").address,
+        null,
+        0,
         0,
         0,
         2,
@@ -834,14 +1177,46 @@ get fun `test governor rejects invalid execution inputs`() {
         minter,
         governor,
         voter.address,
-        invalidActionProposal,
+        missingAuxProposal,
         100,
         VOTE_SIDE_FOR,
     );
     testing.setNow(1500);
-    val invalidAction = governor.sendExecuteProposal(
+    val missingAux = governor.sendExecuteProposal(
         executor.address,
         4,
+        missingAuxProposal,
+        { value: ton("0.05") },
+    );
+    expect(missingAux).toHaveFailedTx({
+        from: executor.address,
+        to: governor.address,
+        exitCode: GovErrors.ExecutionTargetMissing,
+    });
+
+    testing.setNow(1600);
+    val invalidActionProposal = createProposal(
+        governor,
+        governorAdmin,
+        99,
+        testing.treasury("invalid-action-target").address,
+        0,
+        0,
+        3,
+        1700,
+    );
+    voteDirect(
+        minter,
+        governor,
+        voter.address,
+        invalidActionProposal,
+        100,
+        VOTE_SIDE_FOR,
+    );
+    testing.setNow(1800);
+    val invalidAction = governor.sendExecuteProposal(
+        executor.address,
+        5,
         invalidActionProposal,
         { value: ton("0.05") },
     );
@@ -1028,12 +1403,40 @@ fun createProposal(
     reasonHash: uint256,
     votingEndsAt: uint32,
 ): uint64 {
+    return createExtendedProposal(
+        governor,
+        admin,
+        actionType,
+        target,
+        null,
+        0,
+        buyFeeBps,
+        sellFeeBps,
+        reasonHash,
+        votingEndsAt,
+    );
+}
+
+fun createExtendedProposal(
+    governor: TgBtcCatGovernor,
+    admin: Treasury,
+    actionType: uint8,
+    target: address?,
+    auxTarget: address?,
+    flags: uint8,
+    buyFeeBps: uint16,
+    sellFeeBps: uint16,
+    reasonHash: uint256,
+    votingEndsAt: uint32,
+): uint64 {
     val proposalId = governor.getNextProposalId();
     val create = governor.sendCreateGovernanceProposal(
         admin.address,
         proposalId,
         actionType,
         target,
+        auxTarget,
+        flags,
         buyFeeBps,
         sellFeeBps,
         reasonHash,
@@ -1045,6 +1448,134 @@ fun createProposal(
         to: governor.address,
     });
     return proposalId;
+}
+
+fun configureRuntimeExecution(
+    governor: TgBtcCatGovernor,
+    admin: Treasury,
+    minter: TgBtcCatJettonMaster,
+    feeTreasury: address?,
+) {
+    val executionValue = governor.sendSetExecutionValue(
+        admin.address,
+        20,
+        GOVERNOR_MASTER_ROUTE_VALUE,
+        { value: ton("0.05") },
+    );
+    expect(executionValue).toHaveSuccessfulTx<SetExecutionValue>({
+        from: admin.address,
+        to: governor.address,
+    });
+
+    val runtime = governor.sendSetWalletRuntimeExecution(
+        admin.address,
+        21,
+        minter.address,
+        feeTreasury,
+        GOVERNOR_WALLET_ROUTE_VALUE,
+        { value: ton("0.05") },
+    );
+    expect(runtime).toHaveSuccessfulTx<SetWalletRuntimeExecution>({
+        from: admin.address,
+        to: governor.address,
+    });
+
+    val (
+        jettonMaster,
+        configuredFeeTreasury,
+        walletRouteValue,
+    ) = governor.getWalletRuntimeExecutionConfig();
+    expect(jettonMaster).toEqual(minter.address);
+    expect(configuredFeeTreasury).toEqual(feeTreasury);
+    expect(walletRouteValue).toEqual(GOVERNOR_WALLET_ROUTE_VALUE);
+}
+
+fun handOffMinterAdminToGovernor(
+    minter: TgBtcCatJettonMaster,
+    admin: Treasury,
+    governor: TgBtcCatGovernor,
+    governorAdmin: Treasury,
+) {
+    val change = minter.sendChangeMinterAdmin(
+        admin.address,
+        30,
+        governor.address,
+        { value: ton("0.05") },
+    );
+    expect(change).toHaveSuccessfulTx<ChangeMinterAdmin>({
+        from: admin.address,
+        to: minter.address,
+    });
+    expect(minter.getNextAdminAddress()).toEqual(governor.address);
+
+    val claim = governor.sendClaimJettonMasterAdmin(
+        governorAdmin.address,
+        31,
+        minter.address,
+        ton("0.05"),
+        { value: ton("0.1") },
+    );
+    expect(claim).toHaveSuccessfulTx<ClaimJettonMasterAdmin>({
+        from: governorAdmin.address,
+        to: governor.address,
+    });
+    expect(claim).toHaveSuccessfulTx<ClaimMinterAdmin>({
+        from: governor.address,
+        to: minter.address,
+    });
+    expect(minter.getJettonData().adminAddress).toEqual(governor.address);
+}
+
+fun executePassedProposal(
+    minter: TgBtcCatJettonMaster,
+    governor: TgBtcCatGovernor,
+    executor: Treasury,
+    voter: address,
+    proposalId: uint64,
+    queryId: uint64,
+    executeAt: uint32,
+): SendResultList {
+    voteDirect(
+        minter,
+        governor,
+        voter,
+        proposalId,
+        100,
+        VOTE_SIDE_FOR,
+    );
+    testing.setNow(executeAt);
+    val execute = governor.sendExecuteProposal(
+        executor.address,
+        queryId,
+        proposalId,
+        { value: ton("0.05") },
+    );
+    expect(execute).toHaveSuccessfulTx<ExecuteProposal>({
+        from: executor.address,
+        to: governor.address,
+    });
+    expect(governor.getProposal(proposalId).executed).toEqual(true);
+    return execute;
+}
+
+fun sendGovernorBouncedExecution(
+    governor: TgBtcCatGovernor,
+    from: address,
+    opcode: uint32,
+    queryId: uint64,
+): SendResultList {
+    val bouncedBody = beginCell()
+        .storeUint(0xffffffff, 32)
+        .storeUint(opcode, 32)
+        .storeUint(queryId, 64)
+        .endCell();
+    val bouncedMsg = createMessage({
+        bounce: false,
+        value: ton("0.05"),
+        dest: governor.address,
+        body: bouncedBody,
+    }).bounced();
+    return net.send(from, bouncedMsg);
 }
 
 fun voteDirect(

@@ -52,6 +52,8 @@ fun TgBtcCatGovernor.sendCreateGovernanceProposal(
     queryId: uint64,
     actionType: uint8,
     target: address?,
+    auxTarget: address?,
+    flags: uint8,
     buyFeeBps: uint16,
     sellFeeBps: uint16,
     reasonHash: uint256,
@@ -66,6 +68,8 @@ fun TgBtcCatGovernor.sendCreateGovernanceProposal(
             queryId,
             actionType,
             target,
+            auxTarget,
+            flags,
             buyFeeBps,
             sellFeeBps,
             reasonHash,
@@ -157,6 +161,41 @@ fun TgBtcCatGovernor.sendSetExecutionValue(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatGovernor.sendSetWalletRuntimeExecution(
+    self,
+    from: address,
+    queryId: uint64,
+    jettonMaster: address?,
+    feeTreasury: address?,
+    walletRouteValue: coins,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetWalletRuntimeExecution { queryId, jettonMaster, feeTreasury, walletRouteValue },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatGovernor.sendClaimJettonMasterAdmin(
+    self,
+    from: address,
+    queryId: uint64,
+    jettonMaster: address,
+    claimValue: coins,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: ClaimJettonMasterAdmin { queryId, jettonMaster, claimValue },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatGovernor.sendExecuteProposal(
     self,
     from: address,
@@ -242,4 +281,8 @@ fun TgBtcCatGovernor.getVoteConfig(self): (address, coins, address) {
 
 fun TgBtcCatGovernor.getExecutionConfig(self): (address?, address?, address?, coins, coins) {
     return net.runGetMethod(self.address, "get_execution_config");
+}
+
+fun TgBtcCatGovernor.getWalletRuntimeExecutionConfig(self): (address?, address?, coins) {
+    return net.runGetMethod(self.address, "get_wallet_runtime_execution_config");
 }

@@ -25,6 +25,12 @@ const ACTION_SET_WALLET_FEES = 2
 const ACTION_CLEAR_WALLET_FEES = 3
 const ACTION_ADD_DEX_WALLET = 4
 const ACTION_REMOVE_DEX_WALLET = 5
+const ACTION_ROUTE_WALLET_RUNTIME = 6
+const ACTION_ROUTE_ADD_WALLET_DEX = 7
+const ACTION_ROUTE_REMOVE_WALLET_DEX = 8
+const ACTION_ROUTE_SET_WALLET_SPECIFIC_FEE = 9
+const ACTION_ROUTE_CLEAR_WALLET_SPECIFIC_FEE = 10
+const RUNTIME_FLAG_IS_DEX_WALLET = 1
 
 struct FeeControllerStorage {
     governor: address
@@ -91,6 +97,8 @@ struct WalletFeeRuleReply {
 struct Proposal {
     actionType: uint8
     target: address?
+    auxTarget: Cell<address>? = null
+    flags: uint8 = 0
     buyFeeBps: uint16
     sellFeeBps: uint16
     reasonHash: uint256
@@ -111,6 +119,13 @@ struct GovernorExecutionConfig {
     targets: Cell<GovernorExecutionTargets>? = null
     minQuorumVotes: coins
     executionValue: coins
+    runtime: Cell<GovernorRuntimeExecutionConfig>? = null
+}
+
+struct GovernorRuntimeExecutionConfig {
+    jettonMaster: address?
+    feeTreasury: address?
+    walletRouteValue: coins
 }
 
 struct GovernorStorage {
@@ -135,6 +150,7 @@ fun defaultGovernorExecutionConfig(): GovernorExecutionConfig {
         targets: null,
         minQuorumVotes: 0,
         executionValue: 50000000,
+        runtime: null,
     };
 }
 
@@ -162,10 +178,28 @@ fun GovernorExecutionConfig.loadTargets(self): GovernorExecutionTargets {
     return GovernorExecutionTargets.fromCell(self.targets!);
 }
 
+fun defaultGovernorRuntimeExecutionConfig(): GovernorRuntimeExecutionConfig {
+    return {
+        jettonMaster: null,
+        feeTreasury: null,
+        walletRouteValue: 120000000,
+    };
+}
+
+fun GovernorExecutionConfig.loadRuntime(self): GovernorRuntimeExecutionConfig {
+    if (self.runtime == null) {
+        return defaultGovernorRuntimeExecutionConfig();
+    }
+
+    return GovernorRuntimeExecutionConfig.fromCell(self.runtime!);
+}
+
 struct ProposalReply {
     isSet: bool
     actionType: uint8
     target: address?
+    auxTarget: address?
+    flags: uint8
     buyFeeBps: uint16
     sellFeeBps: uint16
     reasonHash: uint256
@@ -235,6 +269,8 @@ struct (0x10040001) CreateGovernanceProposal {
     queryId: uint64
     actionType: uint8
     target: address?
+    auxTarget: address?
+    flags: uint8
     buyFeeBps: uint16
     sellFeeBps: uint16
     reasonHash: uint256
@@ -271,6 +307,19 @@ struct (0x10040006) SetExecutionValue {
 struct (0x10040007) ExecuteProposal {
     queryId: uint64
     proposalId: uint64
+}
+
+struct (0x10040008) SetWalletRuntimeExecution {
+    queryId: uint64
+    jettonMaster: address?
+    feeTreasury: address?
+    walletRouteValue: coins
+}
+
+struct (0x10040009) ClaimJettonMasterAdmin {
+    queryId: uint64
+    jettonMaster: address
+    claimValue: coins
 }
 
 struct (0x766f7465) CastVotePayload {

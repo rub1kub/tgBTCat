@@ -16,16 +16,11 @@ type GovernorMessage =
     | SetExecutionTargets
     | SetGovernanceQuorum
     | SetExecutionValue
+    | SetWalletRuntimeExecution
+    | ClaimJettonMasterAdmin
     | ExecuteProposal
     | TransferNotificationForRecipient
     | GovernanceTopUp
-
-type ExecutionBounceMessage =
-    | SetGlobalFees
-    | SetWalletFees
-    | ClearWalletFees
-    | AddDexWallet
-    | RemoveDexWallet
 
 fun requireExecutionTarget(target: address?): address {
     assert (target != null) throw GovErrors.ExecutionTargetMissing;
@@ -35,6 +30,42 @@ fun requireExecutionTarget(target: address?): address {
 fun requireProposalTarget(target: address?): address {
     assert (target != null) throw GovErrors.ExecutionTargetMissing;
     return target!;
+}
+
+fun optionalAddressCell(target: address?): Cell<address>? {
+    if (target == null) {
+        return null;
+    }
+
+    return target!.toCell();
+}
+
+fun loadOptionalAuxTarget(proposal: Proposal): address? {
+    if (proposal.auxTarget == null) {
+        return null;
+    }
+
+    return proposal.auxTarget!.load();
+}
+
+fun requireProposalAuxTarget(proposal: Proposal): address {
+    assert (proposal.auxTarget != null) throw GovErrors.ExecutionTargetMissing;
+    return proposal.auxTarget!.load();
+}
+
+fun readExecutionBounceQueryId(body: slice): uint64 {
+    body.skipBouncedPrefix();
+    val opcode = body.loadUint(32);
+    val isExecutionOpcode = opcode == 0x10010001 || opcode == 0x10020001 || opcode == 0x10020002 ||
+    opcode == 0x10030001 ||
+    opcode == 0x10030002 ||
+    opcode == 0x20020001 ||
+    opcode == 0x20020002 ||
+    opcode == 0x20020003 ||
+    opcode == 0x20020004 ||
+    opcode == 0x20020005;
+    assert (isExecutionOpcode) throw GovErrors.InvalidMessage;
+    return body.loadUint(64);
 }
 
 fun assertProposalPassed(proposal: Proposal, minQuorumVotes: coins) {
@@ -98,6 +129,8 @@ fun onInternalMessage(in: InMessage) {
                     {
                         actionType: msg.actionType,
                         target: msg.target,
+                        auxTarget: optionalAddressCell(msg.auxTarget),
+                        flags: msg.flags,
                         buyFeeBps: msg.buyFeeBps,
                         sellFeeBps: msg.sellFeeBps,
                         reasonHash: msg.reasonHash,
@@ -163,6 +196,31 @@ fun onInternalMessage(in: InMessage) {
             }.toCell();
             storage.executionConfig = config.toCell();
             storage.save();
+        }
+
+        SetWalletRuntimeExecution => {
+            var storage = lazy GovernorStorage.load();
+            assertGovernor(in.senderAddress, storage.admin);
+            var config = storage.loadExecutionConfig();
+            config.runtime = GovernorRuntimeExecutionConfig {
+                jettonMaster: msg.jettonMaster,
+                feeTreasury: msg.feeTreasury,
+                walletRouteValue: msg.walletRouteValue,
+            }.toCell();
+            storage.executionConfig = config.toCell();
+            storage.save();
+        }
+
+        ClaimJettonMasterAdmin => {
+            val storage = lazy GovernorStorage.load();
+            assertGovernor(in.senderAddress, storage.admin);
+            val claimMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: msg.jettonMaster,
+                value: msg.claimValue,
+                body: ClaimMinterAdmin { queryId: msg.queryId },
+            });
+            claimMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
         }
 
         SetGovernanceQuorum => {
@@ -277,6 +335,110 @@ fun onInternalMessage(in: InMessage) {
                     },
                 });
                 executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_ROUTE_WALLET_RUNTIME) {
+                val runtime = config.loadRuntime();
+                val jettonMaster = requireExecutionTarget(runtime.jettonMaster);
+                val walletOwner = requireProposalTarget(proposal.target);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: jettonMaster,
+                    value: config.executionValue,
+                    body: RouteSetWalletFeeRuntime {
+                        queryId: msg.proposalId,
+                        walletOwner,
+                        walletTonAmount: runtime.walletRouteValue,
+                        feeTreasury: runtime.feeTreasury,
+                        globalBuyFeeBps: proposal.buyFeeBps,
+                        globalSellFeeBps: proposal.sellFeeBps,
+                        isDexWallet: proposal.flags == RUNTIME_FLAG_IS_DEX_WALLET,
+                    },
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_ROUTE_ADD_WALLET_DEX) {
+                val runtime = config.loadRuntime();
+                val jettonMaster = requireExecutionTarget(runtime.jettonMaster);
+                val walletOwner = requireProposalTarget(proposal.target);
+                val dexWallet = requireProposalAuxTarget(proposal);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: jettonMaster,
+                    value: config.executionValue,
+                    body: RouteAddWalletDexAddress {
+                        queryId: msg.proposalId,
+                        walletOwner,
+                        walletTonAmount: runtime.walletRouteValue,
+                        wallet: dexWallet,
+                    },
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_ROUTE_REMOVE_WALLET_DEX) {
+                val runtime = config.loadRuntime();
+                val jettonMaster = requireExecutionTarget(runtime.jettonMaster);
+                val walletOwner = requireProposalTarget(proposal.target);
+                val dexWallet = requireProposalAuxTarget(proposal);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: jettonMaster,
+                    value: config.executionValue,
+                    body: RouteRemoveWalletDexAddress {
+                        queryId: msg.proposalId,
+                        walletOwner,
+                        walletTonAmount: runtime.walletRouteValue,
+                        wallet: dexWallet,
+                    },
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_ROUTE_SET_WALLET_SPECIFIC_FEE) {
+                val runtime = config.loadRuntime();
+                val jettonMaster = requireExecutionTarget(runtime.jettonMaster);
+                val walletOwner = requireProposalTarget(proposal.target);
+                val feeSubject = requireProposalAuxTarget(proposal);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: jettonMaster,
+                    value: config.executionValue,
+                    body: RouteSetWalletSpecificFee {
+                        queryId: msg.proposalId,
+                        walletOwner,
+                        walletTonAmount: runtime.walletRouteValue,
+                        target: feeSubject,
+                        buyFeeBps: proposal.buyFeeBps,
+                        sellFeeBps: proposal.sellFeeBps,
+                    },
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_ROUTE_CLEAR_WALLET_SPECIFIC_FEE) {
+                val runtime = config.loadRuntime();
+                val jettonMaster = requireExecutionTarget(runtime.jettonMaster);
+                val walletOwner = requireProposalTarget(proposal.target);
+                val feeSubject = requireProposalAuxTarget(proposal);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: jettonMaster,
+                    value: config.executionValue,
+                    body: RouteClearWalletSpecificFee {
+                        queryId: msg.proposalId,
+                        walletOwner,
+                        walletTonAmount: runtime.walletRouteValue,
+                        target: feeSubject,
+                    },
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
             } else {
                 throw GovErrors.InvalidActionType;
             }
@@ -293,16 +455,7 @@ fun onInternalMessage(in: InMessage) {
 }
 
 fun onBouncedMessage(in: InMessageBounced) {
-    in.bouncedBody.skipBouncedPrefix();
-    val msg = lazy ExecutionBounceMessage.fromSlice(in.bouncedBody);
-    val proposalId = match (msg) {
-        SetGlobalFees => msg.queryId,
-        SetWalletFees => msg.queryId,
-        ClearWalletFees => msg.queryId,
-        AddDexWallet => msg.queryId,
-        RemoveDexWallet => msg.queryId,
-    };
-
+    val proposalId = readExecutionBounceQueryId(in.bouncedBody);
     var storage = lazy GovernorStorage.load();
     val proposalResult = storage.proposals.get(proposalId);
     if (proposalResult.isFound) {
@@ -321,6 +474,8 @@ get fun get_proposal(proposalId: uint64): ProposalReply {
             isSet: false,
             actionType: 0,
             target: null,
+            auxTarget: null,
+            flags: 0,
             buyFeeBps: 0,
             sellFeeBps: 0,
             reasonHash: 0,
@@ -337,6 +492,8 @@ get fun get_proposal(proposalId: uint64): ProposalReply {
         isSet: true,
         actionType: proposal.actionType,
         target: proposal.target,
+        auxTarget: loadOptionalAuxTarget(proposal),
+        flags: proposal.flags,
         buyFeeBps: proposal.buyFeeBps,
         sellFeeBps: proposal.sellFeeBps,
         reasonHash: proposal.reasonHash,
@@ -369,4 +526,11 @@ get fun get_execution_config(): (address?, address?, address?, coins, coins) {
         config.minQuorumVotes,
         config.executionValue,
     );
+}
+
+get fun get_wallet_runtime_execution_config(): (address?, address?, coins) {
+    val storage = lazy GovernorStorage.load();
+    val config = storage.loadExecutionConfig();
+    val runtime = config.loadRuntime();
+    return (runtime.jettonMaster, runtime.feeTreasury, runtime.walletRouteValue);
 }
