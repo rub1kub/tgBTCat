@@ -247,12 +247,102 @@ export const Proposal = {
 }
 
 /**
+ > struct GovernorExecutionTargets {
+ >     feeController: address?
+ >     walletFeeRegistry: address?
+ >     dexRegistry: address?
+ > }
+ */
+export interface GovernorExecutionTargets {
+    readonly $: 'GovernorExecutionTargets'
+    feeController: c.Address | null
+    walletFeeRegistry: c.Address | null
+    dexRegistry: c.Address | null
+}
+
+export const GovernorExecutionTargets = {
+    create(args: {
+        feeController: c.Address | null
+        walletFeeRegistry: c.Address | null
+        dexRegistry: c.Address | null
+    }): GovernorExecutionTargets {
+        return {
+            $: 'GovernorExecutionTargets',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): GovernorExecutionTargets {
+        return {
+            $: 'GovernorExecutionTargets',
+            feeController: s.loadMaybeAddress(),
+            walletFeeRegistry: s.loadMaybeAddress(),
+            dexRegistry: s.loadMaybeAddress(),
+        }
+    },
+    store(self: GovernorExecutionTargets, b: c.Builder): void {
+        b.storeAddress(self.feeController);
+        b.storeAddress(self.walletFeeRegistry);
+        b.storeAddress(self.dexRegistry);
+    },
+    toCell(self: GovernorExecutionTargets): c.Cell {
+        return makeCellFrom<GovernorExecutionTargets>(self, GovernorExecutionTargets.store);
+    }
+}
+
+/**
+ > struct GovernorExecutionConfig {
+ >     targets: Cell<GovernorExecutionTargets>?
+ >     minQuorumVotes: coins
+ >     executionValue: coins
+ > }
+ */
+export interface GovernorExecutionConfig {
+    readonly $: 'GovernorExecutionConfig'
+    targets: CellRef<GovernorExecutionTargets> | null /* = null */
+    minQuorumVotes: coins
+    executionValue: coins
+}
+
+export const GovernorExecutionConfig = {
+    create(args: {
+        targets?: CellRef<GovernorExecutionTargets> | null /* = null */
+        minQuorumVotes: coins
+        executionValue: coins
+    }): GovernorExecutionConfig {
+        return {
+            $: 'GovernorExecutionConfig',
+            targets: null,
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): GovernorExecutionConfig {
+        return {
+            $: 'GovernorExecutionConfig',
+            targets: s.loadBoolean() ? loadCellRef<GovernorExecutionTargets>(s, GovernorExecutionTargets.fromSlice) : null,
+            minQuorumVotes: s.loadCoins(),
+            executionValue: s.loadCoins(),
+        }
+    },
+    store(self: GovernorExecutionConfig, b: c.Builder): void {
+        storeTolkNullable<CellRef<GovernorExecutionTargets>>(self.targets, b,
+            (v,b) => storeCellRef<GovernorExecutionTargets>(v, b, GovernorExecutionTargets.store)
+        );
+        b.storeCoins(self.minQuorumVotes);
+        b.storeCoins(self.executionValue);
+    },
+    toCell(self: GovernorExecutionConfig): c.Cell {
+        return makeCellFrom<GovernorExecutionConfig>(self, GovernorExecutionConfig.store);
+    }
+}
+
+/**
  > struct GovernorStorage {
  >     admin: address
  >     voteJettonWallet: address
  >     minVoteAmount: coins
  >     nextProposalId: uint64
  >     proposals: map<uint64, Proposal>
+ >     executionConfig: Cell<GovernorExecutionConfig>?
  > }
  */
 export interface GovernorStorage {
@@ -262,6 +352,7 @@ export interface GovernorStorage {
     minVoteAmount: coins
     nextProposalId: uint64
     proposals: c.Dictionary<uint64, Proposal> /* = [] */
+    executionConfig: CellRef<GovernorExecutionConfig> | null /* = null */
 }
 
 export const GovernorStorage = {
@@ -271,9 +362,11 @@ export const GovernorStorage = {
         minVoteAmount: coins
         nextProposalId: uint64
         proposals: c.Dictionary<uint64, Proposal> /* = [] */
+        executionConfig?: CellRef<GovernorExecutionConfig> | null /* = null */
     }): GovernorStorage {
         return {
             $: 'GovernorStorage',
+            executionConfig: null,
             ...args
         }
     },
@@ -285,6 +378,7 @@ export const GovernorStorage = {
             minVoteAmount: s.loadCoins(),
             nextProposalId: s.loadUintBig(64),
             proposals: c.Dictionary.load<uint64, Proposal>(c.Dictionary.Keys.BigUint(64), createDictionaryValue<Proposal>(Proposal.fromSlice, Proposal.store), s),
+            executionConfig: s.loadBoolean() ? loadCellRef<GovernorExecutionConfig>(s, GovernorExecutionConfig.fromSlice) : null,
         }
     },
     store(self: GovernorStorage, b: c.Builder): void {
@@ -293,6 +387,9 @@ export const GovernorStorage = {
         b.storeCoins(self.minVoteAmount);
         b.storeUint(self.nextProposalId, 64);
         b.storeDict<uint64, Proposal>(self.proposals, c.Dictionary.Keys.BigUint(64), createDictionaryValue<Proposal>(Proposal.fromSlice, Proposal.store));
+        storeTolkNullable<CellRef<GovernorExecutionConfig>>(self.executionConfig, b,
+            (v,b) => storeCellRef<GovernorExecutionConfig>(v, b, GovernorExecutionConfig.store)
+        );
     },
     toCell(self: GovernorStorage): c.Cell {
         return makeCellFrom<GovernorStorage>(self, GovernorStorage.store);
@@ -379,6 +476,236 @@ export const ProposalReply = {
     },
     toCell(self: ProposalReply): c.Cell {
         return makeCellFrom<ProposalReply>(self, ProposalReply.store);
+    }
+}
+
+/**
+ > struct (0x10010001) SetGlobalFees {
+ >     queryId: uint64
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface SetGlobalFees {
+    readonly $: 'SetGlobalFees'
+    queryId: uint64
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const SetGlobalFees = {
+    PREFIX: 0x10010001,
+
+    create(args: {
+        queryId: uint64
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): SetGlobalFees {
+        return {
+            $: 'SetGlobalFees',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetGlobalFees {
+        loadAndCheckPrefix32(s, 0x10010001, 'SetGlobalFees');
+        return {
+            $: 'SetGlobalFees',
+            queryId: s.loadUintBig(64),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: SetGlobalFees, b: c.Builder): void {
+        b.storeUint(0x10010001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: SetGlobalFees): c.Cell {
+        return makeCellFrom<SetGlobalFees>(self, SetGlobalFees.store);
+    }
+}
+
+/**
+ > struct (0x10020001) SetWalletFees {
+ >     queryId: uint64
+ >     target: address
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ >     reasonHash: uint256
+ > }
+ */
+export interface SetWalletFees {
+    readonly $: 'SetWalletFees'
+    queryId: uint64
+    target: c.Address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+    reasonHash: uint256
+}
+
+export const SetWalletFees = {
+    PREFIX: 0x10020001,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+        reasonHash: uint256
+    }): SetWalletFees {
+        return {
+            $: 'SetWalletFees',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetWalletFees {
+        loadAndCheckPrefix32(s, 0x10020001, 'SetWalletFees');
+        return {
+            $: 'SetWalletFees',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+            reasonHash: s.loadUintBig(256),
+        }
+    },
+    store(self: SetWalletFees, b: c.Builder): void {
+        b.storeUint(0x10020001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+        b.storeUint(self.reasonHash, 256);
+    },
+    toCell(self: SetWalletFees): c.Cell {
+        return makeCellFrom<SetWalletFees>(self, SetWalletFees.store);
+    }
+}
+
+/**
+ > struct (0x10020002) ClearWalletFees {
+ >     queryId: uint64
+ >     target: address
+ > }
+ */
+export interface ClearWalletFees {
+    readonly $: 'ClearWalletFees'
+    queryId: uint64
+    target: c.Address
+}
+
+export const ClearWalletFees = {
+    PREFIX: 0x10020002,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+    }): ClearWalletFees {
+        return {
+            $: 'ClearWalletFees',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): ClearWalletFees {
+        loadAndCheckPrefix32(s, 0x10020002, 'ClearWalletFees');
+        return {
+            $: 'ClearWalletFees',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+        }
+    },
+    store(self: ClearWalletFees, b: c.Builder): void {
+        b.storeUint(0x10020002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+    },
+    toCell(self: ClearWalletFees): c.Cell {
+        return makeCellFrom<ClearWalletFees>(self, ClearWalletFees.store);
+    }
+}
+
+/**
+ > struct (0x10030001) AddDexWallet {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface AddDexWallet {
+    readonly $: 'AddDexWallet'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const AddDexWallet = {
+    PREFIX: 0x10030001,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): AddDexWallet {
+        return {
+            $: 'AddDexWallet',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): AddDexWallet {
+        loadAndCheckPrefix32(s, 0x10030001, 'AddDexWallet');
+        return {
+            $: 'AddDexWallet',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: AddDexWallet, b: c.Builder): void {
+        b.storeUint(0x10030001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: AddDexWallet): c.Cell {
+        return makeCellFrom<AddDexWallet>(self, AddDexWallet.store);
+    }
+}
+
+/**
+ > struct (0x10030002) RemoveDexWallet {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface RemoveDexWallet {
+    readonly $: 'RemoveDexWallet'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const RemoveDexWallet = {
+    PREFIX: 0x10030002,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): RemoveDexWallet {
+        return {
+            $: 'RemoveDexWallet',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RemoveDexWallet {
+        loadAndCheckPrefix32(s, 0x10030002, 'RemoveDexWallet');
+        return {
+            $: 'RemoveDexWallet',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: RemoveDexWallet, b: c.Builder): void {
+        b.storeUint(0x10030002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: RemoveDexWallet): c.Cell {
+        return makeCellFrom<RemoveDexWallet>(self, RemoveDexWallet.store);
     }
 }
 
@@ -530,6 +857,184 @@ export const SetMinimumVoteAmount = {
     },
     toCell(self: SetMinimumVoteAmount): c.Cell {
         return makeCellFrom<SetMinimumVoteAmount>(self, SetMinimumVoteAmount.store);
+    }
+}
+
+/**
+ > struct (0x10040004) SetExecutionTargets {
+ >     queryId: uint64
+ >     feeController: address?
+ >     walletFeeRegistry: address?
+ >     dexRegistry: address?
+ > }
+ */
+export interface SetExecutionTargets {
+    readonly $: 'SetExecutionTargets'
+    queryId: uint64
+    feeController: c.Address | null
+    walletFeeRegistry: c.Address | null
+    dexRegistry: c.Address | null
+}
+
+export const SetExecutionTargets = {
+    PREFIX: 0x10040004,
+
+    create(args: {
+        queryId: uint64
+        feeController: c.Address | null
+        walletFeeRegistry: c.Address | null
+        dexRegistry: c.Address | null
+    }): SetExecutionTargets {
+        return {
+            $: 'SetExecutionTargets',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetExecutionTargets {
+        loadAndCheckPrefix32(s, 0x10040004, 'SetExecutionTargets');
+        return {
+            $: 'SetExecutionTargets',
+            queryId: s.loadUintBig(64),
+            feeController: s.loadMaybeAddress(),
+            walletFeeRegistry: s.loadMaybeAddress(),
+            dexRegistry: s.loadMaybeAddress(),
+        }
+    },
+    store(self: SetExecutionTargets, b: c.Builder): void {
+        b.storeUint(0x10040004, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.feeController);
+        b.storeAddress(self.walletFeeRegistry);
+        b.storeAddress(self.dexRegistry);
+    },
+    toCell(self: SetExecutionTargets): c.Cell {
+        return makeCellFrom<SetExecutionTargets>(self, SetExecutionTargets.store);
+    }
+}
+
+/**
+ > struct (0x10040005) SetGovernanceQuorum {
+ >     queryId: uint64
+ >     minQuorumVotes: coins
+ > }
+ */
+export interface SetGovernanceQuorum {
+    readonly $: 'SetGovernanceQuorum'
+    queryId: uint64
+    minQuorumVotes: coins
+}
+
+export const SetGovernanceQuorum = {
+    PREFIX: 0x10040005,
+
+    create(args: {
+        queryId: uint64
+        minQuorumVotes: coins
+    }): SetGovernanceQuorum {
+        return {
+            $: 'SetGovernanceQuorum',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetGovernanceQuorum {
+        loadAndCheckPrefix32(s, 0x10040005, 'SetGovernanceQuorum');
+        return {
+            $: 'SetGovernanceQuorum',
+            queryId: s.loadUintBig(64),
+            minQuorumVotes: s.loadCoins(),
+        }
+    },
+    store(self: SetGovernanceQuorum, b: c.Builder): void {
+        b.storeUint(0x10040005, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeCoins(self.minQuorumVotes);
+    },
+    toCell(self: SetGovernanceQuorum): c.Cell {
+        return makeCellFrom<SetGovernanceQuorum>(self, SetGovernanceQuorum.store);
+    }
+}
+
+/**
+ > struct (0x10040006) SetExecutionValue {
+ >     queryId: uint64
+ >     executionValue: coins
+ > }
+ */
+export interface SetExecutionValue {
+    readonly $: 'SetExecutionValue'
+    queryId: uint64
+    executionValue: coins
+}
+
+export const SetExecutionValue = {
+    PREFIX: 0x10040006,
+
+    create(args: {
+        queryId: uint64
+        executionValue: coins
+    }): SetExecutionValue {
+        return {
+            $: 'SetExecutionValue',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetExecutionValue {
+        loadAndCheckPrefix32(s, 0x10040006, 'SetExecutionValue');
+        return {
+            $: 'SetExecutionValue',
+            queryId: s.loadUintBig(64),
+            executionValue: s.loadCoins(),
+        }
+    },
+    store(self: SetExecutionValue, b: c.Builder): void {
+        b.storeUint(0x10040006, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeCoins(self.executionValue);
+    },
+    toCell(self: SetExecutionValue): c.Cell {
+        return makeCellFrom<SetExecutionValue>(self, SetExecutionValue.store);
+    }
+}
+
+/**
+ > struct (0x10040007) ExecuteProposal {
+ >     queryId: uint64
+ >     proposalId: uint64
+ > }
+ */
+export interface ExecuteProposal {
+    readonly $: 'ExecuteProposal'
+    queryId: uint64
+    proposalId: uint64
+}
+
+export const ExecuteProposal = {
+    PREFIX: 0x10040007,
+
+    create(args: {
+        queryId: uint64
+        proposalId: uint64
+    }): ExecuteProposal {
+        return {
+            $: 'ExecuteProposal',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): ExecuteProposal {
+        loadAndCheckPrefix32(s, 0x10040007, 'ExecuteProposal');
+        return {
+            $: 'ExecuteProposal',
+            queryId: s.loadUintBig(64),
+            proposalId: s.loadUintBig(64),
+        }
+    },
+    store(self: ExecuteProposal, b: c.Builder): void {
+        b.storeUint(0x10040007, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeUint(self.proposalId, 64);
+    },
+    toCell(self: ExecuteProposal): c.Cell {
+        return makeCellFrom<ExecuteProposal>(self, ExecuteProposal.store);
     }
 }
 
@@ -754,7 +1259,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatGovernor implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('te6ccgECDQEAAm8AART/APSkE/S88sgLAQIBYgIDAgLPBAUCAUgJCgH3PiRkTDgINcsIIAgAAyObDHtRND6SPpI+gDTP/QF+JIlxwXy4ZEF0z8x0wf6UNMP0w/T/9cLHyOBJxC78uGSIoEnELvy4ZIg+CO88uGXJqQGyMsHFfpUE8sPyw/L/8sfz4gAEEAGgED0QwPI+lIS+lIB+gISyz/0AMntVIAYAaTXLAKOEdcsI7N7oyzy4ZTTP9MH0//R4NcsBo4U10zQ1ywjs3ujLPLhlNM/0wfT/9Hg8sGUgAfLg1ywjmxaE5OMC1ywggCAAFI4iMe1E0PpI+kgx+JIixwXy4ZEC0z8x+kgwAcj6UvpSzsntVODXLCCAIAAcjicx7UTQ+kj6SPoAMfiSI8cF8uGRA9M/MfoAMALI+lL6UgH6As7J7VTg1ywmm5CsZDGRMOCEDwHHAPL0BwH8Me1E0PpI+kj6ANY/9AX4kiTHBfLhmQXTPzH6APpQMVMTvvLhmPABMCDAAZF/lSDAAsMA4pF/lSDAA8MA4vLhlVMXgED0DvLhltMH+lDTD9MP0//TH/oA+gD6ANIA0fgjJbvy4ZcqwAGUOlAroJ0KwAKSC6CUUAugCuIB4gfICABmywcW+lQUyw8Syw/L/8sfWPoCAfoCUAP6AhLKAEAWgED0QwPI+lIS+lIB+gISzvQAye1UABu7WN7UTQ+kj6SPoAMFiAIBIAsMACO0xz2omh9JBj9JBj9ABjrhZ/AAf7YRfaiaH0kGP0kGP0AGOmfmPoCwCB6BzfQzhg4ODaqOIiqOAAQOHDpg/0oaYfph+n/6Y/9AH0AfQBpAGi/qshA=');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'GovErrors.NotGovernor': 401,
@@ -765,6 +1270,11 @@ export class TgBtcCatGovernor implements c.Contract {
         'GovErrors.VotingClosed': 407,
         'GovErrors.VoteTooSmall': 408,
         'GovErrors.NotVoteJettonWallet': 409,
+        'GovErrors.ProposalAlreadyExecuted': 410,
+        'GovErrors.ProposalRejected': 411,
+        'GovErrors.ExecutionTargetMissing': 412,
+        'GovErrors.VotingOpen': 413,
+        'GovErrors.InvalidActionType': 414,
         'GovErrors.InvalidMessage': 65535,
     }
 
@@ -786,6 +1296,7 @@ export class TgBtcCatGovernor implements c.Contract {
         minVoteAmount: coins
         nextProposalId: uint64
         proposals: c.Dictionary<uint64, Proposal> /* = [] */
+        executionConfig?: CellRef<GovernorExecutionConfig> | null /* = null */
     }, deployedOptions?: DeployedAddrOptions) {
         const initialState = {
             code: deployedOptions?.overrideContractCode ?? TgBtcCatGovernor.CodeCell,
@@ -819,6 +1330,36 @@ export class TgBtcCatGovernor implements c.Contract {
         minVoteAmount: coins
     }) {
         return SetMinimumVoteAmount.toCell(SetMinimumVoteAmount.create(body));
+    }
+
+    static createCellOfSetExecutionTargets(body: {
+        queryId: uint64
+        feeController: c.Address | null
+        walletFeeRegistry: c.Address | null
+        dexRegistry: c.Address | null
+    }) {
+        return SetExecutionTargets.toCell(SetExecutionTargets.create(body));
+    }
+
+    static createCellOfSetGovernanceQuorum(body: {
+        queryId: uint64
+        minQuorumVotes: coins
+    }) {
+        return SetGovernanceQuorum.toCell(SetGovernanceQuorum.create(body));
+    }
+
+    static createCellOfSetExecutionValue(body: {
+        queryId: uint64
+        executionValue: coins
+    }) {
+        return SetExecutionValue.toCell(SetExecutionValue.create(body));
+    }
+
+    static createCellOfExecuteProposal(body: {
+        queryId: uint64
+        proposalId: uint64
+    }) {
+        return ExecuteProposal.toCell(ExecuteProposal.create(body));
     }
 
     static createCellOfTransferNotificationForRecipient(body: {
@@ -877,6 +1418,52 @@ export class TgBtcCatGovernor implements c.Contract {
         return provider.internal(via, {
             value: msgValue,
             body: SetMinimumVoteAmount.toCell(SetMinimumVoteAmount.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendSetExecutionTargets(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        feeController: c.Address | null
+        walletFeeRegistry: c.Address | null
+        dexRegistry: c.Address | null
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetExecutionTargets.toCell(SetExecutionTargets.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendSetGovernanceQuorum(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        minQuorumVotes: coins
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetGovernanceQuorum.toCell(SetGovernanceQuorum.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendSetExecutionValue(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        executionValue: coins
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetExecutionValue.toCell(SetExecutionValue.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendExecuteProposal(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        proposalId: uint64
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: ExecuteProposal.toCell(ExecuteProposal.create(body)),
             ...extraOptions
         });
     }
@@ -940,6 +1527,29 @@ export class TgBtcCatGovernor implements c.Contract {
             r.readSlice().loadAddress(),
             r.readBigInt(),
             r.readSlice().loadAddress(),
+        ];
+    }
+
+    async getExecutionConfig(provider: ContractProvider): Promise<[
+        c.Address | null,
+        c.Address | null,
+        c.Address | null,
+        coins,
+        coins,
+    ]> {
+        const r = StackReader.fromGetMethod(5, await provider.get('get_execution_config', []));
+        return [
+            r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            r.readBigInt(),
+            r.readBigInt(),
         ];
     }
 }

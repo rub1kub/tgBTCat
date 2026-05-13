@@ -107,6 +107,72 @@ fun TgBtcCatGovernor.sendSetMinimumVoteAmount(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatGovernor.sendSetExecutionTargets(
+    self,
+    from: address,
+    queryId: uint64,
+    feeController: address?,
+    walletFeeRegistry: address?,
+    dexRegistry: address?,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetExecutionTargets { queryId, feeController, walletFeeRegistry, dexRegistry },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatGovernor.sendSetGovernanceQuorum(
+    self,
+    from: address,
+    queryId: uint64,
+    minQuorumVotes: coins,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetGovernanceQuorum { queryId, minQuorumVotes },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatGovernor.sendSetExecutionValue(
+    self,
+    from: address,
+    queryId: uint64,
+    executionValue: coins,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetExecutionValue { queryId, executionValue },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatGovernor.sendExecuteProposal(
+    self,
+    from: address,
+    queryId: uint64,
+    proposalId: uint64,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: ExecuteProposal { queryId, proposalId },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatGovernor.sendTransferNotificationForRecipient(
     self,
     from: address,
@@ -172,4 +238,8 @@ fun TgBtcCatGovernor.getNextProposalId(self): uint64 {
 
 fun TgBtcCatGovernor.getVoteConfig(self): (address, coins, address) {
     return net.runGetMethod(self.address, "get_vote_config");
+}
+
+fun TgBtcCatGovernor.getExecutionConfig(self): (address?, address?, address?, coins, coins) {
+    return net.runGetMethod(self.address, "get_execution_config");
 }

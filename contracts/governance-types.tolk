@@ -8,6 +8,11 @@ enum GovErrors {
     VotingClosed = 407
     VoteTooSmall = 408
     NotVoteJettonWallet = 409
+    ProposalAlreadyExecuted = 410
+    ProposalRejected = 411
+    ExecutionTargetMissing = 412
+    VotingOpen = 413
+    InvalidActionType = 414
     InvalidMessage = 0xFFFF
 }
 
@@ -15,6 +20,11 @@ const FEE_BPS_DENOMINATOR = 10000
 const VOTE_SIDE_FOR = 1
 const VOTE_SIDE_AGAINST = 2
 const VOTE_SIDE_ABSTAIN = 3
+const ACTION_SET_GLOBAL_FEES = 1
+const ACTION_SET_WALLET_FEES = 2
+const ACTION_CLEAR_WALLET_FEES = 3
+const ACTION_ADD_DEX_WALLET = 4
+const ACTION_REMOVE_DEX_WALLET = 5
 
 struct FeeControllerStorage {
     governor: address
@@ -91,12 +101,25 @@ struct Proposal {
     executed: bool
 }
 
+struct GovernorExecutionTargets {
+    feeController: address?
+    walletFeeRegistry: address?
+    dexRegistry: address?
+}
+
+struct GovernorExecutionConfig {
+    targets: Cell<GovernorExecutionTargets>? = null
+    minQuorumVotes: coins
+    executionValue: coins
+}
+
 struct GovernorStorage {
     admin: address
     voteJettonWallet: address
     minVoteAmount: coins
     nextProposalId: uint64
     proposals: map<uint64, Proposal> = []
+    executionConfig: Cell<GovernorExecutionConfig>? = null
 }
 
 fun GovernorStorage.load(): GovernorStorage {
@@ -105,6 +128,38 @@ fun GovernorStorage.load(): GovernorStorage {
 
 fun GovernorStorage.save(self) {
     contract.setData(self.toCell());
+}
+
+fun defaultGovernorExecutionConfig(): GovernorExecutionConfig {
+    return {
+        targets: null,
+        minQuorumVotes: 0,
+        executionValue: 50000000,
+    };
+}
+
+fun defaultGovernorExecutionTargets(): GovernorExecutionTargets {
+    return {
+        feeController: null,
+        walletFeeRegistry: null,
+        dexRegistry: null,
+    };
+}
+
+fun GovernorStorage.loadExecutionConfig(self): GovernorExecutionConfig {
+    if (self.executionConfig == null) {
+        return defaultGovernorExecutionConfig();
+    }
+
+    return GovernorExecutionConfig.fromCell(self.executionConfig!);
+}
+
+fun GovernorExecutionConfig.loadTargets(self): GovernorExecutionTargets {
+    if (self.targets == null) {
+        return defaultGovernorExecutionTargets();
+    }
+
+    return GovernorExecutionTargets.fromCell(self.targets!);
 }
 
 struct ProposalReply {
@@ -194,6 +249,28 @@ struct (0x10040002) SetVoteJettonWallet {
 struct (0x10040003) SetMinimumVoteAmount {
     queryId: uint64
     minVoteAmount: coins
+}
+
+struct (0x10040004) SetExecutionTargets {
+    queryId: uint64
+    feeController: address?
+    walletFeeRegistry: address?
+    dexRegistry: address?
+}
+
+struct (0x10040005) SetGovernanceQuorum {
+    queryId: uint64
+    minQuorumVotes: coins
+}
+
+struct (0x10040006) SetExecutionValue {
+    queryId: uint64
+    executionValue: coins
+}
+
+struct (0x10040007) ExecuteProposal {
+    queryId: uint64
+    proposalId: uint64
 }
 
 struct (0x766f7465) CastVotePayload {
