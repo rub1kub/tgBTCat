@@ -166,6 +166,7 @@ class StackReader {
 
 type coins = bigint
 
+type uint16 = bigint
 type uint64 = bigint
 type uint256 = bigint
 
@@ -778,6 +779,526 @@ export const ChangeMinterMetadata = {
 }
 
 /**
+ > struct (0x20010001) SetWalletFeeRuntime {
+ >     queryId: uint64
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ > }
+ */
+export interface SetWalletFeeRuntime {
+    readonly $: 'SetWalletFeeRuntime'
+    queryId: uint64
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+}
+
+export const SetWalletFeeRuntime = {
+    PREFIX: 0x20010001,
+
+    create(args: {
+        queryId: uint64
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }): SetWalletFeeRuntime {
+        return {
+            $: 'SetWalletFeeRuntime',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetWalletFeeRuntime {
+        loadAndCheckPrefix32(s, 0x20010001, 'SetWalletFeeRuntime');
+        return {
+            $: 'SetWalletFeeRuntime',
+            queryId: s.loadUintBig(64),
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: SetWalletFeeRuntime, b: c.Builder): void {
+        b.storeUint(0x20010001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+    },
+    toCell(self: SetWalletFeeRuntime): c.Cell {
+        return makeCellFrom<SetWalletFeeRuntime>(self, SetWalletFeeRuntime.store);
+    }
+}
+
+/**
+ > struct (0x20010002) AddWalletDexAddress {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface AddWalletDexAddress {
+    readonly $: 'AddWalletDexAddress'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const AddWalletDexAddress = {
+    PREFIX: 0x20010002,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): AddWalletDexAddress {
+        return {
+            $: 'AddWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): AddWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20010002, 'AddWalletDexAddress');
+        return {
+            $: 'AddWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: AddWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20010002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: AddWalletDexAddress): c.Cell {
+        return makeCellFrom<AddWalletDexAddress>(self, AddWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20010003) RemoveWalletDexAddress {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface RemoveWalletDexAddress {
+    readonly $: 'RemoveWalletDexAddress'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const RemoveWalletDexAddress = {
+    PREFIX: 0x20010003,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): RemoveWalletDexAddress {
+        return {
+            $: 'RemoveWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RemoveWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20010003, 'RemoveWalletDexAddress');
+        return {
+            $: 'RemoveWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: RemoveWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20010003, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: RemoveWalletDexAddress): c.Cell {
+        return makeCellFrom<RemoveWalletDexAddress>(self, RemoveWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20010004) SetWalletSpecificFee {
+ >     queryId: uint64
+ >     target: address
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface SetWalletSpecificFee {
+    readonly $: 'SetWalletSpecificFee'
+    queryId: uint64
+    target: c.Address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const SetWalletSpecificFee = {
+    PREFIX: 0x20010004,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): SetWalletSpecificFee {
+        return {
+            $: 'SetWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20010004, 'SetWalletSpecificFee');
+        return {
+            $: 'SetWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: SetWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20010004, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: SetWalletSpecificFee): c.Cell {
+        return makeCellFrom<SetWalletSpecificFee>(self, SetWalletSpecificFee.store);
+    }
+}
+
+/**
+ > struct (0x20010005) ClearWalletSpecificFee {
+ >     queryId: uint64
+ >     target: address
+ > }
+ */
+export interface ClearWalletSpecificFee {
+    readonly $: 'ClearWalletSpecificFee'
+    queryId: uint64
+    target: c.Address
+}
+
+export const ClearWalletSpecificFee = {
+    PREFIX: 0x20010005,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+    }): ClearWalletSpecificFee {
+        return {
+            $: 'ClearWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): ClearWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20010005, 'ClearWalletSpecificFee');
+        return {
+            $: 'ClearWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+        }
+    },
+    store(self: ClearWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20010005, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+    },
+    toCell(self: ClearWalletSpecificFee): c.Cell {
+        return makeCellFrom<ClearWalletSpecificFee>(self, ClearWalletSpecificFee.store);
+    }
+}
+
+/**
+ > struct (0x20020001) RouteSetWalletFeeRuntime {
+ >     queryId: uint64
+ >     walletOwner: address
+ >     walletTonAmount: coins
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ > }
+ */
+export interface RouteSetWalletFeeRuntime {
+    readonly $: 'RouteSetWalletFeeRuntime'
+    queryId: uint64
+    walletOwner: c.Address
+    walletTonAmount: coins
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+}
+
+export const RouteSetWalletFeeRuntime = {
+    PREFIX: 0x20020001,
+
+    create(args: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }): RouteSetWalletFeeRuntime {
+        return {
+            $: 'RouteSetWalletFeeRuntime',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RouteSetWalletFeeRuntime {
+        loadAndCheckPrefix32(s, 0x20020001, 'RouteSetWalletFeeRuntime');
+        return {
+            $: 'RouteSetWalletFeeRuntime',
+            queryId: s.loadUintBig(64),
+            walletOwner: s.loadAddress(),
+            walletTonAmount: s.loadCoins(),
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: RouteSetWalletFeeRuntime, b: c.Builder): void {
+        b.storeUint(0x20020001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.walletTonAmount);
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+    },
+    toCell(self: RouteSetWalletFeeRuntime): c.Cell {
+        return makeCellFrom<RouteSetWalletFeeRuntime>(self, RouteSetWalletFeeRuntime.store);
+    }
+}
+
+/**
+ > struct (0x20020002) RouteAddWalletDexAddress {
+ >     queryId: uint64
+ >     walletOwner: address
+ >     walletTonAmount: coins
+ >     wallet: address
+ > }
+ */
+export interface RouteAddWalletDexAddress {
+    readonly $: 'RouteAddWalletDexAddress'
+    queryId: uint64
+    walletOwner: c.Address
+    walletTonAmount: coins
+    wallet: c.Address
+}
+
+export const RouteAddWalletDexAddress = {
+    PREFIX: 0x20020002,
+
+    create(args: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }): RouteAddWalletDexAddress {
+        return {
+            $: 'RouteAddWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RouteAddWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20020002, 'RouteAddWalletDexAddress');
+        return {
+            $: 'RouteAddWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            walletOwner: s.loadAddress(),
+            walletTonAmount: s.loadCoins(),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: RouteAddWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20020002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.walletTonAmount);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: RouteAddWalletDexAddress): c.Cell {
+        return makeCellFrom<RouteAddWalletDexAddress>(self, RouteAddWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20020003) RouteRemoveWalletDexAddress {
+ >     queryId: uint64
+ >     walletOwner: address
+ >     walletTonAmount: coins
+ >     wallet: address
+ > }
+ */
+export interface RouteRemoveWalletDexAddress {
+    readonly $: 'RouteRemoveWalletDexAddress'
+    queryId: uint64
+    walletOwner: c.Address
+    walletTonAmount: coins
+    wallet: c.Address
+}
+
+export const RouteRemoveWalletDexAddress = {
+    PREFIX: 0x20020003,
+
+    create(args: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }): RouteRemoveWalletDexAddress {
+        return {
+            $: 'RouteRemoveWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RouteRemoveWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20020003, 'RouteRemoveWalletDexAddress');
+        return {
+            $: 'RouteRemoveWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            walletOwner: s.loadAddress(),
+            walletTonAmount: s.loadCoins(),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: RouteRemoveWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20020003, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.walletTonAmount);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: RouteRemoveWalletDexAddress): c.Cell {
+        return makeCellFrom<RouteRemoveWalletDexAddress>(self, RouteRemoveWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20020004) RouteSetWalletSpecificFee {
+ >     queryId: uint64
+ >     walletOwner: address
+ >     walletTonAmount: coins
+ >     target: address
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface RouteSetWalletSpecificFee {
+    readonly $: 'RouteSetWalletSpecificFee'
+    queryId: uint64
+    walletOwner: c.Address
+    walletTonAmount: coins
+    target: c.Address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const RouteSetWalletSpecificFee = {
+    PREFIX: 0x20020004,
+
+    create(args: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): RouteSetWalletSpecificFee {
+        return {
+            $: 'RouteSetWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RouteSetWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20020004, 'RouteSetWalletSpecificFee');
+        return {
+            $: 'RouteSetWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            walletOwner: s.loadAddress(),
+            walletTonAmount: s.loadCoins(),
+            target: s.loadAddress(),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: RouteSetWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20020004, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.walletTonAmount);
+        b.storeAddress(self.target);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: RouteSetWalletSpecificFee): c.Cell {
+        return makeCellFrom<RouteSetWalletSpecificFee>(self, RouteSetWalletSpecificFee.store);
+    }
+}
+
+/**
+ > struct (0x20020005) RouteClearWalletSpecificFee {
+ >     queryId: uint64
+ >     walletOwner: address
+ >     walletTonAmount: coins
+ >     target: address
+ > }
+ */
+export interface RouteClearWalletSpecificFee {
+    readonly $: 'RouteClearWalletSpecificFee'
+    queryId: uint64
+    walletOwner: c.Address
+    walletTonAmount: coins
+    target: c.Address
+}
+
+export const RouteClearWalletSpecificFee = {
+    PREFIX: 0x20020005,
+
+    create(args: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+    }): RouteClearWalletSpecificFee {
+        return {
+            $: 'RouteClearWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RouteClearWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20020005, 'RouteClearWalletSpecificFee');
+        return {
+            $: 'RouteClearWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            walletOwner: s.loadAddress(),
+            walletTonAmount: s.loadCoins(),
+            target: s.loadAddress(),
+        }
+    },
+    store(self: RouteClearWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20020005, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.walletTonAmount);
+        b.storeAddress(self.target);
+    },
+    toCell(self: RouteClearWalletSpecificFee): c.Cell {
+        return makeCellFrom<RouteClearWalletSpecificFee>(self, RouteClearWalletSpecificFee.store);
+    }
+}
+
+/**
  > struct (0xd372158c) TopUpTons {
  > }
  */
@@ -990,7 +1511,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatJettonMaster implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'Errors.NotEnoughGas': 48,
@@ -1084,6 +1605,56 @@ export class TgBtcCatJettonMaster implements c.Contract {
         newCode: c.Cell
     }) {
         return UpgradeMinterCode.toCell(UpgradeMinterCode.create(body));
+    }
+
+    static createCellOfRouteSetWalletFeeRuntime(body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }) {
+        return RouteSetWalletFeeRuntime.toCell(RouteSetWalletFeeRuntime.create(body));
+    }
+
+    static createCellOfRouteAddWalletDexAddress(body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }) {
+        return RouteAddWalletDexAddress.toCell(RouteAddWalletDexAddress.create(body));
+    }
+
+    static createCellOfRouteRemoveWalletDexAddress(body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }) {
+        return RouteRemoveWalletDexAddress.toCell(RouteRemoveWalletDexAddress.create(body));
+    }
+
+    static createCellOfRouteSetWalletSpecificFee(body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }) {
+        return RouteSetWalletSpecificFee.toCell(RouteSetWalletSpecificFee.create(body));
+    }
+
+    static createCellOfRouteClearWalletSpecificFee(body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+    }) {
+        return RouteClearWalletSpecificFee.toCell(RouteClearWalletSpecificFee.create(body));
     }
 
     static createCellOfTopUpTons(body: {
@@ -1187,6 +1758,76 @@ export class TgBtcCatJettonMaster implements c.Contract {
         return provider.internal(via, {
             value: msgValue,
             body: UpgradeMinterCode.toCell(UpgradeMinterCode.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRouteSetWalletFeeRuntime(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RouteSetWalletFeeRuntime.toCell(RouteSetWalletFeeRuntime.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRouteAddWalletDexAddress(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RouteAddWalletDexAddress.toCell(RouteAddWalletDexAddress.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRouteRemoveWalletDexAddress(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        wallet: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RouteRemoveWalletDexAddress.toCell(RouteRemoveWalletDexAddress.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRouteSetWalletSpecificFee(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RouteSetWalletSpecificFee.toCell(RouteSetWalletSpecificFee.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRouteClearWalletSpecificFee(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        walletOwner: c.Address
+        walletTonAmount: coins
+        target: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RouteClearWalletSpecificFee.toCell(RouteClearWalletSpecificFee.create(body)),
             ...extraOptions
         });
     }

@@ -98,6 +98,76 @@ struct (0xcb862902) ChangeMinterMetadata {
     newMetadata: cell
 }
 
+struct (0x20010001) SetWalletFeeRuntime {
+    queryId: uint64
+    feeTreasury: address?
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: bool
+}
+
+struct (0x20010002) AddWalletDexAddress {
+    queryId: uint64
+    wallet: address
+}
+
+struct (0x20010003) RemoveWalletDexAddress {
+    queryId: uint64
+    wallet: address
+}
+
+struct (0x20010004) SetWalletSpecificFee {
+    queryId: uint64
+    target: address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+struct (0x20010005) ClearWalletSpecificFee {
+    queryId: uint64
+    target: address
+}
+
+struct (0x20020001) RouteSetWalletFeeRuntime {
+    queryId: uint64
+    walletOwner: address
+    walletTonAmount: coins
+    feeTreasury: address?
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: bool
+}
+
+struct (0x20020002) RouteAddWalletDexAddress {
+    queryId: uint64
+    walletOwner: address
+    walletTonAmount: coins
+    wallet: address
+}
+
+struct (0x20020003) RouteRemoveWalletDexAddress {
+    queryId: uint64
+    walletOwner: address
+    walletTonAmount: coins
+    wallet: address
+}
+
+struct (0x20020004) RouteSetWalletSpecificFee {
+    queryId: uint64
+    walletOwner: address
+    walletTonAmount: coins
+    target: address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+struct (0x20020005) RouteClearWalletSpecificFee {
+    queryId: uint64
+    walletOwner: address
+    walletTonAmount: coins
+    target: address
+}
+
 struct (0xd372158c) TopUpTons {}
 
 fun ForwardPayloadRemainder.checkIsCorrectTlbEither(self) {

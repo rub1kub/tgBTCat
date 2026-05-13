@@ -183,6 +183,116 @@ fun TgBtcCatJettonMaster.sendUpgradeMinterCode(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatJettonMaster.sendRouteSetWalletFeeRuntime(
+    self,
+    from: address,
+    queryId: uint64,
+    walletOwner: address,
+    walletTonAmount: coins,
+    feeTreasury: address?,
+    globalBuyFeeBps: uint16,
+    globalSellFeeBps: uint16,
+    isDexWallet: bool,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RouteSetWalletFeeRuntime {
+            queryId,
+            walletOwner,
+            walletTonAmount,
+            feeTreasury,
+            globalBuyFeeBps,
+            globalSellFeeBps,
+            isDexWallet,
+        },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonMaster.sendRouteAddWalletDexAddress(
+    self,
+    from: address,
+    queryId: uint64,
+    walletOwner: address,
+    walletTonAmount: coins,
+    wallet: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RouteAddWalletDexAddress { queryId, walletOwner, walletTonAmount, wallet },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonMaster.sendRouteRemoveWalletDexAddress(
+    self,
+    from: address,
+    queryId: uint64,
+    walletOwner: address,
+    walletTonAmount: coins,
+    wallet: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RouteRemoveWalletDexAddress { queryId, walletOwner, walletTonAmount, wallet },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonMaster.sendRouteSetWalletSpecificFee(
+    self,
+    from: address,
+    queryId: uint64,
+    walletOwner: address,
+    walletTonAmount: coins,
+    target: address,
+    buyFeeBps: uint16,
+    sellFeeBps: uint16,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RouteSetWalletSpecificFee {
+            queryId,
+            walletOwner,
+            walletTonAmount,
+            target,
+            buyFeeBps,
+            sellFeeBps,
+        },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonMaster.sendRouteClearWalletSpecificFee(
+    self,
+    from: address,
+    queryId: uint64,
+    walletOwner: address,
+    walletTonAmount: coins,
+    target: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RouteClearWalletSpecificFee { queryId, walletOwner, walletTonAmount, target },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatJettonMaster.sendTopUpTons(
     self,
     from: address,

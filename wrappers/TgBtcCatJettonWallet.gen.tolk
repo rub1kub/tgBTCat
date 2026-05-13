@@ -124,6 +124,97 @@ fun TgBtcCatJettonWallet.sendInternalTransferStep(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatJettonWallet.sendSetWalletFeeRuntime(
+    self,
+    from: address,
+    queryId: uint64,
+    feeTreasury: address?,
+    globalBuyFeeBps: uint16,
+    globalSellFeeBps: uint16,
+    isDexWallet: bool,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetWalletFeeRuntime {
+            queryId,
+            feeTreasury,
+            globalBuyFeeBps,
+            globalSellFeeBps,
+            isDexWallet,
+        },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonWallet.sendAddWalletDexAddress(
+    self,
+    from: address,
+    queryId: uint64,
+    wallet: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: AddWalletDexAddress { queryId, wallet },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonWallet.sendRemoveWalletDexAddress(
+    self,
+    from: address,
+    queryId: uint64,
+    wallet: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: RemoveWalletDexAddress { queryId, wallet },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonWallet.sendSetWalletSpecificFee(
+    self,
+    from: address,
+    queryId: uint64,
+    target: address,
+    buyFeeBps: uint16,
+    sellFeeBps: uint16,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetWalletSpecificFee { queryId, target, buyFeeBps, sellFeeBps },
+    });
+    return net.send(from, genericMsg);
+}
+
+fun TgBtcCatJettonWallet.sendClearWalletSpecificFee(
+    self,
+    from: address,
+    queryId: uint64,
+    target: address,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: ClearWalletSpecificFee { queryId, target },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatJettonWallet.sendTopUpTons(
     self,
     from: address,
@@ -156,4 +247,16 @@ fun TgBtcCatJettonWallet.sendAny(
 
 fun TgBtcCatJettonWallet.getWalletData(self): JettonWalletDataReply {
     return net.runGetMethod(self.address, "get_wallet_data");
+}
+
+fun TgBtcCatJettonWallet.getFeeRuntime(self): WalletFeeRuntimeReply {
+    return net.runGetMethod(self.address, "get_fee_runtime");
+}
+
+fun TgBtcCatJettonWallet.isDexWallet(self, wallet: address): bool {
+    return net.runGetMethod(self.address, "is_dex_wallet", [wallet]);
+}
+
+fun TgBtcCatJettonWallet.getWalletSpecificFee(self, target: address): WalletTransferFeeRuleReply {
+    return net.runGetMethod(self.address, "get_wallet_specific_fee", [target]);
 }

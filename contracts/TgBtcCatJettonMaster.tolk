@@ -23,6 +23,11 @@ type AllowedMessageToMinter =
     | DropMinterAdmin
     | ChangeMinterMetadata
     | UpgradeMinterCode
+    | RouteSetWalletFeeRuntime
+    | RouteAddWalletDexAddress
+    | RouteRemoveWalletDexAddress
+    | RouteSetWalletSpecificFee
+    | RouteClearWalletSpecificFee
     | TopUpTons
 
 fun onBouncedMessage(in: InMessageBounced) {
@@ -36,6 +41,22 @@ fun onBouncedMessage(in: InMessageBounced) {
 
 fun assertSenderIsAdmin(senderAddress: address, adminAddress: address?) {
     assert (senderAddress == adminAddress!) throw Errors.NotOwner;
+}
+
+fun sendWalletAdminMessage<T>(walletOwner: address, tonAmount: coins, body: T) {
+    assert (walletOwner.getWorkchain() == MY_WORKCHAIN) throw Errors.WrongWorkchain;
+    val jettonWalletCode = tgBtcCatJettonWalletCompiledCode();
+    val walletMsg = createMessage({
+        bounce: BounceMode.Only256BitsOfBody,
+        dest: calcDeployedJettonWallet(
+            walletOwner,
+            contract.getAddress(),
+            jettonWalletCode,
+        ),
+        value: tonAmount,
+        body,
+    });
+    walletMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
 }
 
 fun onInternalMessage(in: InMessage) {
@@ -169,6 +190,76 @@ fun onInternalMessage(in: InMessage) {
             assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
             contract.setCodePostponed(msg.newCode);
             contract.setData(msg.newData);
+        }
+
+        RouteSetWalletFeeRuntime => {
+            val storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            sendWalletAdminMessage(
+                msg.walletOwner,
+                msg.walletTonAmount,
+                SetWalletFeeRuntime {
+                    queryId: msg.queryId,
+                    feeTreasury: msg.feeTreasury,
+                    globalBuyFeeBps: msg.globalBuyFeeBps,
+                    globalSellFeeBps: msg.globalSellFeeBps,
+                    isDexWallet: msg.isDexWallet,
+                },
+            );
+        }
+
+        RouteAddWalletDexAddress => {
+            val storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            sendWalletAdminMessage(
+                msg.walletOwner,
+                msg.walletTonAmount,
+                AddWalletDexAddress {
+                    queryId: msg.queryId,
+                    wallet: msg.wallet,
+                },
+            );
+        }
+
+        RouteRemoveWalletDexAddress => {
+            val storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            sendWalletAdminMessage(
+                msg.walletOwner,
+                msg.walletTonAmount,
+                RemoveWalletDexAddress {
+                    queryId: msg.queryId,
+                    wallet: msg.wallet,
+                },
+            );
+        }
+
+        RouteSetWalletSpecificFee => {
+            val storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            sendWalletAdminMessage(
+                msg.walletOwner,
+                msg.walletTonAmount,
+                SetWalletSpecificFee {
+                    queryId: msg.queryId,
+                    target: msg.target,
+                    buyFeeBps: msg.buyFeeBps,
+                    sellFeeBps: msg.sellFeeBps,
+                },
+            );
+        }
+
+        RouteClearWalletSpecificFee => {
+            val storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            sendWalletAdminMessage(
+                msg.walletOwner,
+                msg.walletTonAmount,
+                ClearWalletSpecificFee {
+                    queryId: msg.queryId,
+                    target: msg.target,
+                },
+            );
         }
 
         TopUpTons => {

@@ -18,9 +18,66 @@ type AllowedMessageToWallet =
     | AskToTransfer
     | AskToBurn
     | InternalTransferStep
+    | SetWalletFeeRuntime
+    | AddWalletDexAddress
+    | RemoveWalletDexAddress
+    | SetWalletSpecificFee
+    | ClearWalletSpecificFee
     | TopUpTons
 
 type BounceOpToHandle = InternalTransferStep | BurnNotificationForMinter
+
+const FEE_INTERNAL_TRANSFER_TON_AMOUNT = 50000000
+
+fun assertSenderIsMinter(sender: address, minter: address) {
+    assert (sender == minter) throw Errors.NotMinter;
+}
+
+fun assertFeeBps(feeBps: int) {
+    assert (feeBps <= WALLET_FEE_BPS_DENOMINATOR) throw Errors.InvalidFee;
+}
+
+fun calcFeeAmount(amount: coins, feeBps: uint16): coins {
+    return amount * feeBps / WALLET_FEE_BPS_DENOMINATOR;
+}
+
+fun classifyTransferSide(runtime: WalletFeeRuntime, recipient: address): uint8 {
+    val recipientIsDex = runtime.dexWallets.exists(recipient);
+    if (runtime.isDexWallet && !recipientIsDex) {
+        return TRANSFER_SIDE_BUY;
+    }
+    if (!runtime.isDexWallet && recipientIsDex) {
+        return TRANSFER_SIDE_SELL;
+    }
+
+    return TRANSFER_SIDE_NONE;
+}
+
+fun calcTransferFee(
+    storage: WalletStorage,
+    runtime: WalletFeeRuntime,
+    recipient: address,
+    amount: coins,
+): coins {
+    if (runtime.feeTreasury == null) {
+        return 0;
+    }
+
+    val side = classifyTransferSide(runtime, recipient);
+    if (side == TRANSFER_SIDE_NONE) {
+        return 0;
+    }
+
+    val feeSubject = side == TRANSFER_SIDE_BUY ? recipient : storage.ownerAddress;
+    val rule = runtime.walletFeeRules.get(feeSubject);
+    var feeBps = side == TRANSFER_SIDE_BUY ? runtime.globalBuyFeeBps : runtime.globalSellFeeBps;
+    if (rule.isFound) {
+        val value = rule.loadValue();
+        feeBps = side == TRANSFER_SIDE_BUY ? value.buyFeeBps : value.sellFeeBps;
+    }
+
+    return calcFeeAmount(amount, feeBps);
+}
 
 fun onBouncedMessage(in: InMessageBounced) {
     in.bouncedBody.skipBouncedPrefix();
@@ -96,18 +153,49 @@ fun onInternalMessage(in: InMessage) {
             assert (
                 msg.transferRecipient.getWorkchain() == MY_WORKCHAIN
             ) throw Errors.WrongWorkchain;
-            checkAmountIsEnoughToTransfer(
-                in.valueCoins,
-                msg.forwardTonAmount,
-                in.originalForwardFee,
-            );
 
             var storage = lazy WalletStorage.load();
             assert (in.senderAddress == storage.ownerAddress) throw Errors.NotOwner;
             assert (storage.jettonBalance >= msg.jettonAmount) throw Errors.BalanceError;
+            val runtime = storage.loadFeeRuntime();
+            val feeAmount = calcTransferFee(
+                storage,
+                runtime,
+                msg.transferRecipient,
+                msg.jettonAmount,
+            );
+            val feeForwardTonAmount = feeAmount == 0 ? 0 : FEE_INTERNAL_TRANSFER_TON_AMOUNT;
+            checkAmountIsEnoughToTransfer(
+                in.valueCoins,
+                msg.forwardTonAmount + feeForwardTonAmount,
+                in.originalForwardFee,
+            );
             storage.jettonBalance -= msg.jettonAmount;
             storage.save();
 
+            if (feeAmount != 0) {
+                val feeTreasury = runtime.feeTreasury!;
+                val feeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: calcDeployedJettonWallet(
+                        feeTreasury,
+                        storage.minterAddress,
+                        contract.getCode(),
+                    ),
+                    value: FEE_INTERNAL_TRANSFER_TON_AMOUNT,
+                    body: InternalTransferStep {
+                        queryId: msg.queryId,
+                        jettonAmount: feeAmount,
+                        transferInitiator: storage.ownerAddress,
+                        sendExcessesTo: null,
+                        forwardTonAmount: 0,
+                        forwardPayload: beginCell().storeMaybeRef(null).endCell().beginParse(),
+                    },
+                });
+                feeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            }
+
+            val recipientAmount = msg.jettonAmount - feeAmount;
             val deployMsg = createMessage({
                 bounce: BounceMode.Only256BitsOfBody,
                 dest: calcDeployedJettonWallet(
@@ -118,7 +206,7 @@ fun onInternalMessage(in: InMessage) {
                 value: 0,
                 body: InternalTransferStep {
                     queryId: msg.queryId,
-                    jettonAmount: msg.jettonAmount,
+                    jettonAmount: recipientAmount,
                     transferInitiator: storage.ownerAddress,
                     sendExcessesTo: msg.sendExcessesTo,
                     forwardTonAmount: msg.forwardTonAmount,
@@ -155,6 +243,58 @@ fun onInternalMessage(in: InMessage) {
             );
         }
 
+        SetWalletFeeRuntime => {
+            var storage = lazy WalletStorage.load();
+            assertSenderIsMinter(in.senderAddress, storage.minterAddress);
+            assertFeeBps(msg.globalBuyFeeBps);
+            assertFeeBps(msg.globalSellFeeBps);
+            var runtime = storage.loadFeeRuntime();
+            runtime.feeTreasury = msg.feeTreasury;
+            runtime.globalBuyFeeBps = msg.globalBuyFeeBps;
+            runtime.globalSellFeeBps = msg.globalSellFeeBps;
+            runtime.isDexWallet = msg.isDexWallet;
+            storage.saveFeeRuntime(runtime);
+        }
+
+        AddWalletDexAddress => {
+            var storage = lazy WalletStorage.load();
+            assertSenderIsMinter(in.senderAddress, storage.minterAddress);
+            var runtime = storage.loadFeeRuntime();
+            runtime.dexWallets.set(msg.wallet, true);
+            storage.saveFeeRuntime(runtime);
+        }
+
+        RemoveWalletDexAddress => {
+            var storage = lazy WalletStorage.load();
+            assertSenderIsMinter(in.senderAddress, storage.minterAddress);
+            var runtime = storage.loadFeeRuntime();
+            runtime.dexWallets.delete(msg.wallet);
+            storage.saveFeeRuntime(runtime);
+        }
+
+        SetWalletSpecificFee => {
+            var storage = lazy WalletStorage.load();
+            assertSenderIsMinter(in.senderAddress, storage.minterAddress);
+            assertFeeBps(msg.buyFeeBps);
+            assertFeeBps(msg.sellFeeBps);
+            var runtime = storage.loadFeeRuntime();
+            runtime
+                .walletFeeRules
+                .set(
+                    msg.target,
+                    { buyFeeBps: msg.buyFeeBps, sellFeeBps: msg.sellFeeBps },
+                );
+            storage.saveFeeRuntime(runtime);
+        }
+
+        ClearWalletSpecificFee => {
+            var storage = lazy WalletStorage.load();
+            assertSenderIsMinter(in.senderAddress, storage.minterAddress);
+            var runtime = storage.loadFeeRuntime();
+            runtime.walletFeeRules.delete(msg.target);
+            storage.saveFeeRuntime(runtime);
+        }
+
         TopUpTons => {
             // just accept tons
         }
@@ -171,5 +311,42 @@ get fun get_wallet_data(): JettonWalletDataReply {
         ownerAddress: storage.ownerAddress,
         minterAddress: storage.minterAddress,
         jettonWalletCode: contract.getCode(),
+    };
+}
+
+get fun get_fee_runtime(): WalletFeeRuntimeReply {
+    val storage = lazy WalletStorage.load();
+    val runtime = storage.loadFeeRuntime();
+    return {
+        feeTreasury: runtime.feeTreasury,
+        globalBuyFeeBps: runtime.globalBuyFeeBps,
+        globalSellFeeBps: runtime.globalSellFeeBps,
+        isDexWallet: runtime.isDexWallet,
+    };
+}
+
+get fun is_dex_wallet(wallet: address): bool {
+    val storage = lazy WalletStorage.load();
+    val runtime = storage.loadFeeRuntime();
+    return runtime.dexWallets.exists(wallet);
+}
+
+get fun get_wallet_specific_fee(target: address): WalletTransferFeeRuleReply {
+    val storage = lazy WalletStorage.load();
+    val runtime = storage.loadFeeRuntime();
+    val rule = runtime.walletFeeRules.get(target);
+    if (!rule.isFound) {
+        return {
+            isSet: false,
+            buyFeeBps: 0,
+            sellFeeBps: 0,
+        };
+    }
+
+    val value = rule.loadValue();
+    return {
+        isSet: true,
+        buyFeeBps: value.buyFeeBps,
+        sellFeeBps: value.sellFeeBps,
     };
 }

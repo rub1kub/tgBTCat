@@ -83,6 +83,19 @@ function storeTolkNullable<T>(v: T | null, b: c.Builder, storeFn_T: StoreCallbac
     }
 }
 
+function createDictionaryValue<V>(loadFn_V: LoadCallback<V>, storeFn_V: StoreCallback<V>): c.DictionaryValue<V> {
+    return {
+        serialize(self: V, b: c.Builder) {
+            storeFn_V(self, b);
+        },
+        parse(s: c.Slice): V {
+            const value = loadFn_V(s);
+            s.endParse();
+            return value;
+        }
+    }
+}
+
 // ————————————————————————————————————————————
 //   parse get methods result from a TVM stack
 //
@@ -133,6 +146,14 @@ class StackReader {
     readSlice(): c.Slice {
         return this.popCellLike().beginParse();
     }
+
+    readNullable<T>(readFn_T: (r: StackReader) => T): T | null {
+        if (this.tuple[0].type === 'null') {
+            this.tuple.shift();
+            return null;
+        }
+        return readFn_T(this);
+    }
 }
 
 // ————————————————————————————————————————————
@@ -141,6 +162,7 @@ class StackReader {
 
 type coins = bigint
 
+type uint16 = bigint
 type uint64 = bigint
 
 /**
@@ -588,6 +610,241 @@ export const BurnNotificationForMinter = {
 }
 
 /**
+ > struct (0x20010001) SetWalletFeeRuntime {
+ >     queryId: uint64
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ > }
+ */
+export interface SetWalletFeeRuntime {
+    readonly $: 'SetWalletFeeRuntime'
+    queryId: uint64
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+}
+
+export const SetWalletFeeRuntime = {
+    PREFIX: 0x20010001,
+
+    create(args: {
+        queryId: uint64
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }): SetWalletFeeRuntime {
+        return {
+            $: 'SetWalletFeeRuntime',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetWalletFeeRuntime {
+        loadAndCheckPrefix32(s, 0x20010001, 'SetWalletFeeRuntime');
+        return {
+            $: 'SetWalletFeeRuntime',
+            queryId: s.loadUintBig(64),
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: SetWalletFeeRuntime, b: c.Builder): void {
+        b.storeUint(0x20010001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+    },
+    toCell(self: SetWalletFeeRuntime): c.Cell {
+        return makeCellFrom<SetWalletFeeRuntime>(self, SetWalletFeeRuntime.store);
+    }
+}
+
+/**
+ > struct (0x20010002) AddWalletDexAddress {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface AddWalletDexAddress {
+    readonly $: 'AddWalletDexAddress'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const AddWalletDexAddress = {
+    PREFIX: 0x20010002,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): AddWalletDexAddress {
+        return {
+            $: 'AddWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): AddWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20010002, 'AddWalletDexAddress');
+        return {
+            $: 'AddWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: AddWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20010002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: AddWalletDexAddress): c.Cell {
+        return makeCellFrom<AddWalletDexAddress>(self, AddWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20010003) RemoveWalletDexAddress {
+ >     queryId: uint64
+ >     wallet: address
+ > }
+ */
+export interface RemoveWalletDexAddress {
+    readonly $: 'RemoveWalletDexAddress'
+    queryId: uint64
+    wallet: c.Address
+}
+
+export const RemoveWalletDexAddress = {
+    PREFIX: 0x20010003,
+
+    create(args: {
+        queryId: uint64
+        wallet: c.Address
+    }): RemoveWalletDexAddress {
+        return {
+            $: 'RemoveWalletDexAddress',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RemoveWalletDexAddress {
+        loadAndCheckPrefix32(s, 0x20010003, 'RemoveWalletDexAddress');
+        return {
+            $: 'RemoveWalletDexAddress',
+            queryId: s.loadUintBig(64),
+            wallet: s.loadAddress(),
+        }
+    },
+    store(self: RemoveWalletDexAddress, b: c.Builder): void {
+        b.storeUint(0x20010003, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.wallet);
+    },
+    toCell(self: RemoveWalletDexAddress): c.Cell {
+        return makeCellFrom<RemoveWalletDexAddress>(self, RemoveWalletDexAddress.store);
+    }
+}
+
+/**
+ > struct (0x20010004) SetWalletSpecificFee {
+ >     queryId: uint64
+ >     target: address
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface SetWalletSpecificFee {
+    readonly $: 'SetWalletSpecificFee'
+    queryId: uint64
+    target: c.Address
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const SetWalletSpecificFee = {
+    PREFIX: 0x20010004,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): SetWalletSpecificFee {
+        return {
+            $: 'SetWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20010004, 'SetWalletSpecificFee');
+        return {
+            $: 'SetWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: SetWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20010004, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: SetWalletSpecificFee): c.Cell {
+        return makeCellFrom<SetWalletSpecificFee>(self, SetWalletSpecificFee.store);
+    }
+}
+
+/**
+ > struct (0x20010005) ClearWalletSpecificFee {
+ >     queryId: uint64
+ >     target: address
+ > }
+ */
+export interface ClearWalletSpecificFee {
+    readonly $: 'ClearWalletSpecificFee'
+    queryId: uint64
+    target: c.Address
+}
+
+export const ClearWalletSpecificFee = {
+    PREFIX: 0x20010005,
+
+    create(args: {
+        queryId: uint64
+        target: c.Address
+    }): ClearWalletSpecificFee {
+        return {
+            $: 'ClearWalletSpecificFee',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): ClearWalletSpecificFee {
+        loadAndCheckPrefix32(s, 0x20010005, 'ClearWalletSpecificFee');
+        return {
+            $: 'ClearWalletSpecificFee',
+            queryId: s.loadUintBig(64),
+            target: s.loadAddress(),
+        }
+    },
+    store(self: ClearWalletSpecificFee, b: c.Builder): void {
+        b.storeUint(0x20010005, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.target);
+    },
+    toCell(self: ClearWalletSpecificFee): c.Cell {
+        return makeCellFrom<ClearWalletSpecificFee>(self, ClearWalletSpecificFee.store);
+    }
+}
+
+/**
  > struct (0xd372158c) TopUpTons {
  > }
  */
@@ -618,10 +875,107 @@ export const TopUpTons = {
 }
 
 /**
+ > struct WalletTransferFeeRule {
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface WalletTransferFeeRule {
+    readonly $: 'WalletTransferFeeRule'
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const WalletTransferFeeRule = {
+    create(args: {
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): WalletTransferFeeRule {
+        return {
+            $: 'WalletTransferFeeRule',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): WalletTransferFeeRule {
+        return {
+            $: 'WalletTransferFeeRule',
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: WalletTransferFeeRule, b: c.Builder): void {
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: WalletTransferFeeRule): c.Cell {
+        return makeCellFrom<WalletTransferFeeRule>(self, WalletTransferFeeRule.store);
+    }
+}
+
+/**
+ > struct WalletFeeRuntime {
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ >     dexWallets: map<address, bool>
+ >     walletFeeRules: map<address, WalletTransferFeeRule>
+ > }
+ */
+export interface WalletFeeRuntime {
+    readonly $: 'WalletFeeRuntime'
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+    dexWallets: c.Dictionary<c.Address, boolean> /* = [] */
+    walletFeeRules: c.Dictionary<c.Address, WalletTransferFeeRule> /* = [] */
+}
+
+export const WalletFeeRuntime = {
+    create(args: {
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+        dexWallets: c.Dictionary<c.Address, boolean> /* = [] */
+        walletFeeRules: c.Dictionary<c.Address, WalletTransferFeeRule> /* = [] */
+    }): WalletFeeRuntime {
+        return {
+            $: 'WalletFeeRuntime',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): WalletFeeRuntime {
+        return {
+            $: 'WalletFeeRuntime',
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+            dexWallets: c.Dictionary.load<c.Address, boolean>(c.Dictionary.Keys.Address(), c.Dictionary.Values.Bool(), s),
+            walletFeeRules: c.Dictionary.load<c.Address, WalletTransferFeeRule>(c.Dictionary.Keys.Address(), createDictionaryValue<WalletTransferFeeRule>(WalletTransferFeeRule.fromSlice, WalletTransferFeeRule.store), s),
+        }
+    },
+    store(self: WalletFeeRuntime, b: c.Builder): void {
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+        b.storeDict<c.Address, boolean>(self.dexWallets, c.Dictionary.Keys.Address(), c.Dictionary.Values.Bool());
+        b.storeDict<c.Address, WalletTransferFeeRule>(self.walletFeeRules, c.Dictionary.Keys.Address(), createDictionaryValue<WalletTransferFeeRule>(WalletTransferFeeRule.fromSlice, WalletTransferFeeRule.store));
+    },
+    toCell(self: WalletFeeRuntime): c.Cell {
+        return makeCellFrom<WalletFeeRuntime>(self, WalletFeeRuntime.store);
+    }
+}
+
+/**
  > struct WalletStorage {
  >     jettonBalance: coins
  >     ownerAddress: address
  >     minterAddress: address
+ >     feeRuntime: Cell<WalletFeeRuntime>?
  > }
  */
 export interface WalletStorage {
@@ -629,6 +983,7 @@ export interface WalletStorage {
     jettonBalance: coins
     ownerAddress: c.Address
     minterAddress: c.Address
+    feeRuntime: CellRef<WalletFeeRuntime> | null /* = null */
 }
 
 export const WalletStorage = {
@@ -636,9 +991,11 @@ export const WalletStorage = {
         jettonBalance: coins
         ownerAddress: c.Address
         minterAddress: c.Address
+        feeRuntime?: CellRef<WalletFeeRuntime> | null /* = null */
     }): WalletStorage {
         return {
             $: 'WalletStorage',
+            feeRuntime: null,
             ...args
         }
     },
@@ -648,12 +1005,16 @@ export const WalletStorage = {
             jettonBalance: s.loadCoins(),
             ownerAddress: s.loadAddress(),
             minterAddress: s.loadAddress(),
+            feeRuntime: s.loadBoolean() ? loadCellRef<WalletFeeRuntime>(s, WalletFeeRuntime.fromSlice) : null,
         }
     },
     store(self: WalletStorage, b: c.Builder): void {
         b.storeCoins(self.jettonBalance);
         b.storeAddress(self.ownerAddress);
         b.storeAddress(self.minterAddress);
+        storeTolkNullable<CellRef<WalletFeeRuntime>>(self.feeRuntime, b,
+            (v,b) => storeCellRef<WalletFeeRuntime>(v, b, WalletFeeRuntime.store)
+        );
     },
     toCell(self: WalletStorage): c.Cell {
         return makeCellFrom<WalletStorage>(self, WalletStorage.store);
@@ -708,6 +1069,97 @@ export const JettonWalletDataReply = {
     }
 }
 
+/**
+ > struct WalletFeeRuntimeReply {
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ > }
+ */
+export interface WalletFeeRuntimeReply {
+    readonly $: 'WalletFeeRuntimeReply'
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+}
+
+export const WalletFeeRuntimeReply = {
+    create(args: {
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }): WalletFeeRuntimeReply {
+        return {
+            $: 'WalletFeeRuntimeReply',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): WalletFeeRuntimeReply {
+        return {
+            $: 'WalletFeeRuntimeReply',
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: WalletFeeRuntimeReply, b: c.Builder): void {
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+    },
+    toCell(self: WalletFeeRuntimeReply): c.Cell {
+        return makeCellFrom<WalletFeeRuntimeReply>(self, WalletFeeRuntimeReply.store);
+    }
+}
+
+/**
+ > struct WalletTransferFeeRuleReply {
+ >     isSet: bool
+ >     buyFeeBps: uint16
+ >     sellFeeBps: uint16
+ > }
+ */
+export interface WalletTransferFeeRuleReply {
+    readonly $: 'WalletTransferFeeRuleReply'
+    isSet: boolean
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+}
+
+export const WalletTransferFeeRuleReply = {
+    create(args: {
+        isSet: boolean
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }): WalletTransferFeeRuleReply {
+        return {
+            $: 'WalletTransferFeeRuleReply',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): WalletTransferFeeRuleReply {
+        return {
+            $: 'WalletTransferFeeRuleReply',
+            isSet: s.loadBoolean(),
+            buyFeeBps: s.loadUintBig(16),
+            sellFeeBps: s.loadUintBig(16),
+        }
+    },
+    store(self: WalletTransferFeeRuleReply, b: c.Builder): void {
+        b.storeBit(self.isSet);
+        b.storeUint(self.buyFeeBps, 16);
+        b.storeUint(self.sellFeeBps, 16);
+    },
+    toCell(self: WalletTransferFeeRuleReply): c.Cell {
+        return makeCellFrom<WalletTransferFeeRuleReply>(self, WalletTransferFeeRuleReply.store);
+    }
+}
+
 // ————————————————————————————————————————————
 //    class TgBtcCatJettonWallet
 //
@@ -747,13 +1199,16 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatJettonWallet implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('te6ccgECCgEAArgAART/APSkE/S88sgLAQIBYgIDA8TQ+JGONNMfMdcsILxqKMyW0z8x+gAwjhHXLCPe7L70kvI/4dM/MfoAMOLtRND6AAKgyAH6As7J7VTg1ywgvGoozOMC1ywgfFP1LOMC1ywiyvg95OMC1ywmm5CsZDHchA/y8AQFBgAdoPYF2omh9AH0kfSQYfBVAubtRNAB0z/6APpQ+lD6AAb6ACD6SPpIMPiSIccFkTCOOviS+CooyM+EIPpSE/pSyXgpVBJCyM+DywTPhaDMzPkWhPewE4ALUATXJMjPigBAzhLL989QxwXy4EriUSagyAH6As7J7VQhk1s0W+MNIW6RW+MOBwgB/tM/+gD6SPpQ9AH6ACD0BAFukTCR0eIj+kQw8tFN+Jf4k3D4OiNyceME+DkgboEYtyLjBCFugR0TWAPjBFAjqCWgc4EDLHD4PKABcPg2oAFw+Dagc4EEAoIQCWYBgHD4N6C88rDtRND6ACD6SPpIMPiSIscF8uBJUzi+8q9ROKEJAOD4l/g5IG6BEJ5Y4wRxgQLycPg4AXD4NqCBD+dw+DagvPKw7UTQ+gAg+kj6SDD4kiLHBfLgSQTTP/oA+lAwU1G+8q9RUaHIAfoCFM7J7VTIz5Hvdl96yz9Y+gL6UvpUycjPhYgS+lJxzwtuzMmAUPsAAFLIz5HNi0JyJs8LP1AF+gIT+lQVzsnIz4UIE/pSAfoCcc8LaszJgBH7AABo+CdvEPiXofgvoHOBBAKCEAlmAYBw+De2CXL7AsjPhQgS+lKCENUydtvPC47LP8mBAIL7AADAyAH6AhLOye1U+ComyM+EIPpSE/pSyXjIz5BeNRRmGss/UAj6AvpUFPpUWPoCzsnIz4mIAVR0JcjPg8sEz4WgzMz5FoT3sASACyfXJDYVzhLL94EVDc8LeczMzMmAUPsA');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'Errors.BalanceError': 47,
         'Errors.NotEnoughGas': 48,
         'Errors.NotOwner': 73,
         'Errors.NotValidWallet': 74,
+        'Errors.NotMinter': 75,
+        'Errors.InvalidFee': 76,
+        'Errors.FeeTreasuryMissing': 77,
         'Errors.WrongWorkchain': 333,
     }
 
@@ -773,6 +1228,7 @@ export class TgBtcCatJettonWallet implements c.Contract {
         jettonBalance: coins
         ownerAddress: c.Address
         minterAddress: c.Address
+        feeRuntime?: CellRef<WalletFeeRuntime> | null /* = null */
     }, deployedOptions?: DeployedAddrOptions) {
         const initialState = {
             code: deployedOptions?.overrideContractCode ?? TgBtcCatJettonWallet.CodeCell,
@@ -812,6 +1268,46 @@ export class TgBtcCatJettonWallet implements c.Contract {
         forwardPayload: PayloadInline | PayloadInRef
     }) {
         return InternalTransferStep.toCell(InternalTransferStep.create(body));
+    }
+
+    static createCellOfSetWalletFeeRuntime(body: {
+        queryId: uint64
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }) {
+        return SetWalletFeeRuntime.toCell(SetWalletFeeRuntime.create(body));
+    }
+
+    static createCellOfAddWalletDexAddress(body: {
+        queryId: uint64
+        wallet: c.Address
+    }) {
+        return AddWalletDexAddress.toCell(AddWalletDexAddress.create(body));
+    }
+
+    static createCellOfRemoveWalletDexAddress(body: {
+        queryId: uint64
+        wallet: c.Address
+    }) {
+        return RemoveWalletDexAddress.toCell(RemoveWalletDexAddress.create(body));
+    }
+
+    static createCellOfSetWalletSpecificFee(body: {
+        queryId: uint64
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }) {
+        return SetWalletSpecificFee.toCell(SetWalletSpecificFee.create(body));
+    }
+
+    static createCellOfClearWalletSpecificFee(body: {
+        queryId: uint64
+        target: c.Address
+    }) {
+        return ClearWalletSpecificFee.toCell(ClearWalletSpecificFee.create(body));
     }
 
     static createCellOfTopUpTons(body: {
@@ -871,6 +1367,66 @@ export class TgBtcCatJettonWallet implements c.Contract {
         });
     }
 
+    async sendSetWalletFeeRuntime(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetWalletFeeRuntime.toCell(SetWalletFeeRuntime.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendAddWalletDexAddress(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        wallet: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: AddWalletDexAddress.toCell(AddWalletDexAddress.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendRemoveWalletDexAddress(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        wallet: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: RemoveWalletDexAddress.toCell(RemoveWalletDexAddress.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendSetWalletSpecificFee(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        target: c.Address
+        buyFeeBps: uint16
+        sellFeeBps: uint16
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetWalletSpecificFee.toCell(SetWalletSpecificFee.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendClearWalletSpecificFee(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        target: c.Address
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: ClearWalletSpecificFee.toCell(ClearWalletSpecificFee.create(body)),
+            ...extraOptions
+        });
+    }
+
     async sendTopUpTons(provider: ContractProvider, via: Sender, msgValue: coins, body: {
     }, extraOptions?: ExtraSendOptions) {
         return provider.internal(via, {
@@ -888,6 +1444,42 @@ export class TgBtcCatJettonWallet implements c.Contract {
             ownerAddress: r.readSlice().loadAddress(),
             minterAddress: r.readSlice().loadAddress(),
             jettonWalletCode: r.readCell(),
+        });
+    }
+
+    async getFeeRuntime(provider: ContractProvider): Promise<WalletFeeRuntimeReply> {
+        const r = StackReader.fromGetMethod(4, await provider.get('get_fee_runtime', []));
+        return ({
+            $: 'WalletFeeRuntimeReply',
+            feeTreasury: r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            globalBuyFeeBps: r.readBigInt(),
+            globalSellFeeBps: r.readBigInt(),
+            isDexWallet: r.readBoolean(),
+        });
+    }
+
+    async getIsDexWallet(provider: ContractProvider, wallet: c.Address): Promise<boolean> {
+        const r = StackReader.fromGetMethod(1, await provider.get('is_dex_wallet', [
+            { type: 'slice', cell: makeCellFrom<c.Address>(wallet,
+                (v,b) => b.storeAddress(v)
+            ) },
+        ]));
+        return r.readBoolean();
+    }
+
+    async getWalletSpecificFee(provider: ContractProvider, target: c.Address): Promise<WalletTransferFeeRuleReply> {
+        const r = StackReader.fromGetMethod(3, await provider.get('get_wallet_specific_fee', [
+            { type: 'slice', cell: makeCellFrom<c.Address>(target,
+                (v,b) => b.storeAddress(v)
+            ) },
+        ]));
+        return ({
+            $: 'WalletTransferFeeRuleReply',
+            isSet: r.readBoolean(),
+            buyFeeBps: r.readBigInt(),
+            sellFeeBps: r.readBigInt(),
         });
     }
 }
