@@ -2,10 +2,19 @@ enum GovErrors {
     NotGovernor = 401
     InvalidFee = 402
     ProtectedWallet = 403
+    InvalidVotePayload = 404
+    InvalidVoteSide = 405
+    UnknownProposal = 406
+    VotingClosed = 407
+    VoteTooSmall = 408
+    NotVoteJettonWallet = 409
     InvalidMessage = 0xFFFF
 }
 
 const FEE_BPS_DENOMINATOR = 10000
+const VOTE_SIDE_FOR = 1
+const VOTE_SIDE_AGAINST = 2
+const VOTE_SIDE_ABSTAIN = 3
 
 struct FeeControllerStorage {
     governor: address
@@ -69,6 +78,49 @@ struct WalletFeeRuleReply {
     reasonHash: uint256
 }
 
+struct Proposal {
+    actionType: uint8
+    target: address?
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+    reasonHash: uint256
+    votingEndsAt: uint32
+    forVotes: coins
+    againstVotes: coins
+    abstainVotes: coins
+    executed: bool
+}
+
+struct GovernorStorage {
+    admin: address
+    voteJettonWallet: address
+    minVoteAmount: coins
+    nextProposalId: uint64
+    proposals: map<uint64, Proposal> = []
+}
+
+fun GovernorStorage.load(): GovernorStorage {
+    return GovernorStorage.fromCell(contract.getData());
+}
+
+fun GovernorStorage.save(self) {
+    contract.setData(self.toCell());
+}
+
+struct ProposalReply {
+    isSet: bool
+    actionType: uint8
+    target: address?
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+    reasonHash: uint256
+    votingEndsAt: uint32
+    forVotes: coins
+    againstVotes: coins
+    abstainVotes: coins
+    executed: bool
+}
+
 struct (0x10010001) SetGlobalFees {
     queryId: uint64
     buyFeeBps: uint16
@@ -124,6 +176,32 @@ struct (0x10030003) SetDexRegistryGovernor {
     governor: address
 }
 
+struct (0x10040001) CreateGovernanceProposal {
+    queryId: uint64
+    actionType: uint8
+    target: address?
+    buyFeeBps: uint16
+    sellFeeBps: uint16
+    reasonHash: uint256
+    votingEndsAt: uint32
+}
+
+struct (0x10040002) SetVoteJettonWallet {
+    queryId: uint64
+    voteJettonWallet: address
+}
+
+struct (0x10040003) SetMinimumVoteAmount {
+    queryId: uint64
+    minVoteAmount: coins
+}
+
+struct (0x766f7465) CastVotePayload {
+    proposalId: uint64
+    side: uint8
+    commentHash: uint256
+}
+
 struct (0xd372158c) GovernanceTopUp {}
 
 fun assertGovernor(sender: address, governor: address) {
@@ -132,4 +210,10 @@ fun assertGovernor(sender: address, governor: address) {
 
 fun assertFeeBps(feeBps: int) {
     assert (feeBps <= FEE_BPS_DENOMINATOR) throw GovErrors.InvalidFee;
+}
+
+fun assertVoteSide(side: int) {
+    assert (
+        side == VOTE_SIDE_FOR || side == VOTE_SIDE_AGAINST || side == VOTE_SIDE_ABSTAIN
+    ) throw GovErrors.InvalidVoteSide;
 }

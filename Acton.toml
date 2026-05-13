@@ -37,6 +37,11 @@ display-name = "TG BTC Cat DEX Registry"
 src = "contracts/TgBtcCatDexRegistry.tolk"
 depends = []
 
+[contracts.TgBtcCatGovernor]
+display-name = "TG BTC Cat Governor"
+src = "contracts/TgBtcCatGovernor.tolk"
+depends = []
+
 [test]
 
 [fmt]

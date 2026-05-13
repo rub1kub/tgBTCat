@@ -4,6 +4,7 @@
 gen/
 build/
 lcov.info
+coverage.txt
 libraries.toml
 global.libraries.toml
 
