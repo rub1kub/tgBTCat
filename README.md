@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="TG BTC Cat" width="160" />
+  <img src="assets/logo-transparent.png" alt="TG BTC Cat" width="160" />
 </p>
 
 <h1 align="center">TG BTC Cat</h1>

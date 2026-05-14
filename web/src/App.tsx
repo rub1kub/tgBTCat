@@ -1,11 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTonAddress, useTonConnectModal, useTonConnectUI } from '@tonconnect/ui-react';
 import {
   Activity,
-  CircleDollarSign,
+  ArrowRight,
   Clock3,
   Copy,
   ExternalLink,
+  Flame,
   Gauge,
   Landmark,
   Plus,
@@ -34,7 +35,8 @@ import {
   type VoteSide,
 } from './ton/transactions';
 
-type TabKey = 'overview' | 'vote' | 'propose' | 'contracts';
+type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
+type GovernanceMode = 'cast' | 'propose';
 
 interface VoteFormState {
   voterJettonWallet: string;
@@ -53,10 +55,11 @@ interface ProposalFormState {
   gasTon: string;
 }
 
-const tabs: Array<{ id: TabKey; label: string }> = [
-  { id: 'overview', label: 'Overview' },
+const navItems: Array<{ id: PageKey; label: string }> = [
+  { id: 'home', label: 'Home' },
+  { id: 'tokenomics', label: 'Tokenomics' },
+  { id: 'roadmap', label: 'Roadmap' },
   { id: 'vote', label: 'Vote' },
-  { id: 'propose', label: 'Propose' },
   { id: 'contracts', label: 'Contracts' },
 ];
 
@@ -72,9 +75,45 @@ const contractOrder: ContractKey[] = [
   'feeTreasury',
 ];
 
+const tokenomics = [
+  { label: 'Liquidity', value: 45, detail: 'DEX depth and market operations' },
+  { label: 'DAO Treasury', value: 25, detail: 'governance reserve and execution budget' },
+  { label: 'Events', value: 15, detail: 'community campaigns and on-chain rituals' },
+  { label: 'Strategic Reserve', value: 10, detail: 'partnerships, listings, emergency runway' },
+  { label: 'Launch Ops', value: 5, detail: 'deployment, verification, and infrastructure' },
+];
+
+const roadmap = [
+  {
+    phase: '01',
+    title: 'Protocol',
+    status: 'Live locally',
+    detail: 'Jetton master, fee-aware wallets, irreversible governance, treasury, events, and controllers.',
+  },
+  {
+    phase: '02',
+    title: 'Testnet',
+    status: 'Active',
+    detail: 'Deploy, verify, connect TON Connect flows, expose proposal and transaction previews.',
+  },
+  {
+    phase: '03',
+    title: 'Launch',
+    status: 'Queued',
+    detail: 'Finalize metadata, seed liquidity, publish socials, and open the first community votes.',
+  },
+  {
+    phase: '04',
+    title: 'DAO Expansion',
+    status: 'Planned',
+    detail: 'Wallet-specific fee campaigns, treasury routes, event seasons, and live vote explorer.',
+  },
+];
+
 export default function App() {
   const [network, setNetwork] = useState<NetworkKey>('testnet');
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [activePage, setActivePage] = useState<PageKey>('home');
+  const [governanceMode, setGovernanceMode] = useState<GovernanceMode>('cast');
   const [selectedProposalId, setSelectedProposalId] = useState(0);
   const [transactionPreview, setTransactionPreview] = useState<TonConnectTransaction | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
@@ -107,6 +146,15 @@ export default function App() {
     () => proposalRows.reduce((sum, proposal) => sum + proposal.forVotes + proposal.againstVotes + proposal.abstainVotes, 0),
     [],
   );
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activePage]);
+
+  const openVote = () => {
+    setActivePage('vote');
+    setGovernanceMode('cast');
+  };
 
   const buildVotePreview = () => {
     clearFeedback();
@@ -179,29 +227,26 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/">
-          <img src="/logo.png" alt="" />
-          <span>
-            <strong>TG BTC Cat</strong>
-            <small>DAO Console</small>
-          </span>
-        </a>
+        <button className="brand" type="button" onClick={() => setActivePage('home')}>
+          <img src="/logo-transparent.png" alt="" />
+          <strong>TG BTC Cat</strong>
+        </button>
 
-        <nav className="tabs" aria-label="Primary">
-          {tabs.map((tab) => (
+        <nav className="main-nav" aria-label="Primary">
+          {navItems.map((item) => (
             <button
-              key={tab.id}
-              className={activeTab === tab.id ? 'tab is-active' : 'tab'}
+              key={item.id}
+              className={activePage === item.id ? 'nav-item is-active' : 'nav-item'}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActivePage(item.id)}
             >
-              {tab.label}
+              {item.label}
             </button>
           ))}
         </nav>
 
         <div className="topbar-actions">
-          <div className="segmented" aria-label="Network">
+          <div className="network-switch" aria-label="Network">
             {(['testnet', 'mainnet'] as const).map((item) => (
               <button
                 key={item}
@@ -225,118 +270,305 @@ export default function App() {
             }}
           >
             <Wallet size={17} />
-            {connectedAddress ? shortAddress(connectedAddress) : 'Connect Wallet'}
+            {connectedAddress ? shortAddress(connectedAddress) : 'Connect'}
           </button>
         </div>
       </header>
 
       <main>
-        <section className="hero-grid">
-          <div className="hero-copy">
-            <p className="system-label">TON governance infrastructure</p>
-            <h1>On-chain fee policy, treasury execution, and community events for tgBTCat.</h1>
-            <div className="hero-actions">
-              <button className="primary-action" type="button" onClick={() => setActiveTab('vote')}>
-                <Vote size={18} />
-                Open voting
-              </button>
-              <button className="secondary-action" type="button" onClick={() => setActiveTab('contracts')}>
-                <ExternalLink size={18} />
-                View contracts
-              </button>
-            </div>
-          </div>
-
-          <div className="network-panel">
-            <div className="panel-heading">
-              <span>Active network</span>
-              <strong>{addressBook.label}</strong>
-            </div>
-            <AddressLine
-              label="Governor"
-              value={addressBook.addresses.governor}
-              explorerBaseUrl={addressBook.explorerBaseUrl}
+        <div key={activePage} className="page-view">
+          {activePage === 'home' && (
+            <HomePage
+              network={network}
+              totalVotes={totalVotes}
+              onOpenVote={openVote}
+              onOpenTokenomics={() => setActivePage('tokenomics')}
             />
-            <AddressLine
-              label="Jetton Master"
-              value={addressBook.addresses.jettonMaster}
-              explorerBaseUrl={addressBook.explorerBaseUrl}
-            />
-            <AddressLine
-              label="DAO Treasury"
-              value={addressBook.addresses.treasury}
-              explorerBaseUrl={addressBook.explorerBaseUrl}
-            />
-          </div>
-        </section>
+          )}
 
-        <section className="metrics-grid" aria-label="Protocol metrics">
-          <MetricCard icon={<ShieldCheck />} label="Contracts" value="9" detail="current protocol surface" />
-          <MetricCard icon={<Vote />} label="Votes indexed" value={formatVotes(totalVotes)} detail="sample governance view" />
-          <MetricCard icon={<Gauge />} label="Fee range" value="0-100%" detail="global and wallet-specific" />
-          <MetricCard icon={<Activity />} label="Tests" value="95" detail="Acton local gate" />
-        </section>
+          {activePage === 'tokenomics' && <TokenomicsPage />}
 
-        {activeTab === 'overview' && (
-          <section className="content-grid two-columns">
-            <ProposalTable
+          {activePage === 'roadmap' && <RoadmapPage onOpenVote={openVote} />}
+
+          {activePage === 'vote' && (
+            <VotePage
+              governanceMode={governanceMode}
+              onModeChange={setGovernanceMode}
               selectedProposalId={selectedProposalId}
-              onSelect={(proposalId) => {
+              onSelectProposal={(proposalId) => {
                 setSelectedProposalId(proposalId);
                 setVoteForm((current) => ({ ...current, proposalId: String(proposalId) }));
               }}
+              selectedProposal={selectedProposal}
+              voteForm={voteForm}
+              proposalForm={proposalForm}
+              connectedAddress={connectedAddress}
+              transactionPreview={transactionPreview}
+              statusMessage={statusMessage}
+              errorMessage={errorMessage}
+              onVoteChange={(patch) => setVoteForm((current) => ({ ...current, ...patch }))}
+              onProposalChange={(patch) => setProposalForm((current) => ({ ...current, ...patch }))}
+              onBuildVote={buildVotePreview}
+              onSendVote={sendVote}
+              onBuildProposal={buildProposalPreview}
+              onSendProposal={sendProposal}
             />
-            <EventRail />
-          </section>
-        )}
+          )}
 
-        {activeTab === 'vote' && (
-          <section className="content-grid two-columns">
+          {activePage === 'contracts' && <ContractsPage network={network} />}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function HomePage({
+  network,
+  totalVotes,
+  onOpenVote,
+  onOpenTokenomics,
+}: {
+  network: NetworkKey;
+  totalVotes: number;
+  onOpenVote: () => void;
+  onOpenTokenomics: () => void;
+}) {
+  const addressBook = addressBooks[network];
+
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-copy">
+          <h1>Telegram BTC Cat</h1>
+          <p>
+            A DAO-governed TON jetton for the tgBTC narrative. Holders commit tokens on-chain to move fee policy,
+            wallet-specific rules, treasury actions, and community events.
+          </p>
+          <div className="hero-actions">
+            <button className="primary-action" type="button" onClick={onOpenVote}>
+              Vote on-chain
+              <ArrowRight size={18} />
+            </button>
+            <button className="secondary-action" type="button" onClick={onOpenTokenomics}>
+              Tokenomics
+            </button>
+          </div>
+        </div>
+
+        <div className="hero-mark" aria-hidden="true">
+          <div className="mark-glow" />
+          <img src="/logo-transparent.png" alt="" />
+          <span className="orbit orbit-a" />
+          <span className="orbit orbit-b" />
+        </div>
+      </section>
+
+      <section className="metric-strip" aria-label="Protocol metrics">
+        <MetricCard icon={<ShieldCheck />} label="Contracts" value="9" detail="current surface" />
+        <MetricCard icon={<Vote />} label="Votes" value={formatVotes(totalVotes)} detail="sample governance" />
+        <MetricCard icon={<Gauge />} label="Fees" value="0-100%" detail="DAO-controlled" />
+        <MetricCard icon={<Activity />} label="Tests" value="95" detail="Acton gate" />
+      </section>
+
+      <section className="landing-grid">
+        <section className="feature-panel dark-panel">
+          <h2>Fees are policy, not admin settings.</h2>
+          <p>
+            Buy and sell fees can move from zero to full capture through proposals. Wallet-specific rules let the DAO
+            respond to campaigns, bad actors, market events, or community games without replacing the token.
+          </p>
+        </section>
+        <section className="feature-panel network-panel">
+          <div className="panel-heading">
+            <span>Network</span>
+            <strong>{addressBook.label}</strong>
+          </div>
+          <AddressLine label="Governor" value={addressBook.addresses.governor} explorerBaseUrl={addressBook.explorerBaseUrl} />
+          <AddressLine label="Jetton Master" value={addressBook.addresses.jettonMaster} explorerBaseUrl={addressBook.explorerBaseUrl} />
+          <AddressLine label="DAO Treasury" value={addressBook.addresses.treasury} explorerBaseUrl={addressBook.explorerBaseUrl} />
+        </section>
+      </section>
+    </>
+  );
+}
+
+function TokenomicsPage() {
+  return (
+    <section className="page-section tokenomics-section">
+      <div className="section-copy">
+        <h1>Tokenomics built for visible governance.</h1>
+        <p>
+          Every vote is a committed transfer. The more tokens a holder sends into governance, the more weight they place
+          behind the decision.
+        </p>
+      </div>
+      <div className="tokenomics-layout">
+        <div className="allocation-card">
+          <div className="allocation-total">
+            <span>Supply model</span>
+            <strong>DAO launch</strong>
+          </div>
+          <div className="allocation-bars">
+            {tokenomics.map((item) => (
+              <div key={item.label} className="allocation-row">
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{item.detail}</span>
+                </div>
+                <b>{item.value}%</b>
+                <i style={{ width: `${item.value}%` }} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="token-principles">
+          <Principle icon={<Flame />} title="Irreversible votes" text="Vote weight is paid into governance and does not return." />
+          <Principle icon={<Gauge />} title="0-100% fee range" text="Global and wallet-specific fees are controlled by proposals." />
+          <Principle icon={<Landmark />} title="Treasury routes" text="DAO execution can move TON, jettons, and event state through contracts." />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RoadmapPage({ onOpenVote }: { onOpenVote: () => void }) {
+  return (
+    <section className="page-section roadmap-section">
+      <div className="section-copy">
+        <h1>Roadmap</h1>
+        <p>From local protocol gate to public voting surface, then liquidity, launch, and recurring DAO seasons.</p>
+      </div>
+      <div className="timeline">
+        {roadmap.map((item) => (
+          <article key={item.phase} className="timeline-item">
+            <span>{item.phase}</span>
+            <div>
+              <div className="timeline-title">
+                <h2>{item.title}</h2>
+                <b>{item.status}</b>
+              </div>
+              <p>{item.detail}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+      <button className="primary-action roadmap-action" type="button" onClick={onOpenVote}>
+        Open vote page
+        <ArrowRight size={18} />
+      </button>
+    </section>
+  );
+}
+
+function VotePage({
+  governanceMode,
+  onModeChange,
+  selectedProposalId,
+  onSelectProposal,
+  selectedProposal,
+  voteForm,
+  proposalForm,
+  connectedAddress,
+  transactionPreview,
+  statusMessage,
+  errorMessage,
+  onVoteChange,
+  onProposalChange,
+  onBuildVote,
+  onSendVote,
+  onBuildProposal,
+  onSendProposal,
+}: {
+  governanceMode: GovernanceMode;
+  onModeChange: (mode: GovernanceMode) => void;
+  selectedProposalId: number;
+  onSelectProposal: (proposalId: number) => void;
+  selectedProposal: ProposalRow;
+  voteForm: VoteFormState;
+  proposalForm: ProposalFormState;
+  connectedAddress: string;
+  transactionPreview: TonConnectTransaction | null;
+  statusMessage: string;
+  errorMessage: string;
+  onVoteChange: (patch: Partial<VoteFormState>) => void;
+  onProposalChange: (patch: Partial<ProposalFormState>) => void;
+  onBuildVote: () => void;
+  onSendVote: () => void;
+  onBuildProposal: () => void;
+  onSendProposal: () => void;
+}) {
+  return (
+    <section className="page-section vote-section">
+      <div className="vote-heading">
+        <div>
+          <h1>On-chain voting</h1>
+          <p>Send tokens, cast weight, and build the exact TON Connect transaction before it reaches the wallet.</p>
+        </div>
+        <div className="mode-switch" aria-label="Governance mode">
+          <button
+            className={governanceMode === 'cast' ? 'is-active' : ''}
+            type="button"
+            onClick={() => onModeChange('cast')}
+          >
+            Cast
+          </button>
+          <button
+            className={governanceMode === 'propose' ? 'is-active' : ''}
+            type="button"
+            onClick={() => onModeChange('propose')}
+          >
+            Propose
+          </button>
+        </div>
+      </div>
+
+      <div className="governance-grid">
+        <ProposalTable selectedProposalId={selectedProposalId} onSelect={onSelectProposal} />
+        <div className="governance-workspace">
+          {governanceMode === 'cast' ? (
             <VotePanel
               form={voteForm}
               proposal={selectedProposal}
               connectedAddress={connectedAddress}
-              onChange={(patch) => setVoteForm((current) => ({ ...current, ...patch }))}
-              onBuild={buildVotePreview}
-              onSend={sendVote}
+              onChange={onVoteChange}
+              onBuild={onBuildVote}
+              onSend={onSendVote}
             />
-            <TransactionPreview transaction={transactionPreview} status={statusMessage} error={errorMessage} />
-          </section>
-        )}
-
-        {activeTab === 'propose' && (
-          <section className="content-grid two-columns">
+          ) : (
             <ProposalBuilder
               form={proposalForm}
-              onChange={(patch) => setProposalForm((current) => ({ ...current, ...patch }))}
-              onBuild={buildProposalPreview}
-              onSend={sendProposal}
+              onChange={onProposalChange}
+              onBuild={onBuildProposal}
+              onSend={onSendProposal}
             />
-            <TransactionPreview transaction={transactionPreview} status={statusMessage} error={errorMessage} />
-          </section>
-        )}
+          )}
+          <TransactionPreview transaction={transactionPreview} status={statusMessage} error={errorMessage} />
+        </div>
+      </div>
+    </section>
+  );
+}
 
-        {activeTab === 'contracts' && (
-          <section className="contract-section">
-            <div className="section-header">
-              <h2>Contract registry</h2>
-              <div className="social-links">
-                {socialLinks.map((link) => (
-                  <a key={link.href} href={link.href} target="_blank" rel="noreferrer">
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-            <div className="contract-grid">
-              {contractOrder.map((key) => (
-                <ContractCard key={key} contractKey={key} network={network} />
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
+function ContractsPage({ network }: { network: NetworkKey }) {
+  return (
+    <section className="page-section contract-section">
+      <div className="section-copy">
+        <h1>Contract registry</h1>
+        <p>Current address book for the DAO surface. Mainnet fields stay closed until the launch deployment is final.</p>
+      </div>
+      <div className="social-links">
+        {socialLinks.map((link) => (
+          <a key={link.href} href={link.href} target="_blank" rel="noreferrer">
+            {link.label}
+          </a>
+        ))}
+      </div>
+      <div className="contract-grid">
+        {contractOrder.map((key) => (
+          <ContractCard key={key} contractKey={key} network={network} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -351,6 +583,16 @@ function MetricCard({ icon, label, value, detail }: { icon: ReactNode; label: st
   );
 }
 
+function Principle({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <article className="principle">
+      <span>{icon}</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </article>
+  );
+}
+
 function ProposalTable({
   selectedProposalId,
   onSelect,
@@ -361,7 +603,7 @@ function ProposalTable({
   return (
     <section className="panel proposal-panel">
       <div className="section-header">
-        <h2>Proposal desk</h2>
+        <h2>Votes</h2>
         <span className="quiet-count">{proposalRows.length} routes</span>
       </div>
       <div className="proposal-list">
@@ -403,40 +645,6 @@ function VoteBars({ proposal }: { proposal: ProposalRow }) {
   );
 }
 
-function EventRail() {
-  return (
-    <section className="panel event-panel">
-      <div className="section-header">
-        <h2>DAO events</h2>
-        <span className="status status-open">Active</span>
-      </div>
-      <div className="event-stack">
-        <article className="event-item">
-          <Landmark size={19} />
-          <div>
-            <strong>Satoshi Council</strong>
-            <span>high-conviction governance round</span>
-          </div>
-        </article>
-        <article className="event-item">
-          <CircleDollarSign size={19} />
-          <div>
-            <strong>Fee Wars</strong>
-            <span>buy/sell policy voting window</span>
-          </div>
-        </article>
-        <article className="event-item">
-          <Wallet size={19} />
-          <div>
-            <strong>Liquidity Defense</strong>
-            <span>treasury-backed execution route</span>
-          </div>
-        </article>
-      </div>
-    </section>
-  );
-}
-
 function VotePanel({
   form,
   proposal,
@@ -459,7 +667,9 @@ function VotePanel({
         <span className="status status-open">Jetton transfer</span>
       </div>
       <div className="selected-proposal">
-        <strong>#{proposal.id} {proposal.title}</strong>
+        <strong>
+          #{proposal.id} {proposal.title}
+        </strong>
         <small>{proposal.execution}</small>
       </div>
       <label>
@@ -589,8 +799,8 @@ function TransactionPreview({
       <div className="section-header">
         <h2>Transaction</h2>
         {status && <span className="status status-executed">{status}</span>}
-        {error && <span className="status status-against">{error}</span>}
       </div>
+      {error && <div className="feedback-error">{error}</div>}
       <pre>{transaction ? JSON.stringify(transaction, null, 2) : 'No transaction prepared'}</pre>
     </section>
   );
