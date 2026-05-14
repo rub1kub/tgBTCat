@@ -12,7 +12,6 @@ import {
   Plus,
   Send,
   Settings2,
-  ShieldCheck,
   Vote,
   Wallet,
 } from 'lucide-react';
@@ -20,7 +19,6 @@ import { proposalRows, type ProposalRow, type ProposalStatus } from './data/prop
 import {
   addressBooks,
   contractLabels,
-  contractRoles,
   socialLinks,
   type ContractKey,
   type NetworkKey,
@@ -59,6 +57,7 @@ interface ProposalFormState {
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
+const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
 
 const contractOrder: ContractKey[] = [
   'governor',
@@ -79,7 +78,7 @@ const copyByLanguage = {
       tokenomics: 'Tokenomics',
       roadmap: 'Roadmap',
       vote: 'Vote',
-      contracts: 'Contracts',
+      contracts: 'Addresses',
     },
     common: {
       connect: 'Connect',
@@ -88,117 +87,123 @@ const copyByLanguage = {
       pending: 'Pending',
       address: 'Address',
       walletNotConnected: 'Wallet not connected',
-      buildPayload: 'Build payload',
-      send: 'Send',
-      create: 'Create',
+      buildPayload: 'Review transaction',
+      send: 'Sign in wallet',
+      create: 'Create question',
     },
     hero: {
       title: 'Telegram BTC Cat',
-      text: 'A DAO-governed TON jetton for the tgBTC narrative. Holders commit tokens on-chain to move fee policy, wallet-specific rules, treasury actions, and community events.',
-      vote: 'Vote on-chain',
+      text: 'A community token on TON built around the tgBTC narrative. Holders use tokens to vote on fees, wallet rules, the treasury, and community events.',
+      vote: 'Start voting',
       tokenomics: 'Tokenomics',
       metrics: [
-        ['Contracts', '9', 'current surface'],
-        ['Votes', '', 'sample governance'],
-        ['Fees', '0-100%', 'DAO-controlled'],
-        ['Tests', '95', 'Acton gate'],
+        ['Votes', '', 'community weight'],
+        ['Fees', '0-100%', 'holder controlled'],
+        ['Wallets', 'Targeted', 'temporary rules'],
+        ['Events', 'Seasons', 'community campaigns'],
       ],
-      featureTitle: 'Fees are policy, not admin settings.',
+      featureTitle: 'The community decides the rules.',
       featureText:
-        'Buy and sell fees can move from zero to full capture through proposals. Wallet-specific rules let the DAO respond to campaigns, bad actors, market events, or community games without replacing the token.',
-      network: 'Network',
-      governor: 'Governor',
-      jettonMaster: 'Jetton Master',
-      treasury: 'DAO Treasury',
+        'Holders choose buy and sell fees, propose temporary rules for specific wallets, and launch community events without waiting for a hidden admin.',
+      decisionTitle: 'What holders can decide',
+      decisions: [
+        ['Buy and sell fees', 'from 0% to 100%'],
+        ['Wallet rules', 'temporary and vote-based'],
+        ['Treasury actions', 'only through public decisions'],
+      ],
     },
     tokenomics: {
-      title: 'Tokenomics built for visible governance.',
-      text: 'Every vote is a committed transfer. The more tokens a holder sends into governance, the more weight they place behind the decision.',
-      supplyLabel: 'Supply model',
-      supplyValue: 'DAO launch',
+      title: 'Tokenomics built around voting.',
+      text: 'To vote, a holder sends the chosen amount of tgBTCat. The tokens are not returned, so each vote has a real cost and weight.',
+      supplyLabel: 'Allocation',
+      supplyValue: 'for launch',
       allocations: [
-        { label: 'Liquidity', value: 45, detail: 'DEX depth and market operations' },
-        { label: 'DAO Treasury', value: 25, detail: 'governance reserve and execution budget' },
-        { label: 'Events', value: 15, detail: 'community campaigns and on-chain rituals' },
-        { label: 'Strategic Reserve', value: 10, detail: 'partnerships, listings, emergency runway' },
-        { label: 'Launch Ops', value: 5, detail: 'deployment, verification, and infrastructure' },
+        { label: 'Liquidity', value: 45, detail: 'trading depth and market support' },
+        { label: 'Treasury', value: 25, detail: 'development and community decisions' },
+        { label: 'Events', value: 15, detail: 'contests, campaigns, and seasons' },
+        { label: 'Reserve', value: 10, detail: 'partnerships and unexpected costs' },
+        { label: 'Launch', value: 5, detail: 'site, setup, and public rollout' },
       ],
       principles: [
-        ['Irreversible votes', 'Vote weight is paid into governance and does not return.'],
-        ['0-100% fee range', 'Global and wallet-specific fees are controlled by proposals.'],
-        ['Treasury routes', 'DAO execution can move TON, jettons, and event state through contracts.'],
+        ['Votes are final', 'Tokens sent for a vote are not returned.'],
+        ['Fees are public', 'Buy, sell, and wallet rules are decided by holders.'],
+        ['Treasury is visible', 'Spending decisions are made through proposals and can be checked on-chain.'],
       ],
     },
     roadmap: {
       title: 'Roadmap',
-      text: 'From local protocol gate to public voting surface, then liquidity, launch, and recurring DAO seasons.',
-      openVote: 'Open vote page',
+      text: 'A simple path: prepare the product, open voting, launch the token, then run recurring community seasons.',
+      openVote: 'Open voting',
       phases: [
         {
           phase: '01',
-          title: 'Protocol',
-          status: 'Live locally',
-          detail: 'Jetton master, fee-aware wallets, irreversible governance, treasury, events, and controllers.',
+          title: 'Preparation',
+          status: 'In progress',
+          detail: 'Finalize the website, token identity, wallet connection, and first public votes.',
         },
         {
           phase: '02',
-          title: 'Testnet',
-          status: 'Active',
-          detail: 'Deploy, verify, connect TON Connect flows, expose proposal and transaction previews.',
+          title: 'Voting opens',
+          status: 'Next',
+          detail: 'Holders start deciding buy fees, sell fees, wallet rules, and first community events.',
         },
         {
           phase: '03',
-          title: 'Launch',
+          title: 'Token launch',
           status: 'Queued',
-          detail: 'Finalize metadata, seed liquidity, publish socials, and open the first community votes.',
+          detail: 'Publish final metadata, open liquidity, and route users from socials to the voting page.',
         },
         {
           phase: '04',
-          title: 'DAO Expansion',
+          title: 'Community seasons',
           status: 'Planned',
-          detail: 'Wallet-specific fee campaigns, treasury routes, event seasons, and live vote explorer.',
+          detail: 'Run recurring events, treasury votes, and time-limited wallet campaigns.',
         },
       ],
     },
     vote: {
-      title: 'On-chain voting',
-      text: 'Connect TON wallet, select a proposal, send tgBTCat into governance, and review the exact transaction before signing.',
-      cast: 'Cast',
-      propose: 'Propose',
-      votesTitle: 'Votes',
-      routes: 'routes',
-      castTitle: 'Cast vote',
-      jettonTransfer: 'Jetton transfer',
-      selectedProposal: 'Selected proposal',
-      voterJettonWallet: 'Voter jetton wallet',
+      title: 'Voting',
+      text: 'Pick a question, choose how many tgBTCat you give to your vote, review the action, and sign it in your wallet.',
+      cast: 'Vote',
+      propose: 'Create question',
+      votesTitle: 'Questions',
+      routes: 'questions',
+      castTitle: 'Your vote',
+      jettonTransfer: 'Tokens are not returned',
+      selectedProposal: 'Selected question',
+      voterJettonWallet: 'Token wallet',
       walletPlaceholder: 'Auto-filled after Ton Connect',
-      proposalId: 'Proposal ID',
-      amount: 'Amount',
-      gasTon: 'Gas TON',
-      forwardTon: 'Forward TON',
-      flow: ['Connect wallet', 'Jetton wallet binds automatically', 'Choose vote weight', 'Send vote'],
-      bindingIdle: 'Connect wallet to detect your tgBTCat jetton wallet.',
-      bindingLoading: 'Detecting jetton wallet on TON...',
-      bindingReady: 'Jetton wallet bound from Ton Connect owner.',
-      bindingManual: 'Manual jetton wallet value is used.',
-      createTitle: 'Create fee proposal',
-      globalRoute: 'Global route',
-      queryId: 'Query ID',
+      amount: 'tgBTCat to give to this vote',
+      gasTon: 'TON for network fee',
+      forwardTon: 'TON to deliver the vote',
+      advanced: 'Network settings',
+      flow: ['Connect wallet', 'We find your token wallet', 'Enter vote amount', 'Sign in wallet'],
+      bindingIdle: 'Connect wallet and the token wallet will be found automatically.',
+      bindingLoading: 'Finding your token wallet...',
+      bindingReady: 'Token wallet is connected automatically.',
+      bindingManual: 'Manual token wallet value is used.',
+      createTitle: 'Create a fee question',
+      globalRoute: 'For all buys and sells',
+      queryId: 'Question number',
       votingEnds: 'Voting ends',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
-      transaction: 'Transaction',
-      noTransaction: 'No transaction prepared',
-      votePrepared: 'Vote transaction prepared',
-      voteSent: 'Vote transaction sent to wallet',
-      proposalPrepared: 'Proposal transaction prepared',
-      proposalSent: 'Proposal transaction sent to wallet',
-      connectRequired: 'Connect a wallet before building a vote transaction',
-      governorRequired: 'Governor is not deployed',
+      transaction: 'Review before signing',
+      noTransaction: 'Click “Review transaction” first.',
+      rawDetails: 'Technical details',
+      txTo: 'Sent to',
+      txAmount: 'Network fee',
+      txUntil: 'Valid until',
+      votePrepared: 'Vote is ready for wallet signature',
+      voteSent: 'Open your wallet and confirm the vote',
+      proposalPrepared: 'Question is ready for wallet signature',
+      proposalSent: 'Open your wallet and confirm the question',
+      connectRequired: 'Connect wallet before voting',
+      governorRequired: 'Voting is not available right now',
     },
     contracts: {
-      title: 'Contract registry',
-      text: 'Current address book for the DAO surface. Mainnet fields stay closed until the launch deployment is final.',
+      title: 'Project addresses',
+      text: 'Public addresses for users who want to verify the project in a TON explorer.',
     },
     status: {
       open: 'Open',
@@ -213,24 +218,28 @@ const copyByLanguage = {
     } satisfies Record<VoteSide, string>,
     proposals: {
       0: {
-        title: 'Set global launch fees',
+        title: 'Fees for all buys and sells',
+        summary: 'General rule for the token',
         endsIn: '17h 42m',
-        execution: 'Fee Controller',
+        execution: 'Fee decision',
       },
       1: {
-        title: 'Apply wallet-specific sell fee',
+        title: 'Temporary fee for one wallet',
+        summary: 'Time-limited wallet rule',
         endsIn: 'closed',
-        execution: 'Wallet Fee Registry',
+        execution: 'Wallet rule',
       },
       2: {
         title: 'Open Satoshi Council event',
+        summary: 'Community event',
         endsIn: 'closed',
-        execution: 'Event Controller',
+        execution: 'Community event',
       },
       3: {
-        title: 'Top up DAO liquidity reserve',
+        title: 'Top up liquidity treasury',
+        summary: 'Treasury decision',
         endsIn: 'executed',
-        execution: 'DAO Treasury',
+        execution: 'Treasury',
       },
     },
   },
@@ -240,7 +249,7 @@ const copyByLanguage = {
       tokenomics: 'Токеномика',
       roadmap: 'Роадмапа',
       vote: 'Голосование',
-      contracts: 'Контракты',
+      contracts: 'Адреса',
     },
     common: {
       connect: 'Подключить',
@@ -249,117 +258,123 @@ const copyByLanguage = {
       pending: 'Скоро',
       address: 'Адрес',
       walletNotConnected: 'Кошелек не подключен',
-      buildPayload: 'Собрать транзакцию',
-      send: 'Отправить',
-      create: 'Создать',
+      buildPayload: 'Проверить транзакцию',
+      send: 'Подписать в кошельке',
+      create: 'Создать вопрос',
     },
     hero: {
       title: 'Telegram BTC Cat',
-      text: 'DAO jetton на TON под нарратив tgBTC. Держатели безвозвратно отправляют токены в governance, чтобы менять комиссии, правила для кошельков, казну и события комьюнити.',
-      vote: 'Голосовать ончейн',
+      text: 'Токен сообщества на TON под нарратив tgBTC. Держатели голосуют токенами за комиссии, правила для кошельков, решения по казне и события для сообщества.',
+      vote: 'Начать голосование',
       tokenomics: 'Токеномика',
       metrics: [
-        ['Контракты', '9', 'текущая поверхность'],
-        ['Голоса', '', 'пример governance'],
-        ['Комиссии', '0-100%', 'управляет DAO'],
-        ['Тесты', '95', 'Acton gate'],
+        ['Голоса', '', 'вес сообщества'],
+        ['Комиссии', '0-100%', 'решают держатели'],
+        ['Кошельки', 'Точечно', 'временные правила'],
+        ['События', 'Сезоны', 'кампании сообщества'],
       ],
-      featureTitle: 'Комиссии - это политика DAO, а не админская настройка.',
+      featureTitle: 'Правила решает сообщество.',
       featureText:
-        'Комиссии покупки и продажи могут двигаться от нуля до полного захвата через предложения. Отдельные правила для кошельков позволяют DAO реагировать на кампании, плохих актеров, рыночные события и игры комьюнити без замены токена.',
-      network: 'Сеть',
-      governor: 'Governor',
-      jettonMaster: 'Jetton Master',
-      treasury: 'DAO Treasury',
+        'Держатели выбирают комиссии покупки и продажи, могут предложить временное правило для конкретного кошелька и запускать события для сообщества без скрытого админа.',
+      decisionTitle: 'Что могут решать держатели',
+      decisions: [
+        ['Комиссии покупки и продажи', 'от 0% до 100%'],
+        ['Правила для кошельков', 'временно и по голосованию'],
+        ['Действия с казной', 'только через публичные решения'],
+      ],
     },
     tokenomics: {
-      title: 'Токеномика под видимое управление.',
-      text: 'Каждый голос - это отправка токенов в governance. Чем больше токенов держатель отправляет, тем больше веса он ставит за решение.',
-      supplyLabel: 'Модель supply',
-      supplyValue: 'DAO launch',
+      title: 'Токеномика вокруг голосования.',
+      text: 'Чтобы проголосовать, держатель отправляет выбранное количество tgBTCat. Токены не возвращаются, поэтому каждый голос имеет реальную цену и вес.',
+      supplyLabel: 'Распределение',
+      supplyValue: 'под запуск',
       allocations: [
-        { label: 'Ликвидность', value: 45, detail: 'DEX depth и рыночные операции' },
-        { label: 'DAO Treasury', value: 25, detail: 'резерв governance и бюджет исполнения' },
-        { label: 'Ивенты', value: 15, detail: 'кампании комьюнити и ончейн-ритуалы' },
-        { label: 'Стратегический резерв', value: 10, detail: 'партнерства, листинги, emergency runway' },
-        { label: 'Launch Ops', value: 5, detail: 'деплой, верификация и инфраструктура' },
+        { label: 'Ликвидность', value: 45, detail: 'для торгов и поддержки рынка' },
+        { label: 'Казна', value: 25, detail: 'на развитие и решения сообщества' },
+        { label: 'События', value: 15, detail: 'конкурсы, кампании и сезоны' },
+        { label: 'Резерв', value: 10, detail: 'партнерства и непредвиденные расходы' },
+        { label: 'Запуск', value: 5, detail: 'сайт, подготовка и публичный старт' },
       ],
       principles: [
-        ['Безвозвратные голоса', 'Вес голоса платится в governance и не возвращается.'],
-        ['Комиссии 0-100%', 'Общие и кошельковые комиссии контролируются предложениями.'],
-        ['Маршруты казны', 'DAO execution может двигать TON, jetton и состояние ивентов через контракты.'],
+        ['Голос не возвращается', 'Токены, отправленные за голос, остаются в системе.'],
+        ['Комиссии публичные', 'Покупка, продажа и правила кошельков решаются держателями.'],
+        ['Казна прозрачная', 'Решения по расходам проходят через предложения и видны в блокчейне.'],
       ],
     },
     roadmap: {
       title: 'Роадмапа',
-      text: 'От локального protocol gate к публичному голосованию, затем ликвидность, запуск и регулярные DAO-сезоны.',
+      text: 'Простой путь: подготовить продукт, открыть голосование, запустить токен и проводить регулярные сезоны сообщества.',
       openVote: 'Открыть голосование',
       phases: [
         {
           phase: '01',
-          title: 'Protocol',
-          status: 'Локально готов',
-          detail: 'Jetton master, fee-aware wallets, безвозвратное governance, treasury, ивенты и контроллеры.',
+          title: 'Подготовка',
+          status: 'Идет',
+          detail: 'Финализируем сайт, образ токена, подключение кошелька и первые публичные вопросы.',
         },
         {
           phase: '02',
-          title: 'Testnet',
-          status: 'Активно',
-          detail: 'Деплой, верификация, TON Connect flows, превью proposal и транзакций.',
+          title: 'Открытие голосований',
+          status: 'Далее',
+          detail: 'Держатели начинают решать комиссии покупки, комиссии продажи, правила кошельков и первые события.',
         },
         {
           phase: '03',
-          title: 'Launch',
+          title: 'Запуск токена',
           status: 'В очереди',
-          detail: 'Финализировать metadata, засеять ликвидность, опубликовать socials и открыть первые community votes.',
+          detail: 'Публикуем финальное описание, открываем ликвидность и ведем пользователей из соцсетей на голосование.',
         },
         {
           phase: '04',
-          title: 'DAO Expansion',
+          title: 'Сезоны сообщества',
           status: 'План',
-          detail: 'Кампании кошельковых комиссий, treasury routes, event seasons и live vote explorer.',
+          detail: 'Проводим повторяющиеся события, решения по казне и временные кампании для отдельных кошельков.',
         },
       ],
     },
     vote: {
-      title: 'Ончейн-голосование',
-      text: 'Подключи TON wallet, выбери proposal, отправь tgBTCat в governance и проверь точную транзакцию перед подписью.',
-      cast: 'Голос',
-      propose: 'Proposal',
-      votesTitle: 'Голосования',
-      routes: 'маршрута',
-      castTitle: 'Отдать голос',
-      jettonTransfer: 'Jetton transfer',
-      selectedProposal: 'Выбранный proposal',
-      voterJettonWallet: 'Voter jetton wallet',
-      walletPlaceholder: 'Заполнится после Ton Connect',
-      proposalId: 'Proposal ID',
-      amount: 'Кол-во токенов',
-      gasTon: 'Gas TON',
-      forwardTon: 'Forward TON',
-      flow: ['Подключи кошелек', 'Jetton wallet привяжется сам', 'Выбери вес голоса', 'Отправь голос'],
-      bindingIdle: 'Подключи кошелек, чтобы найти твой tgBTCat jetton wallet.',
-      bindingLoading: 'Ищу jetton wallet в TON...',
-      bindingReady: 'Jetton wallet привязан по owner-адресу из Ton Connect.',
-      bindingManual: 'Используется вручную заданный jetton wallet.',
-      createTitle: 'Создать proposal комиссий',
-      globalRoute: 'Global route',
-      queryId: 'Query ID',
-      votingEnds: 'Voting ends',
-      buyFee: 'Комиссия покупки %',
-      sellFee: 'Комиссия продажи %',
-      transaction: 'Транзакция',
-      noTransaction: 'Транзакция еще не собрана',
-      votePrepared: 'Транзакция голоса собрана',
-      voteSent: 'Транзакция голоса отправлена в wallet',
-      proposalPrepared: 'Proposal-транзакция собрана',
-      proposalSent: 'Proposal-транзакция отправлена в wallet',
-      connectRequired: 'Подключи кошелек перед сборкой vote-транзакции',
-      governorRequired: 'Governor еще не задеплоен',
+      title: 'Голосование',
+      text: 'Выбери вопрос, укажи сколько tgBTCat отдаешь за свой голос, проверь действие и подпиши его в кошельке.',
+      cast: 'Голосовать',
+      propose: 'Создать вопрос',
+      votesTitle: 'Вопросы',
+      routes: 'вопроса',
+      castTitle: 'Ваш голос',
+      jettonTransfer: 'Токены не возвращаются',
+      selectedProposal: 'Выбранный вопрос',
+      voterJettonWallet: 'Кошелек токена',
+      walletPlaceholder: 'Заполнится автоматически',
+      amount: 'Сколько tgBTCat отдать за голос',
+      gasTon: 'TON на комиссию сети',
+      forwardTon: 'TON для доставки голоса',
+      advanced: 'Настройки сети',
+      flow: ['Подключите кошелек', 'Мы сами найдем кошелек токена', 'Введите количество tgBTCat', 'Подпишите в кошельке'],
+      bindingIdle: 'Подключите кошелек, и кошелек токена найдется автоматически.',
+      bindingLoading: 'Ищу кошелек токена...',
+      bindingReady: 'Кошелек токена подключен автоматически.',
+      bindingManual: 'Используется кошелек токена, введенный вручную.',
+      createTitle: 'Создать вопрос про комиссии',
+      globalRoute: 'Для всех покупок и продаж',
+      queryId: 'Номер вопроса',
+      votingEnds: 'Голосование до',
+      buyFee: 'Комиссия покупки, %',
+      sellFee: 'Комиссия продажи, %',
+      transaction: 'Проверка перед подписью',
+      noTransaction: 'Сначала нажмите «Проверить транзакцию».',
+      rawDetails: 'Технические детали',
+      txTo: 'Куда',
+      txAmount: 'Комиссия сети',
+      txUntil: 'Действует до',
+      votePrepared: 'Голос готов к подписи в кошельке',
+      voteSent: 'Откройте кошелек и подтвердите голос',
+      proposalPrepared: 'Вопрос готов к подписи в кошельке',
+      proposalSent: 'Откройте кошелек и подтвердите вопрос',
+      connectRequired: 'Сначала подключите кошелек',
+      governorRequired: 'Голосование сейчас недоступно',
     },
     contracts: {
-      title: 'Реестр контрактов',
-      text: 'Текущая адресная книга DAO. Mainnet поля закрыты до финального launch deployment.',
+      title: 'Адреса проекта',
+      text: 'Публичные адреса для тех, кто хочет проверить проект в обозревателе TON.',
     },
     status: {
       open: 'Открыто',
@@ -374,24 +389,28 @@ const copyByLanguage = {
     } satisfies Record<VoteSide, string>,
     proposals: {
       0: {
-        title: 'Установить launch-комиссии',
+        title: 'Комиссии для всех покупок и продаж',
+        summary: 'Общее правило для токена',
         endsIn: '17ч 42м',
-        execution: 'Fee Controller',
+        execution: 'Решение по комиссиям',
       },
       1: {
-        title: 'Включить sell fee для кошелька',
+        title: 'Временная комиссия для кошелька',
+        summary: 'Правило на ограниченное время',
         endsIn: 'закрыто',
-        execution: 'Wallet Fee Registry',
+        execution: 'Правило кошелька',
       },
       2: {
-        title: 'Открыть Satoshi Council event',
+        title: 'Открыть событие Satoshi Council',
+        summary: 'Событие для сообщества',
         endsIn: 'закрыто',
-        execution: 'Event Controller',
+        execution: 'Событие сообщества',
       },
       3: {
-        title: 'Пополнить reserve ликвидности DAO',
+        title: 'Пополнить казну ликвидности',
+        summary: 'Решение по казне',
         endsIn: 'исполнено',
-        execution: 'DAO Treasury',
+        execution: 'Казна',
       },
     },
   },
@@ -407,7 +426,7 @@ function detectLanguage(): LanguageKey {
 }
 
 export default function App() {
-  const [network, setNetwork] = useState<NetworkKey>('testnet');
+  const network = ACTIVE_NETWORK;
   const [activePage, setActivePage] = useState<PageKey>('home');
   const [language, setLanguage] = useState<LanguageKey>(() => detectLanguage());
   const [isScrolled, setIsScrolled] = useState(false);
@@ -624,18 +643,6 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="network-switch" aria-label="Network">
-              {(['testnet', 'mainnet'] as const).map((item) => (
-                <button
-                  key={item}
-                  className={network === item ? 'is-active' : ''}
-                  type="button"
-                  onClick={() => setNetwork(item)}
-                >
-                  {addressBooks[item].label}
-                </button>
-              ))}
-            </div>
             <button
               className="wallet-button"
               type="button"
@@ -661,7 +668,6 @@ export default function App() {
         <div key={activePage} className="page-view">
           {activePage === 'home' && (
             <HomePage
-              network={network}
               language={language}
               copy={t}
               totalVotes={totalVotes}
@@ -711,22 +717,19 @@ export default function App() {
 }
 
 function HomePage({
-  network,
   language,
   copy,
   totalVotes,
   onOpenVote,
   onOpenTokenomics,
 }: {
-  network: NetworkKey;
   language: LanguageKey;
   copy: AppCopy;
   totalVotes: number;
   onOpenVote: () => void;
   onOpenTokenomics: () => void;
 }) {
-  const addressBook = addressBooks[network];
-  const metricIcons = [<ShieldCheck />, <Vote />, <Gauge />, <Activity />];
+  const metricIcons = [<Vote />, <Gauge />, <Wallet />, <Activity />];
 
   return (
     <>
@@ -750,6 +753,7 @@ function HomePage({
           <img src="/logo-transparent.png" alt="" />
           <span className="orbit orbit-a" />
           <span className="orbit orbit-b" />
+          <span className="orbit orbit-c" />
         </div>
       </section>
 
@@ -772,12 +776,17 @@ function HomePage({
         </section>
         <section className="feature-panel network-panel">
           <div className="panel-heading">
-            <span>{copy.hero.network}</span>
-            <strong>{addressBook.label}</strong>
+            <span>{copy.hero.decisionTitle}</span>
+            <strong>tgBTCat</strong>
           </div>
-          <AddressLine label={copy.hero.governor} value={addressBook.addresses.governor} explorerBaseUrl={addressBook.explorerBaseUrl} />
-          <AddressLine label={copy.hero.jettonMaster} value={addressBook.addresses.jettonMaster} explorerBaseUrl={addressBook.explorerBaseUrl} />
-          <AddressLine label={copy.hero.treasury} value={addressBook.addresses.treasury} explorerBaseUrl={addressBook.explorerBaseUrl} />
+          <div className="decision-list">
+            {copy.hero.decisions.map(([title, detail]) => (
+              <div key={title} className="decision-line">
+                <strong>{title}</strong>
+                <span>{detail}</span>
+              </div>
+            ))}
+          </div>
         </section>
       </section>
     </>
@@ -1024,7 +1033,7 @@ function ProposalTable({
             >
               <span className="proposal-main">
                 <strong>{proposalCopy?.title ?? proposal.title}</strong>
-                <small>{proposal.route}</small>
+                <small>{proposalCopy?.summary ?? proposal.route}</small>
               </span>
               <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
               <VoteBars proposal={proposal} />
@@ -1121,16 +1130,10 @@ function VotePanel({
         <Wallet size={17} />
         <span>{bindingText}</span>
       </div>
-      <div className="field-row">
-        <label>
-          {copy.vote.proposalId}
-          <input value={form.proposalId} onChange={(event) => onChange({ proposalId: event.target.value })} />
-        </label>
-        <label>
-          {copy.vote.amount}
-          <input value={form.jettonAmount} onChange={(event) => onChange({ jettonAmount: event.target.value })} />
-        </label>
-      </div>
+      <label>
+        {copy.vote.amount}
+        <input value={form.jettonAmount} onChange={(event) => onChange({ jettonAmount: event.target.value })} />
+      </label>
       <div className="side-selector" aria-label="Vote side">
         {([1, 2, 3] as const).map((side) => (
           <button
@@ -1143,16 +1146,19 @@ function VotePanel({
           </button>
         ))}
       </div>
-      <div className="field-row">
-        <label>
-          {copy.vote.gasTon}
-          <input value={form.gasTon} onChange={(event) => onChange({ gasTon: event.target.value })} />
-        </label>
-        <label>
-          {copy.vote.forwardTon}
-          <input value={form.forwardTon} onChange={(event) => onChange({ forwardTon: event.target.value })} />
-        </label>
-      </div>
+      <details className="advanced-options">
+        <summary>{copy.vote.advanced}</summary>
+        <div className="field-row">
+          <label>
+            {copy.vote.gasTon}
+            <input value={form.gasTon} onChange={(event) => onChange({ gasTon: event.target.value })} />
+          </label>
+          <label>
+            {copy.vote.forwardTon}
+            <input value={form.forwardTon} onChange={(event) => onChange({ forwardTon: event.target.value })} />
+          </label>
+        </div>
+      </details>
       <div className="owner-strip">
         <Wallet size={17} />
         <span>{connectedAddress ? shortAddress(connectedAddress) : copy.common.walletNotConnected}</span>
@@ -1244,6 +1250,8 @@ function TransactionPreview({
   status: string;
   error: string;
 }) {
+  const firstMessage = transaction?.messages[0];
+
   return (
     <section className="panel preview-panel">
       <div className="section-header">
@@ -1251,7 +1259,30 @@ function TransactionPreview({
         {status && <span className="status status-executed">{status}</span>}
       </div>
       {error && <div className="feedback-error">{error}</div>}
-      <pre>{transaction ? JSON.stringify(transaction, null, 2) : copy.vote.noTransaction}</pre>
+      {transaction && firstMessage ? (
+        <>
+          <div className="transaction-summary">
+            <div>
+              <span>{copy.vote.txTo}</span>
+              <code>{shortAddress(firstMessage.address)}</code>
+            </div>
+            <div>
+              <span>{copy.vote.txAmount}</span>
+              <strong>{formatNanoTon(firstMessage.amount)}</strong>
+            </div>
+            <div>
+              <span>{copy.vote.txUntil}</span>
+              <strong>{formatTimestamp(transaction.validUntil)}</strong>
+            </div>
+          </div>
+          <details className="technical-details">
+            <summary>{copy.vote.rawDetails}</summary>
+            <pre>{JSON.stringify(transaction, null, 2)}</pre>
+          </details>
+        </>
+      ) : (
+        <div className="empty-preview">{copy.vote.noTransaction}</div>
+      )}
     </section>
   );
 }
@@ -1266,7 +1297,6 @@ function ContractCard({ copy, contractKey, network }: { copy: AppCopy; contractK
         <strong>{contractLabels[contractKey]}</strong>
         <span>{address ? copy.common.ready : copy.common.pending}</span>
       </div>
-      <p>{contractRoles[contractKey]}</p>
       <AddressLine label={copy.common.address} value={address} explorerBaseUrl={addressBook.explorerBaseUrl} />
     </article>
   );
@@ -1330,6 +1360,27 @@ function walletBindingText(copy: AppCopy, state: WalletBindingState, details: st
     return details || copy.vote.bindingIdle;
   }
   return copy.vote.bindingIdle;
+}
+
+function formatNanoTon(value: string): string {
+  try {
+    const nano = BigInt(value);
+    const whole = nano / 1_000_000_000n;
+    const fraction = nano % 1_000_000_000n;
+    const fractionText = fraction.toString().padStart(9, '0').replace(/0+$/, '');
+    return `${whole.toString()}${fractionText ? `.${fractionText}` : ''} TON`;
+  } catch {
+    return `${value} nanoTON`;
+  }
+}
+
+function formatTimestamp(value: number): string {
+  return new Date(value * 1000).toLocaleString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  });
 }
 
 function formatError(error: unknown): string {
