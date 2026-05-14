@@ -193,33 +193,51 @@ get fun `test governor rejects small vote invalid side unknown proposal and late
     });
 }
 
-get fun `test governor charges public proposal fee and rejects invalid proposal messages`() {
+get fun `test governor charges token proposal fee and rejects invalid proposal messages`() {
     testing.setNow(1000);
-    val (minter, _, _) = setupTest();
+    val (minter, minterAdmin, _) = setupTest();
     val governorAdmin = testing.treasury("admin-validation-admin");
     val outsider = testing.treasury("admin-validation-outsider");
     val governor = deployGovernor(minter, governorAdmin, 10);
-
-    val publicCreate = governor.sendCreateGovernanceProposal(
+    val outsiderWallet = mintTo(
+        minter,
+        minterAdmin,
         outsider.address,
-        1,
-        1,
-        null,
-        null,
-        0,
-        0,
-        0,
-        0,
-        2000,
-        { value: ton("0.05") },
+        MIN_PROPOSAL_CREATE_JETTONS * 2,
     );
-    expect(publicCreate).toHaveSuccessfulTx<CreateGovernanceProposal>({
-        from: outsider.address,
+
+    val proposalPayload = CreateGovernanceProposal {
+        queryId: 1,
+        actionType: ACTION_SET_GLOBAL_FEES,
+        target: null,
+        auxTarget: null,
+        flags: 0,
+        buyFeeBps: 0,
+        sellFeeBps: 0,
+        reasonHash: 0,
+        votingEndsAt: 2000,
+    }.toCell();
+
+    val publicCreate = outsiderWallet.sendTransfer(
+        outsider.address,
+        ton("0.3"),
+        MIN_PROPOSAL_CREATE_JETTONS,
+        governor.address,
+        outsider.address,
+        null,
+        ton("0.05"),
+        proposalPayload,
+    );
+    expect(publicCreate).toHaveSuccessfulTx<TransferNotificationForRecipient>({
+        from: minter.getWalletAddress(governor.address),
         to: governor.address,
     });
     expect(governor.getProposal(0).isSet).toEqual(true);
+    expect(userWallet(minter, governor.address).getJettonBalance()).toEqual(
+        MIN_PROPOSAL_CREATE_JETTONS,
+    );
 
-    val underpaidCreate = governor.sendCreateGovernanceProposal(
+    val directPublicCreate = governor.sendCreateGovernanceProposal(
         outsider.address,
         2,
         1,
@@ -232,8 +250,35 @@ get fun `test governor charges public proposal fee and rejects invalid proposal 
         2000,
         { value: ton("0.049") },
     );
-    expect(underpaidCreate).toHaveFailedTx({
+    expect(directPublicCreate).toHaveFailedTx({
         from: outsider.address,
+        to: governor.address,
+        exitCode: GovErrors.NotGovernor,
+    });
+
+    val underpaidPayload = CreateGovernanceProposal {
+        queryId: 3,
+        actionType: ACTION_SET_GLOBAL_FEES,
+        target: null,
+        auxTarget: null,
+        flags: 0,
+        buyFeeBps: 0,
+        sellFeeBps: 0,
+        reasonHash: 0,
+        votingEndsAt: 2000,
+    }.toCell();
+    val underpaidCreate = outsiderWallet.sendTransfer(
+        outsider.address,
+        ton("0.3"),
+        MIN_PROPOSAL_CREATE_JETTONS - 1,
+        governor.address,
+        outsider.address,
+        null,
+        ton("0.05"),
+        underpaidPayload,
+    );
+    expect(underpaidCreate).toHaveFailedTx<TransferNotificationForRecipient>({
+        from: minter.getWalletAddress(governor.address),
         to: governor.address,
         exitCode: GovErrors.ProposalFeeTooSmall,
     });
@@ -359,7 +404,7 @@ get fun `test governor persists vote config and rejects non-admin config changes
     expect(admin).toEqual(governorAdmin.address);
 }
 
-get fun `test governor counts against and abstain vote sides independently`() {
+get fun `test governor counts against votes and rejects abstain side`() {
     testing.setNow(1000);
     val (minter, _, _) = setupTest();
     val governorAdmin = testing.treasury("side-count-admin");
@@ -404,17 +449,18 @@ get fun `test governor counts against and abstain vote sides independently`() {
         voter.address,
         200,
         0,
-        VOTE_SIDE_ABSTAIN,
+        3,
     );
-    expect(abstain).toHaveSuccessfulTx<TransferNotificationForRecipient>({
+    expect(abstain).toHaveFailedTx({
         from: voteWallet,
         to: governor.address,
+        exitCode: GovErrors.InvalidVoteSide,
     });
 
     val proposal = governor.getProposal(0);
     expect(proposal.forVotes).toEqual(0);
     expect(proposal.againstVotes).toEqual(300);
-    expect(proposal.abstainVotes).toEqual(200);
+    expect(proposal.abstainVotes).toEqual(0);
 }
 
 get fun `test governor executes passed global fee proposal`() {

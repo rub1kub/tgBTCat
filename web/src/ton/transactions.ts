@@ -26,13 +26,17 @@ export interface VoteTransactionInput {
 }
 
 export interface GlobalFeeProposalInput {
+  voterJettonWallet: string;
   governorAddress: string;
+  responseAddress: string;
   queryId: string;
   buyFeePercent: string;
   sellFeePercent: string;
   votingEndsAt: string;
   reasonHash?: string;
+  proposalJettonAmount: string;
   gasTon: string;
+  forwardTon: string;
 }
 
 export interface WalletFeeProposalInput extends GlobalFeeProposalInput {
@@ -98,7 +102,7 @@ export function buildVoteTransaction(input: VoteTransactionInput): TonConnectTra
 export function buildGlobalFeeProposalTransaction(
   input: GlobalFeeProposalInput,
 ): TonConnectTransaction {
-  const body = TgBtcCatGovernor.createCellOfCreateGovernanceProposal({
+  const proposalPayload = TgBtcCatGovernor.createCellOfCreateGovernanceProposal({
     queryId: parseUint(input.queryId, 'query id'),
     actionType: BigInt(ACTION_SET_GLOBAL_FEES),
     target: null,
@@ -110,20 +114,11 @@ export function buildGlobalFeeProposalTransaction(
     votingEndsAt: parseUint(input.votingEndsAt, 'voting end'),
   });
 
-  return {
-    validUntil: validUntil(),
-    messages: [
-      {
-        address: Address.parse(input.governorAddress).toString(),
-        amount: toNano(input.gasTon).toString(),
-        payload: cellToBase64(body),
-      },
-    ],
-  };
+  return buildProposalTransferTransaction(input, proposalPayload);
 }
 
 export function buildWalletFeeProposalTransaction(input: WalletFeeProposalInput): TonConnectTransaction {
-  const body = TgBtcCatGovernor.createCellOfCreateGovernanceProposal({
+  const proposalPayload = TgBtcCatGovernor.createCellOfCreateGovernanceProposal({
     queryId: parseUint(input.queryId, 'query id'),
     actionType: BigInt(ACTION_SET_WALLET_FEES),
     target: Address.parse(input.targetWallet),
@@ -135,13 +130,35 @@ export function buildWalletFeeProposalTransaction(input: WalletFeeProposalInput)
     votingEndsAt: parseUint(input.votingEndsAt, 'voting end'),
   });
 
+  return buildProposalTransferTransaction(input, proposalPayload);
+}
+
+function buildProposalTransferTransaction(
+  input: GlobalFeeProposalInput,
+  proposalPayload: Cell,
+): TonConnectTransaction {
+  const transferBody = TgBtcCatJettonWallet.createCellOfAskToTransfer({
+    queryId: BigInt(Date.now()),
+    jettonAmount: parseJettonAmount(input.proposalJettonAmount),
+    transferRecipient: Address.parse(input.governorAddress),
+    sendExcessesTo: Address.parse(input.responseAddress),
+    customPayload: null,
+    forwardTonAmount: toNano(input.forwardTon),
+    forwardPayload: {
+      $: 'PayloadInRef',
+      value: {
+        ref: proposalPayload.beginParse(),
+      },
+    },
+  });
+
   return {
     validUntil: validUntil(),
     messages: [
       {
-        address: Address.parse(input.governorAddress).toString(),
+        address: Address.parse(input.voterJettonWallet).toString(),
         amount: toNano(input.gasTon).toString(),
-        payload: cellToBase64(body),
+        payload: cellToBase64(transferBody),
       },
     ],
   };

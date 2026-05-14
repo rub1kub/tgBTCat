@@ -24,10 +24,9 @@ enum GovErrors {
 }
 
 const FEE_BPS_DENOMINATOR = 10000
-const MIN_PROPOSAL_CREATE_VALUE = 50000000
+const MIN_PROPOSAL_CREATE_JETTONS = 1000000000000
 const VOTE_SIDE_FOR = 1
 const VOTE_SIDE_AGAINST = 2
-const VOTE_SIDE_ABSTAIN = 3
 const ACTION_SET_GLOBAL_FEES = 1
 const ACTION_SET_WALLET_FEES = 2
 const ACTION_CLEAR_WALLET_FEES = 3
@@ -475,6 +474,8 @@ struct (0x766f7465) CastVotePayload {
     commentHash: uint256
 }
 
+type GovernanceJettonPayload = CastVotePayload | CreateGovernanceProposal
+
 struct (0xd372158c) GovernanceTopUp {}
 
 fun assertGovernor(sender: address, governor: address) {
@@ -486,9 +487,7 @@ fun assertFeeBps(feeBps: int) {
 }
 
 fun assertVoteSide(side: int) {
-    assert (
-        side == VOTE_SIDE_FOR || side == VOTE_SIDE_AGAINST || side == VOTE_SIDE_ABSTAIN
-    ) throw GovErrors.InvalidVoteSide;
+    assert (side == VOTE_SIDE_FOR || side == VOTE_SIDE_AGAINST) throw GovErrors.InvalidVoteSide;
 }
 
 fun assertEventKind(eventKind: int) {

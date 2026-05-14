@@ -29,6 +29,30 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  text-transform: lowercase;
+}
+
+input,
+textarea,
+code,
+.address-line code {
+  text-transform: none;
+}
+
+button,
+h1,
+h2,
+h3,
+p,
+span,
+strong,
+small,
+label,
+a,
+b,
+tc-root,
+tc-root * {
+  text-transform: lowercase;
 }
 
 body::before {
@@ -965,6 +989,46 @@ main {
   gap: 6px;
 }
 
+.proposed-fees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+}
+
+.proposed-fees strong {
+  flex: 0 0 100%;
+  font-size: 14px;
+}
+
+.proposed-fees span,
+.proposed-fees small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  background: #eef7ff;
+  color: #075985;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.proposed-fees small {
+  background: #fff5de;
+  color: var(--amber);
+}
+
+.proposed-fees-compact {
+  grid-column: 1 / -1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .form-panel {
   display: grid;
   gap: 18px;
@@ -1564,6 +1628,9 @@ select,
 .rule-card > span,
 .event-card > span,
 .proposal-row,
+.proposed-fees,
+.proposed-fees span,
+.proposed-fees small,
 .status,
 .vote-bars,
 .selected-proposal,

@@ -70,7 +70,7 @@ const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contrac
 const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
 const DEFAULT_VOTE_GAS_TON = '0.3';
 const DEFAULT_VOTE_FORWARD_TON = '0.05';
-const PROPOSAL_CREATE_TON = '0.05';
+const PROPOSAL_CREATE_JETTONS = '1000';
 const VOTING_DURATION_PRESETS = [
   { value: '10', label: { en: '10 min', ru: '10 мин' } },
   { value: '30', label: { en: '30 min', ru: '30 мин' } },
@@ -118,10 +118,10 @@ const copyByLanguage = {
       tokenomics: 'Tokenomics',
       create: 'Create question',
       metrics: [
-        ['Votes', '', 'community weight'],
-        ['Fees', '0-100%', 'holder controlled'],
-        ['Wallets', 'Targeted', 'wallet rules'],
-        ['Events', 'Seasons', 'community campaigns'],
+        ['Vote with tokens', 'for / against', 'send tgBTCat to add weight'],
+        ['Create questions', 'tgBTCat fee', 'pay tokens so spam is expensive'],
+        ['Change fees', '0-100%', 'buy and sell fees are public'],
+        ['Wallet rules', 'one address', 'propose a fee for a specific wallet'],
       ],
       featureTitle: 'The community decides the rules.',
       featureText:
@@ -135,8 +135,8 @@ const copyByLanguage = {
       rulesTitle: 'Simple rules',
       rules: [
         ['Spend tokens to vote', 'More tgBTCat sent means more weight in the result.'],
-        ['FOR or AGAINST', 'No abstain option and no hidden middle state.'],
-        ['Small question fee', '0.05 TON to create a public question and reduce spam.'],
+        ['for or against', 'two clear choices and no hidden middle state.'],
+        ['Small question fee', '1,000 tgBTCat to create a public question and reduce spam.'],
       ],
       eventsTitle: 'Event ideas the DAO can run',
       eventsText: 'Events should create visible action: memes, raids, rankings, rewards, and public wallet decisions.',
@@ -231,7 +231,7 @@ const copyByLanguage = {
         ['1 tgBTCat = 1 vote', 'Your weight equals the token amount you send.'],
         ['Tokens are final', 'Sent tokens are not returned after voting.'],
         ['Only two choices', 'Each question has FOR and AGAINST.'],
-        ['Questions are paid', 'Creating a public question costs a small TON fee.'],
+        ['Questions are paid', 'Creating a public question costs tgBTCat tokens.'],
       ],
       balanceTitle: 'Your tgBTCat balance',
       balanceEmpty: 'Connect wallet to see available tokens.',
@@ -242,6 +242,9 @@ const copyByLanguage = {
       afterVote: 'After your vote',
       outcomeFor: 'If FOR wins, the question can be executed on-chain.',
       outcomeAgainst: 'If AGAINST wins, nothing changes.',
+      proposedFees: 'Proposed fees',
+      buyProposed: 'Buy',
+      sellProposed: 'Sell',
       createTitle: 'Create a fee question',
       createIntro: 'Choose what the question changes. The site prepares the transaction, the wallet shows it, and holders vote after it is created.',
       globalRoute: 'For all buys and sells',
@@ -255,8 +258,9 @@ const copyByLanguage = {
       targetWalletInvalid: 'Paste a valid TON wallet address.',
       votingDuration: 'Voting duration in minutes',
       durationHint: 'For quick community decisions use 10, 30, or 60 minutes. For larger questions use one day.',
-      proposalFee: 'Question fee: {amount} TON',
-      proposalFeeDetail: 'This is paid when the question is created. It keeps spam away and covers network work.',
+      proposalFee: 'Question fee: {amount} tgBTCat',
+      proposalFeeDetail: 'This token payment is not returned. It makes spam expensive.',
+      proposalFeeTooHigh: 'You need at least {amount} tgBTCat to create a question.',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
       feePreviewTitle: 'Fee preview',
@@ -326,20 +330,20 @@ const copyByLanguage = {
       walletNotConnected: 'Кошелек не подключен',
       send: 'Отправить голос',
       create: 'Создать вопрос',
-      max: 'МАКС',
+      max: 'макс',
       openExplorer: 'Открыть в обозревателе',
     },
     hero: {
-      title: 'Telegram BTC Cat',
+      title: 'telegram btc cat',
       text: 'Токен сообщества на TON под нарратив tgBTC. Держатели голосуют токенами за комиссии, правила для кошельков, решения по казне и события для сообщества.',
       vote: 'Начать голосование',
       tokenomics: 'Токеномика',
       create: 'Создать вопрос',
       metrics: [
-        ['Голоса', '', 'вес сообщества'],
-        ['Комиссии', '0-100%', 'решают держатели'],
-        ['Кошельки', 'Точечно', 'правила кошельков'],
-        ['События', 'Сезоны', 'кампании сообщества'],
+        ['голосовать токенами', 'за / против', 'отправляешь tgbtcat и добавляешь вес'],
+        ['создавать вопросы', 'плата tgbtcat', 'платишь токенами, чтобы не было спама'],
+        ['менять комиссии', '0-100%', 'покупка и продажа решаются публично'],
+        ['правила кошельков', 'один адрес', 'можно предложить комиссию для кошелька'],
       ],
       featureTitle: 'Правила решает сообщество.',
       featureText:
@@ -353,8 +357,8 @@ const copyByLanguage = {
       rulesTitle: 'Простые правила',
       rules: [
         ['Тратишь токены за голос', 'Чем больше tgBTCat отправишь, тем больше вес голоса.'],
-        ['Только ЗА или ПРОТИВ', 'Без воздержаться и без скрытых промежуточных вариантов.'],
-        ['Маленькая плата за вопрос', '0.05 TON за создание публичного вопроса, чтобы не было спама.'],
+        ['только за или против', 'два понятных варианта без скрытых промежуточных состояний.'],
+        ['маленькая плата за вопрос', '1 000 tgbtcat за создание публичного вопроса, чтобы не было спама.'],
       ],
       eventsTitle: 'Какие события может запускать сообщество',
       eventsText: 'События должны давать видимое движение: мемы, рейды, рейтинги, награды и публичные решения по кошелькам.',
@@ -439,7 +443,7 @@ const copyByLanguage = {
       voterJettonWallet: 'Кошелек токена',
       walletPlaceholder: 'Заполнится автоматически',
       amount: 'Сколько tgBTCat отдать за голос',
-      flow: ['Подключите кошелек', 'Мы сами найдем баланс токенов', 'Введите количество tgBTCat', 'Подпишите транзакцию в кошельке'],
+      flow: ['подключите кошелек', 'мы сами найдем баланс токенов', 'введите количество tgbtcat', 'подпишите транзакцию в кошельке'],
       bindingIdle: 'Подключите кошелек, и баланс токенов найдется автоматически.',
       bindingLoading: 'Ищу баланс токенов...',
       bindingReady: 'Баланс токенов:',
@@ -448,8 +452,8 @@ const copyByLanguage = {
       rules: [
         ['1 tgBTCat = 1 голос', 'Вес голоса равен количеству токенов, которые вы отправляете.'],
         ['Токены не возвращаются', 'После голосования отправленные токены остаются в системе.'],
-        ['Только два выбора', 'В каждом вопросе есть ЗА и ПРОТИВ.'],
-        ['Вопросы платные', 'Создание публичного вопроса стоит небольшую плату в TON.'],
+        ['только два выбора', 'в каждом вопросе есть за и против.'],
+        ['Вопросы платные', 'Создание публичного вопроса стоит 1 000 tgBTCat.'],
       ],
       balanceTitle: 'Ваш баланс tgBTCat',
       balanceEmpty: 'Подключите кошелек, чтобы увидеть доступные токены.',
@@ -458,8 +462,11 @@ const copyByLanguage = {
       impactTitle: 'Предпросмотр голоса',
       currentWeight: 'Текущий результат',
       afterVote: 'После вашего голоса',
-      outcomeFor: 'Если победит ЗА, вопрос можно будет исполнить ончейн.',
-      outcomeAgainst: 'Если победит ПРОТИВ, ничего не изменится.',
+      outcomeFor: 'если победит за, вопрос можно будет исполнить ончейн.',
+      outcomeAgainst: 'если победит против, ничего не изменится.',
+      proposedFees: 'предложенные комиссии',
+      buyProposed: 'покупка',
+      sellProposed: 'продажа',
       createTitle: 'Создать вопрос про комиссии',
       createIntro: 'Выберите, что меняет вопрос. Сайт подготовит транзакцию, кошелек покажет ее, а держатели смогут голосовать после создания.',
       globalRoute: 'Для всех покупок и продаж',
@@ -473,8 +480,9 @@ const copyByLanguage = {
       targetWalletInvalid: 'Вставьте корректный TON-адрес кошелька.',
       votingDuration: 'Сколько минут идет голосование',
       durationHint: 'Для быстрых решений подойдут 10, 30 или 60 минут. Для больших вопросов лучше один день.',
-      proposalFee: 'Плата за вопрос: {amount} TON',
-      proposalFeeDetail: 'Она списывается при создании вопроса, уменьшает спам и покрывает работу сети.',
+      proposalFee: 'плата за вопрос: {amount} tgbtcat',
+      proposalFeeDetail: 'эта оплата токенами не возвращается. так спамить вопросами становится дорого.',
+      proposalFeeTooHigh: 'нужно минимум {amount} tgbtcat, чтобы создать вопрос.',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
       feePreviewTitle: 'Предпросмотр комиссии',
@@ -497,8 +505,8 @@ const copyByLanguage = {
       executed: 'Исполнено',
     } satisfies Record<ProposalStatus, string>,
     sides: {
-      1: 'ЗА',
-      2: 'ПРОТИВ',
+      1: 'за',
+      2: 'против',
     } satisfies Record<VoteSide, string>,
     proposals: {
       0: {
@@ -663,16 +671,21 @@ export default function App() {
   const sendProposal = async () => {
     clearFeedback();
     try {
-      requireAddress(connectedAddress, t.vote.connectRequired);
+      const responseAddress = requireAddress(connectedAddress, t.vote.connectRequired);
+      const voterJettonWallet = requireAddress(voteForm.voterJettonWallet, t.vote.bindingIdle);
       const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
       const votingEndsAt = unixMinutesFromNow(parseDurationMinutes(proposalForm.votingDurationMinutes));
       const baseInput = {
+        voterJettonWallet,
         governorAddress,
+        responseAddress,
         queryId: createQueryId(),
         buyFeePercent: proposalForm.buyFeePercent,
         sellFeePercent: proposalForm.sellFeePercent,
         votingEndsAt,
-        gasTon: PROPOSAL_CREATE_TON,
+        proposalJettonAmount: PROPOSAL_CREATE_JETTONS,
+        gasTon: DEFAULT_VOTE_GAS_TON,
+        forwardTon: DEFAULT_VOTE_FORWARD_TON,
       };
       const transaction =
         proposalForm.kind === 'wallet'
@@ -1105,6 +1118,9 @@ function VotePage({
               copy={copy}
               form={proposalForm}
               connectedAddress={connectedAddress}
+              voterJettonWallet={voteForm.voterJettonWallet}
+              walletBinding={walletBinding}
+              tokenBalance={tokenBalance}
               onConnectWallet={onConnectWallet}
               onChange={onProposalChange}
               onSend={onSendProposal}
@@ -1215,6 +1231,7 @@ function ProposalTable({
                 <small>{proposalCopy?.summary ?? proposal.route}</small>
               </span>
               <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
+              <ProposedFees copy={copy} proposal={proposal} compact />
               <VoteBars proposal={proposal} />
               <span className="proposal-meta">
                 <Clock3 size={15} />
@@ -1225,6 +1242,29 @@ function ProposalTable({
         })}
       </div>
     </section>
+  );
+}
+
+function ProposedFees({
+  copy,
+  proposal,
+  compact = false,
+}: {
+  copy: AppCopy;
+  proposal: ProposalRow;
+  compact?: boolean;
+}) {
+  if (proposal.buyFeePercent === undefined || proposal.sellFeePercent === undefined) {
+    return null;
+  }
+
+  return (
+    <div className={compact ? 'proposed-fees proposed-fees-compact' : 'proposed-fees'}>
+      {!compact && <strong>{copy.vote.proposedFees}</strong>}
+      <span>{copy.vote.buyProposed}: {proposal.buyFeePercent}%</span>
+      <span>{copy.vote.sellProposed}: {proposal.sellFeePercent}%</span>
+      {proposal.walletRule && <small>{proposal.walletRule}</small>}
+    </div>
   );
 }
 
@@ -1284,28 +1324,20 @@ function VotePanel({
         <h2>{copy.vote.castTitle}</h2>
         <span className="status status-open">{copy.vote.jettonTransfer}</span>
       </div>
-      <div className="vote-flow" aria-label="Vote flow">
-        {copy.vote.flow.map((step, index) => (
-          <span
-            key={step}
-            className={
-              (index === 0 && connectedAddress) ||
-              (index === 1 && walletBinding === 'ready') ||
-              (index === 2 && connectedAddress && Number(form.jettonAmount) > 0)
-                ? 'is-done'
-                : ''
-            }
-          >
-            {index + 1}. {step}
-          </span>
-        ))}
-      </div>
+      {!connectedAddress && (
+        <div className="vote-flow" aria-label="Vote flow">
+          {copy.vote.flow.map((step, index) => (
+            <span key={step}>{index + 1}. {step}</span>
+          ))}
+        </div>
+      )}
       <div className="selected-proposal">
         <strong>
           #{proposal.id} {proposalCopy?.title ?? proposal.title}
         </strong>
         <small>{proposalCopy?.execution ?? proposal.execution}</small>
       </div>
+      <ProposedFees copy={copy} proposal={proposal} />
       {connectedAddress ? (
         <div className="balance-card">
           <div className={`wallet-strip wallet-strip-${walletBinding}`}>
@@ -1400,6 +1432,9 @@ function ProposalBuilder({
   copy,
   form,
   connectedAddress,
+  voterJettonWallet,
+  walletBinding,
+  tokenBalance,
   onConnectWallet,
   onChange,
   onSend,
@@ -1408,10 +1443,17 @@ function ProposalBuilder({
   copy: AppCopy;
   form: ProposalFormState;
   connectedAddress: string;
+  voterJettonWallet: string;
+  walletBinding: WalletBindingState;
+  tokenBalance: string;
   onConnectWallet: () => void;
   onChange: (patch: Partial<ProposalFormState>) => void;
   onSend: () => void;
 }) {
+  const proposalFeeUnits = parseDecimalUnits(PROPOSAL_CREATE_JETTONS, true);
+  const balanceUnits = tokenBalance ? parseDecimalUnits(tokenBalance, false) : null;
+  const proposalFeeTooHigh =
+    walletBinding === 'ready' && proposalFeeUnits !== null && balanceUnits !== null && balanceUnits < proposalFeeUnits;
   const targetWalletInvalid =
     form.kind === 'wallet' && form.targetWallet.trim() !== '' && !isValidTonAddress(form.targetWallet);
   const targetWalletMissing = form.kind === 'wallet' && !form.targetWallet.trim();
@@ -1420,6 +1462,8 @@ function ProposalBuilder({
   const sellFeeInvalid = !isFeePercentValid(form.sellFeePercent);
   const createDisabled =
     !connectedAddress ||
+    !voterJettonWallet ||
+    proposalFeeTooHigh ||
     targetWalletMissing ||
     targetWalletInvalid ||
     durationInvalid ||
@@ -1488,9 +1532,12 @@ function ProposalBuilder({
       </div>
       <div className="proposal-fee-note">
         <Wallet size={17} />
-        <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_TON)}</span>
+        <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_JETTONS)}</span>
       </div>
       <p className="field-hint">{copy.vote.proposalFeeDetail}</p>
+      {proposalFeeTooHigh && (
+        <p className="field-error">{copy.vote.proposalFeeTooHigh.replace('{amount}', PROPOSAL_CREATE_JETTONS)}</p>
+      )}
       <div className="fee-grid">
         <FeeControl label={copy.vote.buyFee} value={form.buyFeePercent} onChange={(buyFeePercent) => onChange({ buyFeePercent })} />
         <FeeControl label={copy.vote.sellFee} value={form.sellFeePercent} onChange={(sellFeePercent) => onChange({ sellFeePercent })} />

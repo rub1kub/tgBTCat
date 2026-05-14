@@ -90,7 +90,7 @@ fun assertProposalPassed(proposal: Proposal, minQuorumVotes: coins) {
     assert (proposal.forVotes > proposal.againstVotes) throw GovErrors.ProposalRejected;
 }
 
-fun parseVotePayloadCell(payload: cell): CastVotePayload {
+fun parseGovernanceJettonPayloadCell(payload: cell): GovernanceJettonPayload {
     var payloadSlice = payload.beginParse();
     if (
         payloadSlice.remainingBitsCount() == 1 && payloadSlice.preloadUint(1) == 1 &&
@@ -99,30 +99,51 @@ fun parseVotePayloadCell(payload: cell): CastVotePayload {
         payloadSlice.loadUint(1);
         val nestedPayload = payloadSlice.loadRef();
         payloadSlice.assertEnd();
-        return CastVotePayload.fromCell(
+        return GovernanceJettonPayload.fromCell(
             nestedPayload,
             { throwIfOpcodeDoesNotMatch: GovErrors.InvalidVotePayload },
         );
     }
 
-    return CastVotePayload.fromCell(
+    return GovernanceJettonPayload.fromCell(
         payload,
         { throwIfOpcodeDoesNotMatch: GovErrors.InvalidVotePayload },
     );
 }
 
-fun parseVotePayload(forwardPayload: ForwardPayloadRemainder): CastVotePayload {
+fun parseGovernanceJettonPayload(forwardPayload: ForwardPayloadRemainder): GovernanceJettonPayload {
     var payloadSlice = forwardPayload;
     val payloadRef = payloadSlice.loadMaybeRef();
     if (payloadRef != null) {
         payloadSlice.assertEnd();
-        return parseVotePayloadCell(payloadRef);
+        return parseGovernanceJettonPayloadCell(payloadRef);
     }
 
-    return CastVotePayload.fromSlice(
+    return GovernanceJettonPayload.fromSlice(
         payloadSlice,
         { throwIfOpcodeDoesNotMatch: GovErrors.InvalidVotePayload },
     );
+}
+
+fun proposalFromCreateMessage(msg: CreateGovernanceProposal): Proposal {
+    assertFeeBps(msg.buyFeeBps);
+    assertFeeBps(msg.sellFeeBps);
+    assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
+
+    return {
+        actionType: msg.actionType,
+        target: msg.target,
+        auxTarget: optionalAddressCell(msg.auxTarget),
+        flags: msg.flags,
+        buyFeeBps: msg.buyFeeBps,
+        sellFeeBps: msg.sellFeeBps,
+        reasonHash: msg.reasonHash,
+        votingEndsAt: msg.votingEndsAt,
+        forVotes: 0,
+        againstVotes: 0,
+        abstainVotes: 0,
+        executed: false,
+    };
 }
 
 fun onInternalMessage(in: InMessage) {
@@ -131,10 +152,7 @@ fun onInternalMessage(in: InMessage) {
     match (msg) {
         CreateGovernanceProposal => {
             var storage = lazy GovernorStorage.load();
-            assert (in.valueCoins >= MIN_PROPOSAL_CREATE_VALUE) throw GovErrors.ProposalFeeTooSmall;
-            assertFeeBps(msg.buyFeeBps);
-            assertFeeBps(msg.sellFeeBps);
-            assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
+            assertGovernor(in.senderAddress, storage.admin);
 
             val proposalId = storage.nextProposalId;
             storage.nextProposalId += 1;
@@ -142,20 +160,7 @@ fun onInternalMessage(in: InMessage) {
                 .proposals
                 .set(
                     proposalId,
-                    {
-                        actionType: msg.actionType,
-                        target: msg.target,
-                        auxTarget: optionalAddressCell(msg.auxTarget),
-                        flags: msg.flags,
-                        buyFeeBps: msg.buyFeeBps,
-                        sellFeeBps: msg.sellFeeBps,
-                        reasonHash: msg.reasonHash,
-                        votingEndsAt: msg.votingEndsAt,
-                        forVotes: 0,
-                        againstVotes: 0,
-                        abstainVotes: 0,
-                        executed: false,
-                    },
+                    proposalFromCreateMessage(msg),
                 );
             storage.save();
         }
@@ -204,24 +209,38 @@ fun onInternalMessage(in: InMessage) {
             ) throw GovErrors.NotVoteJettonWallet;
             assert (msg.jettonAmount >= storage.minVoteAmount) throw GovErrors.VoteTooSmall;
 
-            val vote = parseVotePayload(msg.forwardPayload);
-            assertVoteSide(vote.side);
+            val payload = parseGovernanceJettonPayload(msg.forwardPayload);
+            match (payload) {
+                CastVotePayload => {
+                    assert (msg.jettonAmount >= storage.minVoteAmount) throw GovErrors.VoteTooSmall;
+                    assertVoteSide(payload.side);
 
-            val proposalResult = storage.proposals.get(vote.proposalId);
-            assert (proposalResult.isFound) throw GovErrors.UnknownProposal;
-            var proposal = proposalResult.loadValue();
-            assert (blockchain.now() <= proposal.votingEndsAt) throw GovErrors.VotingClosed;
+                    val proposalResult = storage.proposals.get(payload.proposalId);
+                    assert (proposalResult.isFound) throw GovErrors.UnknownProposal;
+                    var proposal = proposalResult.loadValue();
+                    assert (blockchain.now() <= proposal.votingEndsAt) throw GovErrors.VotingClosed;
 
-            if (vote.side == VOTE_SIDE_FOR) {
-                proposal.forVotes += msg.jettonAmount;
-            } else if (vote.side == VOTE_SIDE_AGAINST) {
-                proposal.againstVotes += msg.jettonAmount;
-            } else {
-                proposal.abstainVotes += msg.jettonAmount;
+                    if (payload.side == VOTE_SIDE_FOR) {
+                        proposal.forVotes += msg.jettonAmount;
+                    } else {
+                        proposal.againstVotes += msg.jettonAmount;
+                    }
+
+                    storage.proposals.set(payload.proposalId, proposal);
+                    storage.save();
+                }
+
+                CreateGovernanceProposal => {
+                    assert (
+                        msg.jettonAmount >= MIN_PROPOSAL_CREATE_JETTONS
+                    ) throw GovErrors.ProposalFeeTooSmall;
+
+                    val proposalId = storage.nextProposalId;
+                    storage.nextProposalId += 1;
+                    storage.proposals.set(proposalId, proposalFromCreateMessage(payload));
+                    storage.save();
+                }
             }
-
-            storage.proposals.set(vote.proposalId, proposal);
-            storage.save();
         }
 
         SetVoteJettonWallet => {
