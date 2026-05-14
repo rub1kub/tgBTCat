@@ -1117,19 +1117,28 @@ function VotePanel({
         </strong>
         <small>{proposalCopy?.execution ?? proposal.execution}</small>
       </div>
-      <label>
-        {copy.vote.voterJettonWallet}
-        <input
-          value={form.voterJettonWallet}
-          onChange={(event) => onChange({ voterJettonWallet: event.target.value })}
-          placeholder={copy.vote.walletPlaceholder}
-          spellCheck={false}
-        />
-      </label>
-      <div className={`wallet-strip wallet-strip-${walletBinding}`}>
-        <Wallet size={17} />
-        <span>{bindingText}</span>
-      </div>
+      {connectedAddress ? (
+        <>
+          <label>
+            {copy.vote.voterJettonWallet}
+            <input
+              value={form.voterJettonWallet}
+              onChange={(event) => onChange({ voterJettonWallet: event.target.value })}
+              placeholder={copy.vote.walletPlaceholder}
+              spellCheck={false}
+            />
+          </label>
+          <div className={`wallet-strip wallet-strip-${walletBinding}`}>
+            <Wallet size={17} />
+            <span>{bindingText}</span>
+          </div>
+        </>
+      ) : (
+        <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
+          <Wallet size={18} />
+          {copy.common.connect}
+        </button>
+      )}
       <label>
         {copy.vote.amount}
         <input value={form.jettonAmount} onChange={(event) => onChange({ jettonAmount: event.target.value })} />
@@ -1159,15 +1168,12 @@ function VotePanel({
           </label>
         </div>
       </details>
-      <div className="owner-strip">
-        <Wallet size={17} />
-        <span>{connectedAddress ? shortAddress(connectedAddress) : copy.common.walletNotConnected}</span>
-        {!connectedAddress && (
-          <button type="button" onClick={onConnectWallet}>
-            {copy.common.connect}
-          </button>
-        )}
-      </div>
+      {connectedAddress && (
+        <div className="owner-strip">
+          <Wallet size={17} />
+          <span>{shortAddress(connectedAddress)}</span>
+        </div>
+      )}
       <div className="button-row">
         <button className="secondary-action" type="button" onClick={onBuild} disabled={!connectedAddress || !form.voterJettonWallet}>
           <Settings2 size={18} />
