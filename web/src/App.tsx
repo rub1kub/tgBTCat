@@ -113,7 +113,7 @@ const copyByLanguage = {
     },
     hero: {
       title: 'Telegram BTC Cat',
-      text: 'A community token on TON built around the tgBTC narrative. Holders use tokens to vote on fees, wallet rules, the treasury, and community events.',
+      text: 'A community token on TON built around the tgBTC narrative. Holders use tokens to vote on fees, specific wallet fees, the treasury, and community events.',
       vote: 'Start voting',
       tokenomics: 'Tokenomics',
       create: 'Create question',
@@ -125,11 +125,11 @@ const copyByLanguage = {
       ],
       featureTitle: 'The community decides the rules.',
       featureText:
-        'Holders choose buy and sell fees, propose rules for specific wallets, and launch community events without waiting for a hidden admin.',
+        'Holders choose buy and sell fees, propose fees for specific wallets, and launch community events without waiting for a hidden admin.',
       decisionTitle: 'What holders can decide',
       decisions: [
         ['Buy and sell fees', 'from 0% to 100%'],
-        ['Wallet rules', 'set by public vote'],
+        ['Specific wallet fees', 'set by public vote'],
         ['Treasury actions', 'only through public decisions'],
       ],
       rulesTitle: 'Simple rules',
@@ -138,13 +138,13 @@ const copyByLanguage = {
         ['for or against', 'two clear choices and no hidden middle state.'],
         ['Small question fee', '1,000 tgBTCat to create a public question and reduce spam.'],
       ],
-      eventsTitle: 'Event ideas the DAO can run',
-      eventsText: 'Events should create visible action: memes, raids, rankings, rewards, and public wallet decisions.',
+      eventsTitle: 'Clear event ideas',
+      eventsText: 'Events should be easy to understand: votes, contests, rankings, rewards, and public wallet decisions.',
       events: [
-        ['Satoshi Council', 'Weekly leaderboard for voters who spend the most tgBTCat on public decisions.'],
-        ['Fee Arena', 'A weekend vote where holders pick temporary buy and sell fees for a campaign.'],
-        ['Wallet Trial', 'A public vote to set or clear a rule for a specific wallet address.'],
-        ['Cat Meme Season', 'Meme contest with treasury-backed rewards and on-chain final vote.'],
+        ['Active voter ranking', 'Weekly ranking of holders who spent the most tgBTCat on voting.'],
+        ['Temporary fee vote', 'A short vote where holders choose buy and sell fees for a campaign.'],
+        ['Specific wallet fee', 'A public vote to add or remove fees for one wallet address.'],
+        ['Meme contest', 'A simple meme contest with rewards and a final community vote.'],
       ],
     },
     tokenomics: {
@@ -161,13 +161,13 @@ const copyByLanguage = {
       ],
       principles: [
         ['Votes are final', 'Tokens sent for a vote are not returned.'],
-        ['Fees are public', 'Buy, sell, and wallet rules are decided by holders.'],
+        ['Fees are public', 'Buy, sell, and specific wallet fees are decided by holders.'],
         ['Treasury is visible', 'Spending decisions are made through proposals and can be checked on-chain.'],
       ],
     },
     roadmap: {
       title: 'Roadmap',
-      text: 'The path from launch to a governed token economy: token, voting, wallet rules, treasury, and recurring community seasons.',
+      text: 'The path from launch to a governed token economy: token, voting, specific wallet fees, treasury, and recurring community activity.',
       openVote: 'Open voting',
       phases: [
         {
@@ -190,7 +190,7 @@ const copyByLanguage = {
         },
         {
           phase: '04',
-          title: 'Wallet rules',
+          title: 'Specific wallet fees',
           status: 'Planned',
           detail: 'Let holders propose wallet-specific buy and sell fees through paid public questions.',
         },
@@ -198,7 +198,7 @@ const copyByLanguage = {
           phase: '05',
           title: 'Community seasons',
           status: 'Planned',
-          detail: 'Run recurring events, contests, raids, leaderboard votes, and treasury-backed community campaigns.',
+          detail: 'Run recurring votes, contests, rankings, rewards, and treasury-backed community campaigns.',
         },
         {
           phase: '06',
@@ -300,7 +300,7 @@ const copyByLanguage = {
         execution: 'Wallet rule',
       },
       2: {
-        title: 'Open Satoshi Council event',
+        title: 'Open active voter ranking',
         summary: 'Community event',
         endsIn: 'closed',
         execution: 'Community event',
@@ -335,7 +335,7 @@ const copyByLanguage = {
     },
     hero: {
       title: 'telegram btc cat',
-      text: 'Токен сообщества на TON под нарратив tgBTC. Держатели голосуют токенами за комиссии, правила для кошельков, решения по казне и события для сообщества.',
+      text: 'токен сообщества на TON под нарратив tgBTC. держатели голосуют токенами за комиссии, комиссии для конкретных кошельков, решения по казне и события для сообщества.',
       vote: 'Начать голосование',
       tokenomics: 'Токеномика',
       create: 'Создать вопрос',
@@ -347,11 +347,11 @@ const copyByLanguage = {
       ],
       featureTitle: 'Правила решает сообщество.',
       featureText:
-        'Держатели выбирают комиссии покупки и продажи, могут предложить правило для конкретного кошелька и запускать события для сообщества без скрытого админа.',
+        'держатели выбирают комиссии покупки и продажи, могут предложить комиссию для конкретного кошелька и запускать события для сообщества без скрытого админа.',
       decisionTitle: 'Что могут решать держатели',
       decisions: [
         ['Комиссии покупки и продажи', 'от 0% до 100%'],
-        ['Правила для кошельков', 'через публичное голосование'],
+        ['комиссии для конкретных кошельков', 'через публичное голосование'],
         ['Действия с казной', 'только через публичные решения'],
       ],
       rulesTitle: 'Простые правила',
@@ -360,13 +360,13 @@ const copyByLanguage = {
         ['только за или против', 'два понятных варианта без скрытых промежуточных состояний.'],
         ['маленькая плата за вопрос', '1 000 tgbtcat за создание публичного вопроса, чтобы не было спама.'],
       ],
-      eventsTitle: 'Какие события может запускать сообщество',
-      eventsText: 'События должны давать видимое движение: мемы, рейды, рейтинги, награды и публичные решения по кошелькам.',
+      eventsTitle: 'понятные идеи для событий',
+      eventsText: 'события должны быть простыми: голосования, конкурсы, рейтинги, награды и публичные решения по кошелькам.',
       events: [
-        ['Совет Сатоши', 'Еженедельный рейтинг тех, кто вложил больше всего tgBTCat в решения сообщества.'],
-        ['Арена комиссий', 'Голосование на выходные, где держатели выбирают комиссии покупки и продажи для кампании.'],
-        ['Разбор кошелька', 'Публичное решение: поставить или убрать правило для конкретного кошелька.'],
-        ['Мем-сезон кота', 'Конкурс мемов с наградами из казны и финальным голосованием ончейн.'],
+        ['рейтинг активных голосующих', 'еженедельный рейтинг тех, кто потратил больше всего tgBTCat на голосования.'],
+        ['голосование за временные комиссии', 'короткое голосование, где держатели выбирают комиссии покупки и продажи для кампании.'],
+        ['комиссия для конкретного кошелька', 'публичное голосование, чтобы добавить или убрать комиссию для одного адреса.'],
+        ['конкурс мемов', 'простой конкурс мемов с наградами и финальным голосованием сообщества.'],
       ],
     },
     tokenomics: {
@@ -420,7 +420,7 @@ const copyByLanguage = {
           phase: '05',
           title: 'Сезоны сообщества',
           status: 'План',
-          detail: 'Проводим события, конкурсы, рейды, голосования рейтингов и кампании сообщества с поддержкой из казны.',
+          detail: 'проводим голосования, конкурсы, рейтинги, награды и кампании сообщества с поддержкой из казны.',
         },
         {
           phase: '06',
@@ -522,7 +522,7 @@ const copyByLanguage = {
         execution: 'Правило кошелька',
       },
       2: {
-        title: 'Открыть событие Satoshi Council',
+        title: 'открыть рейтинг активных голосующих',
         summary: 'Событие для сообщества',
         endsIn: 'закрыто',
         execution: 'Событие сообщества',
