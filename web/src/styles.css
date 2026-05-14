@@ -897,6 +897,28 @@ main {
   margin-top: 20px;
 }
 
+.proposal-empty-state {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  align-content: center;
+  padding: 24px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+}
+
+.proposal-empty-state strong {
+  font-size: 22px;
+}
+
+.proposal-empty-state p,
+.empty-vote-panel p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .proposal-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1032,6 +1054,10 @@ main {
 .form-panel {
   display: grid;
   gap: 18px;
+}
+
+.empty-vote-panel {
+  align-content: start;
 }
 
 .selected-proposal {
@@ -1628,6 +1654,7 @@ select,
 .rule-card > span,
 .event-card > span,
 .proposal-row,
+.proposal-empty-state,
 .proposed-fees,
 .proposed-fees span,
 .proposed-fees small,

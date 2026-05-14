@@ -121,7 +121,7 @@ const copyByLanguage = {
         ['Vote with tokens', 'for / against', 'send tgBTCat to add weight'],
         ['Create questions', 'tgBTCat fee', 'pay tokens so spam is expensive'],
         ['Change fees', '0-100%', 'buy and sell fees are public'],
-        ['Wallet fees', 'specific wallet', 'apply fees to one wallet address'],
+        ['Wallet fees', 'specific wallet', 'apply fees to a specific wallet address'],
       ],
       featureTitle: 'The community decides the rules.',
       featureText:
@@ -142,8 +142,8 @@ const copyByLanguage = {
       eventsText: 'Events should be easy to understand: votes, contests, rankings, rewards, and public wallet decisions.',
       events: [
         ['Active voter ranking', 'Weekly ranking of holders who spent the most tgBTCat on voting.'],
-        ['Temporary fee vote', 'A short vote where holders choose buy and sell fees for a campaign.'],
-        ['Specific wallet fee', 'A public vote to add or remove fees for one wallet address.'],
+        ['Temporary fee vote', 'A short vote where holders choose buy and sell fees for the token.'],
+        ['Specific wallet fee', 'A public vote to add or remove fees for a specific address.'],
         ['Meme contest', 'A simple meme contest with rewards and a final community vote.'],
       ],
     },
@@ -155,7 +155,7 @@ const copyByLanguage = {
       allocations: [
         { label: 'Liquidity', value: 45, detail: 'trading depth and market support' },
         { label: 'Treasury', value: 25, detail: 'development and community decisions' },
-        { label: 'Events', value: 15, detail: 'contests, campaigns, and seasons' },
+        { label: 'Events', value: 15, detail: 'contests, rewards, and voting' },
         { label: 'Reserve', value: 10, detail: 'partnerships and unexpected costs' },
         { label: 'Launch', value: 5, detail: 'site, setup, and public rollout' },
       ],
@@ -198,7 +198,7 @@ const copyByLanguage = {
           phase: '05',
           title: 'Community seasons',
           status: 'Planned',
-          detail: 'Run recurring votes, contests, rankings, rewards, and treasury-backed community campaigns.',
+          detail: 'Run recurring votes, contests, rankings, rewards, and treasury-backed community activity.',
         },
         {
           phase: '06',
@@ -215,6 +215,10 @@ const copyByLanguage = {
       propose: 'Create question',
       votesTitle: 'Questions',
       routes: 'questions',
+      emptyCount: '0 questions',
+      emptyQuestionsTitle: 'No questions yet',
+      emptyQuestionsText: 'Create the first question: general buy and sell fees, or fees for a specific wallet.',
+      createFirstQuestion: 'Create first question',
       castTitle: 'Your vote',
       jettonTransfer: 'Tokens are not returned',
       selectedProposal: 'Selected question',
@@ -248,11 +252,11 @@ const copyByLanguage = {
       createTitle: 'Create a fee question',
       createIntro: 'Choose what the question changes. The site prepares the transaction, the wallet shows it, and holders vote after it is created.',
       globalRoute: 'For all buys and sells',
-      walletRoute: 'For one wallet',
+      walletRoute: 'For a specific wallet',
       proposalKindGlobal: 'All buys and sells',
-      proposalKindWallet: 'One wallet',
+      proposalKindWallet: 'Specific wallet',
       scenarioGlobal: 'Change the general buy and sell fees for everyone.',
-      scenarioWallet: 'Set buy and sell fees for one wallet address only.',
+      scenarioWallet: 'Set buy and sell fees for a specific wallet address.',
       targetWallet: 'Wallet address',
       targetWalletPlaceholder: 'Paste TON wallet address',
       targetWalletInvalid: 'Paste a valid TON wallet address.',
@@ -294,19 +298,19 @@ const copyByLanguage = {
         execution: 'Fee decision',
       },
       1: {
-        title: 'Fee for one wallet',
+        title: 'Fee for a specific wallet',
         summary: 'Wallet-specific rule',
         endsIn: 'closed',
         execution: 'Wallet rule',
       },
       2: {
-        title: 'Open active voter ranking',
+        title: 'Community reward vote',
         summary: 'Community event',
         endsIn: 'closed',
         execution: 'Community event',
       },
       3: {
-        title: 'Top up liquidity treasury',
+        title: 'Treasury reward vote',
         summary: 'Treasury decision',
         endsIn: 'executed',
         execution: 'Treasury',
@@ -364,8 +368,8 @@ const copyByLanguage = {
       eventsText: 'события должны быть простыми: голосования, конкурсы, рейтинги, награды и публичные решения по кошелькам.',
       events: [
         ['рейтинг активных голосующих', 'еженедельный рейтинг тех, кто потратил больше всего tgBTCat на голосования.'],
-        ['голосование за временные комиссии', 'короткое голосование, где держатели выбирают комиссии покупки и продажи для кампании.'],
-        ['комиссия для конкретного кошелька', 'публичное голосование, чтобы добавить или убрать комиссию для одного адреса.'],
+        ['голосование за временные комиссии', 'короткое голосование, где держатели выбирают комиссии покупки и продажи для токена.'],
+        ['комиссия для конкретного кошелька', 'публичное голосование, чтобы добавить или убрать комиссию для конкретного адреса.'],
         ['конкурс мемов', 'простой конкурс мемов с наградами и финальным голосованием сообщества.'],
       ],
     },
@@ -377,7 +381,7 @@ const copyByLanguage = {
       allocations: [
         { label: 'Ликвидность', value: 45, detail: 'для торгов и поддержки рынка' },
         { label: 'Казна', value: 25, detail: 'на развитие и решения сообщества' },
-        { label: 'События', value: 15, detail: 'конкурсы, кампании и сезоны' },
+        { label: 'События', value: 15, detail: 'конкурсы, награды и голосования' },
         { label: 'Резерв', value: 10, detail: 'партнерства и непредвиденные расходы' },
         { label: 'Запуск', value: 5, detail: 'сайт, подготовка и публичный старт' },
       ],
@@ -420,7 +424,7 @@ const copyByLanguage = {
           phase: '05',
           title: 'Сезоны сообщества',
           status: 'План',
-          detail: 'проводим голосования, конкурсы, рейтинги, награды и кампании сообщества с поддержкой из казны.',
+          detail: 'проводим голосования, конкурсы, рейтинги, награды и активности сообщества с поддержкой из казны.',
         },
         {
           phase: '06',
@@ -437,6 +441,10 @@ const copyByLanguage = {
       propose: 'Создать вопрос',
       votesTitle: 'Вопросы',
       routes: 'вопроса',
+      emptyCount: '0 вопросов',
+      emptyQuestionsTitle: 'вопросов пока нет',
+      emptyQuestionsText: 'создайте первый вопрос: общие комиссии покупки и продажи или комиссия для конкретного кошелька.',
+      createFirstQuestion: 'создать первый вопрос',
       castTitle: 'Ваш голос',
       jettonTransfer: 'Токены не возвращаются',
       selectedProposal: 'Выбранный вопрос',
@@ -470,11 +478,11 @@ const copyByLanguage = {
       createTitle: 'Создать вопрос про комиссии',
       createIntro: 'Выберите, что меняет вопрос. Сайт подготовит транзакцию, кошелек покажет ее, а держатели смогут голосовать после создания.',
       globalRoute: 'Для всех покупок и продаж',
-      walletRoute: 'Для одного кошелька',
+      walletRoute: 'для конкретного кошелька',
       proposalKindGlobal: 'Все покупки и продажи',
-      proposalKindWallet: 'Один кошелек',
+      proposalKindWallet: 'конкретный кошелек',
       scenarioGlobal: 'Изменить общие комиссии покупки и продажи для всех.',
-      scenarioWallet: 'Поставить комиссии покупки и продажи только для одного кошелька.',
+      scenarioWallet: 'поставить комиссии покупки и продажи для конкретного кошелька.',
       targetWallet: 'Адрес кошелька',
       targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
       targetWalletInvalid: 'Вставьте корректный TON-адрес кошелька.',
@@ -516,19 +524,19 @@ const copyByLanguage = {
         execution: 'Решение по комиссиям',
       },
       1: {
-        title: 'Комиссия для одного кошелька',
+        title: 'комиссия для конкретного кошелька',
         summary: 'Правило для конкретного кошелька',
         endsIn: 'закрыто',
         execution: 'Правило кошелька',
       },
       2: {
-        title: 'открыть рейтинг активных голосующих',
+        title: 'голосование за награды сообщества',
         summary: 'Событие для сообщества',
         endsIn: 'закрыто',
         execution: 'Событие сообщества',
       },
       3: {
-        title: 'Пополнить казну ликвидности',
+        title: 'голосование за расходы казны',
         summary: 'Решение по казне',
         endsIn: 'исполнено',
         execution: 'Казна',
@@ -565,7 +573,7 @@ export default function App() {
 
   const t = copyByLanguage[language];
   const addressBook = addressBooks[network];
-  const selectedProposal = proposalRows.find((proposal) => proposal.id === selectedProposalId) ?? proposalRows[0];
+  const selectedProposal = proposalRows.find((proposal) => proposal.id === selectedProposalId);
   const navItems = useMemo(
     () => navItemIds.map((id) => ({ id, label: t.nav[id] })),
     [t.nav],
@@ -1052,7 +1060,7 @@ function VotePage({
   onModeChange: (mode: GovernanceMode) => void;
   selectedProposalId: number;
   onSelectProposal: (proposalId: number) => void;
-  selectedProposal: ProposalRow;
+  selectedProposal: ProposalRow | undefined;
   voteForm: VoteFormState;
   proposalForm: ProposalFormState;
   connectedAddress: string;
@@ -1098,7 +1106,7 @@ function VotePage({
       <div className="governance-grid">
         <ProposalTable copy={copy} selectedProposalId={selectedProposalId} onSelect={onSelectProposal} />
         <div className="governance-workspace">
-          {governanceMode === 'cast' ? (
+          {governanceMode === 'cast' && selectedProposal ? (
             <VotePanel
               language={language}
               copy={copy}
@@ -1112,6 +1120,8 @@ function VotePage({
               onChange={onVoteChange}
               onSend={onSendVote}
             />
+          ) : governanceMode === 'cast' ? (
+            <EmptyVotePanel copy={copy} onCreateQuestion={() => onModeChange('propose')} />
           ) : (
             <ProposalBuilder
               language={language}
@@ -1213,11 +1223,16 @@ function ProposalTable({
       <div className="section-header">
         <h2>{copy.vote.votesTitle}</h2>
         <span className="quiet-count">
-          {proposalRows.length} {copy.vote.routes}
+          {proposalRows.length > 0 ? `${proposalRows.length} ${copy.vote.routes}` : copy.vote.emptyCount}
         </span>
       </div>
       <div className="proposal-list">
-        {proposalRows.map((proposal) => {
+        {proposalRows.length === 0 ? (
+          <div className="proposal-empty-state">
+            <strong>{copy.vote.emptyQuestionsTitle}</strong>
+            <p>{copy.vote.emptyQuestionsText}</p>
+          </div>
+        ) : proposalRows.map((proposal) => {
           const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
           return (
             <button
@@ -1241,6 +1256,22 @@ function ProposalTable({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function EmptyVotePanel({ copy, onCreateQuestion }: { copy: AppCopy; onCreateQuestion: () => void }) {
+  return (
+    <section className="panel form-panel empty-vote-panel">
+      <div className="section-header">
+        <h2>{copy.vote.emptyQuestionsTitle}</h2>
+        <span className="status status-queued">{copy.vote.emptyCount}</span>
+      </div>
+      <p>{copy.vote.emptyQuestionsText}</p>
+      <button className="primary-action wide-action" type="button" onClick={onCreateQuestion}>
+        <Plus size={18} />
+        {copy.vote.createFirstQuestion}
+      </button>
     </section>
   );
 }
