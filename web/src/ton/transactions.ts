@@ -2,7 +2,7 @@ import { Address, beginCell, Cell, toNano } from '@ton/core';
 import { TgBtcCatGovernor } from '../../../wrappers-ts/TgBtcCatGovernor.gen';
 import { TgBtcCatJettonWallet } from '../../../wrappers-ts/TgBtcCatJettonWallet.gen';
 
-export type VoteSide = 1 | 2 | 3;
+export type VoteSide = 1 | 2;
 
 export interface TonConnectTransaction {
   validUntil: number;
@@ -35,6 +35,10 @@ export interface GlobalFeeProposalInput {
   gasTon: string;
 }
 
+export interface WalletFeeProposalInput extends GlobalFeeProposalInput {
+  targetWallet: string;
+}
+
 export interface ResolveJettonWalletInput {
   network: 'mainnet' | 'testnet';
   jettonMaster: string;
@@ -43,6 +47,7 @@ export interface ResolveJettonWalletInput {
 
 const CAST_VOTE_OPCODE = 0x766f7465;
 const ACTION_SET_GLOBAL_FEES = 1;
+const ACTION_SET_WALLET_FEES = 2;
 const JETTON_DECIMALS = 9;
 const TONCENTER_V3_ENDPOINTS: Record<ResolveJettonWalletInput['network'], string> = {
   mainnet: 'https://toncenter.com/api/v3/runGetMethod',
@@ -111,6 +116,31 @@ export function buildGlobalFeeProposalTransaction(
   };
 }
 
+export function buildWalletFeeProposalTransaction(input: WalletFeeProposalInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfCreateGovernanceProposal({
+    queryId: parseUint(input.queryId, 'query id'),
+    actionType: BigInt(ACTION_SET_WALLET_FEES),
+    target: Address.parse(input.targetWallet),
+    auxTarget: null,
+    flags: 0n,
+    buyFeeBps: BigInt(percentToBps(input.buyFeePercent)),
+    sellFeeBps: BigInt(percentToBps(input.sellFeePercent)),
+    reasonHash: parseUint(input.reasonHash || '0', 'reason hash'),
+    votingEndsAt: parseUint(input.votingEndsAt, 'voting end'),
+  });
+
+  return {
+    validUntil: validUntil(),
+    messages: [
+      {
+        address: Address.parse(input.governorAddress).toString(),
+        amount: toNano(input.gasTon).toString(),
+        payload: cellToBase64(body),
+      },
+    ],
+  };
+}
+
 export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput): Promise<string> {
   const testOnly = input.network === 'testnet';
   const ownerSlice = beginCell().storeAddress(Address.parse(input.ownerAddress)).endCell();
@@ -151,6 +181,10 @@ export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput
 
 export function unixHoursFromNow(hours: number): string {
   return String(Math.floor(Date.now() / 1000) + hours * 60 * 60);
+}
+
+export function createQueryId(): string {
+  return String(Date.now());
 }
 
 export function shortAddress(address: string | null): string {

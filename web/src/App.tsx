@@ -11,7 +11,6 @@ import {
   Landmark,
   Plus,
   Send,
-  Settings2,
   Vote,
   Wallet,
 } from 'lucide-react';
@@ -26,6 +25,8 @@ import {
 import {
   buildGlobalFeeProposalTransaction,
   buildVoteTransaction,
+  buildWalletFeeProposalTransaction,
+  createQueryId,
   formatVotes,
   resolveJettonWalletAddress,
   shortAddress,
@@ -38,6 +39,7 @@ type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
 type GovernanceMode = 'cast' | 'propose';
 type LanguageKey = 'en' | 'ru';
 type WalletBindingState = 'idle' | 'loading' | 'ready' | 'manual' | 'error';
+type ProposalKind = 'global' | 'wallet';
 
 interface VoteFormState {
   voterJettonWallet: string;
@@ -49,15 +51,24 @@ interface VoteFormState {
 }
 
 interface ProposalFormState {
-  queryId: string;
+  kind: ProposalKind;
+  targetWallet: string;
   buyFeePercent: string;
   sellFeePercent: string;
-  votingEndsAt: string;
-  gasTon: string;
+  votingDurationHours: string;
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
 const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
+const DEFAULT_VOTE_GAS_TON = '0.3';
+const DEFAULT_VOTE_FORWARD_TON = '0.05';
+const DEFAULT_PROPOSAL_GAS_TON = '0.05';
+const VOTING_DURATION_OPTIONS = [
+  { value: '6', label: { en: '6 hours', ru: '6 часов' } },
+  { value: '24', label: { en: '1 day', ru: '1 день' } },
+  { value: '72', label: { en: '3 days', ru: '3 дня' } },
+  { value: '168', label: { en: '7 days', ru: '7 дней' } },
+] as const;
 
 const contractOrder: ContractKey[] = [
   'governor',
@@ -87,7 +98,6 @@ const copyByLanguage = {
       pending: 'Pending',
       address: 'Address',
       walletNotConnected: 'Wallet not connected',
-      buildPayload: 'Review transaction',
       send: 'Sign in wallet',
       create: 'Create question',
     },
@@ -99,16 +109,16 @@ const copyByLanguage = {
       metrics: [
         ['Votes', '', 'community weight'],
         ['Fees', '0-100%', 'holder controlled'],
-        ['Wallets', 'Targeted', 'temporary rules'],
+        ['Wallets', 'Targeted', 'wallet rules'],
         ['Events', 'Seasons', 'community campaigns'],
       ],
       featureTitle: 'The community decides the rules.',
       featureText:
-        'Holders choose buy and sell fees, propose temporary rules for specific wallets, and launch community events without waiting for a hidden admin.',
+        'Holders choose buy and sell fees, propose rules for specific wallets, and launch community events without waiting for a hidden admin.',
       decisionTitle: 'What holders can decide',
       decisions: [
         ['Buy and sell fees', 'from 0% to 100%'],
-        ['Wallet rules', 'temporary and vote-based'],
+        ['Wallet rules', 'set by public vote'],
         ['Treasury actions', 'only through public decisions'],
       ],
     },
@@ -157,13 +167,13 @@ const copyByLanguage = {
           phase: '04',
           title: 'Community seasons',
           status: 'Planned',
-          detail: 'Run recurring events, treasury votes, and time-limited wallet campaigns.',
+          detail: 'Run recurring events, treasury votes, and wallet rule campaigns.',
         },
       ],
     },
     vote: {
       title: 'Voting',
-      text: 'Pick a question, choose how many tgBTCat you give to your vote, review the action, and sign it in your wallet.',
+      text: 'Pick a question, choose how many tgBTCat you give to your vote, and sign it in your wallet.',
       cast: 'Vote',
       propose: 'Create question',
       votesTitle: 'Questions',
@@ -174,9 +184,6 @@ const copyByLanguage = {
       voterJettonWallet: 'Token wallet',
       walletPlaceholder: 'Auto-filled after Ton Connect',
       amount: 'tgBTCat to give to this vote',
-      gasTon: 'TON for network fee',
-      forwardTon: 'TON to deliver the vote',
-      advanced: 'Network settings',
       flow: ['Connect wallet', 'We find your token wallet', 'Enter vote amount', 'Sign in wallet'],
       bindingIdle: 'Connect wallet and the token wallet will be found automatically.',
       bindingLoading: 'Finding your token wallet...',
@@ -184,16 +191,14 @@ const copyByLanguage = {
       bindingManual: 'Manual token wallet value is used.',
       createTitle: 'Create a fee question',
       globalRoute: 'For all buys and sells',
-      queryId: 'Question number',
-      votingEnds: 'Voting ends',
+      walletRoute: 'For one wallet',
+      proposalKindGlobal: 'All buys and sells',
+      proposalKindWallet: 'One wallet',
+      targetWallet: 'Wallet address',
+      targetWalletPlaceholder: 'Paste TON wallet address',
+      votingDuration: 'Voting duration',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
-      transaction: 'Review before signing',
-      noTransaction: 'Click “Review transaction” first.',
-      rawDetails: 'Technical details',
-      txTo: 'Sent to',
-      txAmount: 'Network fee',
-      txUntil: 'Valid until',
       votePrepared: 'Vote is ready for wallet signature',
       voteSent: 'Open your wallet and confirm the vote',
       proposalPrepared: 'Question is ready for wallet signature',
@@ -214,7 +219,6 @@ const copyByLanguage = {
     sides: {
       1: 'FOR',
       2: 'AGAINST',
-      3: 'ABSTAIN',
     } satisfies Record<VoteSide, string>,
     proposals: {
       0: {
@@ -224,8 +228,8 @@ const copyByLanguage = {
         execution: 'Fee decision',
       },
       1: {
-        title: 'Temporary fee for one wallet',
-        summary: 'Time-limited wallet rule',
+        title: 'Fee for one wallet',
+        summary: 'Wallet-specific rule',
         endsIn: 'closed',
         execution: 'Wallet rule',
       },
@@ -258,7 +262,6 @@ const copyByLanguage = {
       pending: 'Скоро',
       address: 'Адрес',
       walletNotConnected: 'Кошелек не подключен',
-      buildPayload: 'Проверить транзакцию',
       send: 'Подписать в кошельке',
       create: 'Создать вопрос',
     },
@@ -270,16 +273,16 @@ const copyByLanguage = {
       metrics: [
         ['Голоса', '', 'вес сообщества'],
         ['Комиссии', '0-100%', 'решают держатели'],
-        ['Кошельки', 'Точечно', 'временные правила'],
+        ['Кошельки', 'Точечно', 'правила кошельков'],
         ['События', 'Сезоны', 'кампании сообщества'],
       ],
       featureTitle: 'Правила решает сообщество.',
       featureText:
-        'Держатели выбирают комиссии покупки и продажи, могут предложить временное правило для конкретного кошелька и запускать события для сообщества без скрытого админа.',
+        'Держатели выбирают комиссии покупки и продажи, могут предложить правило для конкретного кошелька и запускать события для сообщества без скрытого админа.',
       decisionTitle: 'Что могут решать держатели',
       decisions: [
         ['Комиссии покупки и продажи', 'от 0% до 100%'],
-        ['Правила для кошельков', 'временно и по голосованию'],
+        ['Правила для кошельков', 'через публичное голосование'],
         ['Действия с казной', 'только через публичные решения'],
       ],
     },
@@ -328,13 +331,13 @@ const copyByLanguage = {
           phase: '04',
           title: 'Сезоны сообщества',
           status: 'План',
-          detail: 'Проводим повторяющиеся события, решения по казне и временные кампании для отдельных кошельков.',
+          detail: 'Проводим повторяющиеся события, решения по казне и кампании для отдельных кошельков.',
         },
       ],
     },
     vote: {
       title: 'Голосование',
-      text: 'Выбери вопрос, укажи сколько tgBTCat отдаешь за свой голос, проверь действие и подпиши его в кошельке.',
+      text: 'Выбери вопрос, укажи сколько tgBTCat отдаешь за свой голос и подпиши его в кошельке.',
       cast: 'Голосовать',
       propose: 'Создать вопрос',
       votesTitle: 'Вопросы',
@@ -345,9 +348,6 @@ const copyByLanguage = {
       voterJettonWallet: 'Кошелек токена',
       walletPlaceholder: 'Заполнится автоматически',
       amount: 'Сколько tgBTCat отдать за голос',
-      gasTon: 'TON на комиссию сети',
-      forwardTon: 'TON для доставки голоса',
-      advanced: 'Настройки сети',
       flow: ['Подключите кошелек', 'Мы сами найдем кошелек токена', 'Введите количество tgBTCat', 'Подпишите в кошельке'],
       bindingIdle: 'Подключите кошелек, и кошелек токена найдется автоматически.',
       bindingLoading: 'Ищу кошелек токена...',
@@ -355,16 +355,14 @@ const copyByLanguage = {
       bindingManual: 'Используется кошелек токена, введенный вручную.',
       createTitle: 'Создать вопрос про комиссии',
       globalRoute: 'Для всех покупок и продаж',
-      queryId: 'Номер вопроса',
-      votingEnds: 'Голосование до',
+      walletRoute: 'Для одного кошелька',
+      proposalKindGlobal: 'Все покупки и продажи',
+      proposalKindWallet: 'Один кошелек',
+      targetWallet: 'Адрес кошелька',
+      targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
+      votingDuration: 'Сколько идет голосование',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
-      transaction: 'Проверка перед подписью',
-      noTransaction: 'Сначала нажмите «Проверить транзакцию».',
-      rawDetails: 'Технические детали',
-      txTo: 'Куда',
-      txAmount: 'Комиссия сети',
-      txUntil: 'Действует до',
       votePrepared: 'Голос готов к подписи в кошельке',
       voteSent: 'Откройте кошелек и подтвердите голос',
       proposalPrepared: 'Вопрос готов к подписи в кошельке',
@@ -385,7 +383,6 @@ const copyByLanguage = {
     sides: {
       1: 'ЗА',
       2: 'ПРОТИВ',
-      3: 'ВОЗДЕРЖ.',
     } satisfies Record<VoteSide, string>,
     proposals: {
       0: {
@@ -395,8 +392,8 @@ const copyByLanguage = {
         execution: 'Решение по комиссиям',
       },
       1: {
-        title: 'Временная комиссия для кошелька',
-        summary: 'Правило на ограниченное время',
+        title: 'Комиссия для одного кошелька',
+        summary: 'Правило для конкретного кошелька',
         endsIn: 'закрыто',
         execution: 'Правило кошелька',
       },
@@ -432,7 +429,6 @@ export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [governanceMode, setGovernanceMode] = useState<GovernanceMode>('cast');
   const [selectedProposalId, setSelectedProposalId] = useState(0);
-  const [transactionPreview, setTransactionPreview] = useState<TonConnectTransaction | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [walletBinding, setWalletBinding] = useState<WalletBindingState>('idle');
@@ -457,16 +453,16 @@ export default function App() {
     proposalId: '0',
     side: 1,
     jettonAmount: '1000',
-    gasTon: '0.3',
-    forwardTon: '0.05',
+    gasTon: DEFAULT_VOTE_GAS_TON,
+    forwardTon: DEFAULT_VOTE_FORWARD_TON,
   });
 
   const [proposalForm, setProposalForm] = useState<ProposalFormState>({
-    queryId: '1',
+    kind: 'global',
+    targetWallet: '',
     buyFeePercent: '1',
     sellFeePercent: '2',
-    votingEndsAt: unixHoursFromNow(24),
-    gasTon: '0.05',
+    votingDurationHours: '24',
   });
 
   const totalVotes = useMemo(
@@ -528,7 +524,7 @@ export default function App() {
     setGovernanceMode('cast');
   };
 
-  const buildVotePreview = () => {
+  const sendVote = async () => {
     clearFeedback();
     try {
       const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
@@ -538,44 +534,37 @@ export default function App() {
         governorAddress,
         responseAddress,
       });
-      setTransactionPreview(transaction);
-      setStatusMessage(t.vote.votePrepared);
-    } catch (error) {
-      setErrorMessage(formatError(error));
-    }
-  };
-
-  const sendVote = async () => {
-    const transaction = transactionPreview;
-    if (!transaction) {
-      buildVotePreview();
-      return;
-    }
-    await sendPreparedTransaction(transaction, t.vote.voteSent);
-  };
-
-  const buildProposalPreview = () => {
-    clearFeedback();
-    try {
-      const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
-      const transaction = buildGlobalFeeProposalTransaction({
-        ...proposalForm,
-        governorAddress,
-      });
-      setTransactionPreview(transaction);
-      setStatusMessage(t.vote.proposalPrepared);
+      await sendPreparedTransaction(transaction, t.vote.voteSent);
     } catch (error) {
       setErrorMessage(formatError(error));
     }
   };
 
   const sendProposal = async () => {
-    const transaction = transactionPreview;
-    if (!transaction) {
-      buildProposalPreview();
-      return;
+    clearFeedback();
+    try {
+      requireAddress(connectedAddress, t.vote.connectRequired);
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
+      const votingEndsAt = unixHoursFromNow(parseDurationHours(proposalForm.votingDurationHours));
+      const baseInput = {
+        governorAddress,
+        queryId: createQueryId(),
+        buyFeePercent: proposalForm.buyFeePercent,
+        sellFeePercent: proposalForm.sellFeePercent,
+        votingEndsAt,
+        gasTon: DEFAULT_PROPOSAL_GAS_TON,
+      };
+      const transaction =
+        proposalForm.kind === 'wallet'
+          ? buildWalletFeeProposalTransaction({
+              ...baseInput,
+              targetWallet: proposalForm.targetWallet,
+            })
+          : buildGlobalFeeProposalTransaction(baseInput);
+      await sendPreparedTransaction(transaction, t.vote.proposalSent);
+    } catch (error) {
+      setErrorMessage(formatError(error));
     }
-    await sendPreparedTransaction(transaction, t.vote.proposalSent);
   };
 
   const updateVoteForm = (patch: Partial<VoteFormState>) => {
@@ -587,7 +576,6 @@ export default function App() {
   };
 
   const sendPreparedTransaction = async (transaction: TonConnectTransaction, success: string) => {
-    clearFeedback(false);
     try {
       await tonConnectUI.sendTransaction(transaction);
       setStatusMessage(success);
@@ -596,12 +584,9 @@ export default function App() {
     }
   };
 
-  const clearFeedback = (clearPreview = true) => {
+  const clearFeedback = () => {
     setErrorMessage('');
     setStatusMessage('');
-    if (clearPreview) {
-      setTransactionPreview(null);
-    }
   };
 
   return (
@@ -682,6 +667,7 @@ export default function App() {
 
           {activePage === 'vote' && (
             <VotePage
+              language={language}
               copy={t}
               governanceMode={governanceMode}
               onModeChange={setGovernanceMode}
@@ -696,15 +682,12 @@ export default function App() {
               connectedAddress={connectedAddress}
               walletBinding={effectiveWalletBinding}
               walletBindingMessage={effectiveWalletBindingMessage}
-              transactionPreview={transactionPreview}
               statusMessage={statusMessage}
               errorMessage={errorMessage}
               onConnectWallet={openConnectModal}
               onVoteChange={updateVoteForm}
               onProposalChange={(patch) => setProposalForm((current) => ({ ...current, ...patch }))}
-              onBuildVote={buildVotePreview}
               onSendVote={sendVote}
-              onBuildProposal={buildProposalPreview}
               onSendProposal={sendProposal}
             />
           )}
@@ -859,6 +842,7 @@ function RoadmapPage({ copy, onOpenVote }: { copy: AppCopy; onOpenVote: () => vo
 }
 
 function VotePage({
+  language,
   copy,
   governanceMode,
   onModeChange,
@@ -870,17 +854,15 @@ function VotePage({
   connectedAddress,
   walletBinding,
   walletBindingMessage,
-  transactionPreview,
   statusMessage,
   errorMessage,
   onConnectWallet,
   onVoteChange,
   onProposalChange,
-  onBuildVote,
   onSendVote,
-  onBuildProposal,
   onSendProposal,
 }: {
+  language: LanguageKey;
   copy: AppCopy;
   governanceMode: GovernanceMode;
   onModeChange: (mode: GovernanceMode) => void;
@@ -892,15 +874,12 @@ function VotePage({
   connectedAddress: string;
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
-  transactionPreview: TonConnectTransaction | null;
   statusMessage: string;
   errorMessage: string;
   onConnectWallet: () => void;
   onVoteChange: (patch: Partial<VoteFormState>) => void;
   onProposalChange: (patch: Partial<ProposalFormState>) => void;
-  onBuildVote: () => void;
   onSendVote: () => void;
-  onBuildProposal: () => void;
   onSendProposal: () => void;
 }) {
   return (
@@ -941,19 +920,20 @@ function VotePage({
               walletBindingMessage={walletBindingMessage}
               onConnectWallet={onConnectWallet}
               onChange={onVoteChange}
-              onBuild={onBuildVote}
               onSend={onSendVote}
             />
           ) : (
             <ProposalBuilder
+              language={language}
               copy={copy}
               form={proposalForm}
+              connectedAddress={connectedAddress}
+              onConnectWallet={onConnectWallet}
               onChange={onProposalChange}
-              onBuild={onBuildProposal}
               onSend={onSendProposal}
             />
           )}
-          <TransactionPreview copy={copy} transaction={transactionPreview} status={statusMessage} error={errorMessage} />
+          <FeedbackPanel status={statusMessage} error={errorMessage} />
         </div>
       </div>
     </section>
@@ -1050,7 +1030,7 @@ function ProposalTable({
 }
 
 function VoteBars({ proposal }: { proposal: ProposalRow }) {
-  const total = proposal.forVotes + proposal.againstVotes + proposal.abstainVotes;
+  const total = proposal.forVotes + proposal.againstVotes || 1;
   const forWidth = `${(proposal.forVotes / total) * 100}%`;
   const againstWidth = `${(proposal.againstVotes / total) * 100}%`;
 
@@ -1058,7 +1038,6 @@ function VoteBars({ proposal }: { proposal: ProposalRow }) {
     <span className="vote-bars" aria-label="Vote distribution">
       <span className="for" style={{ width: forWidth }} />
       <span className="against" style={{ width: againstWidth }} />
-      <span className="abstain" />
     </span>
   );
 }
@@ -1072,7 +1051,6 @@ function VotePanel({
   walletBindingMessage,
   onConnectWallet,
   onChange,
-  onBuild,
   onSend,
 }: {
   copy: AppCopy;
@@ -1083,7 +1061,6 @@ function VotePanel({
   walletBindingMessage: string;
   onConnectWallet: () => void;
   onChange: (patch: Partial<VoteFormState>) => void;
-  onBuild: () => void;
   onSend: () => void;
 }) {
   const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
@@ -1118,21 +1095,12 @@ function VotePanel({
         <small>{proposalCopy?.execution ?? proposal.execution}</small>
       </div>
       {connectedAddress ? (
-        <>
-          <label>
-            {copy.vote.voterJettonWallet}
-            <input
-              value={form.voterJettonWallet}
-              onChange={(event) => onChange({ voterJettonWallet: event.target.value })}
-              placeholder={copy.vote.walletPlaceholder}
-              spellCheck={false}
-            />
-          </label>
-          <div className={`wallet-strip wallet-strip-${walletBinding}`}>
-            <Wallet size={17} />
-            <span>{bindingText}</span>
-          </div>
-        </>
+        <div className={`wallet-strip wallet-strip-${walletBinding}`}>
+          <Wallet size={17} />
+          <span>
+            {form.voterJettonWallet ? `${bindingText} ${shortAddress(form.voterJettonWallet)}` : bindingText}
+          </span>
+        </div>
       ) : (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
           <Wallet size={18} />
@@ -1144,7 +1112,7 @@ function VotePanel({
         <input value={form.jettonAmount} onChange={(event) => onChange({ jettonAmount: event.target.value })} />
       </label>
       <div className="side-selector" aria-label="Vote side">
-        {([1, 2, 3] as const).map((side) => (
+        {([1, 2] as const).map((side) => (
           <button
             key={side}
             className={form.side === side ? 'is-active' : ''}
@@ -1155,19 +1123,6 @@ function VotePanel({
           </button>
         ))}
       </div>
-      <details className="advanced-options">
-        <summary>{copy.vote.advanced}</summary>
-        <div className="field-row">
-          <label>
-            {copy.vote.gasTon}
-            <input value={form.gasTon} onChange={(event) => onChange({ gasTon: event.target.value })} />
-          </label>
-          <label>
-            {copy.vote.forwardTon}
-            <input value={form.forwardTon} onChange={(event) => onChange({ forwardTon: event.target.value })} />
-          </label>
-        </div>
-      </details>
       {connectedAddress && (
         <div className="owner-strip">
           <Wallet size={17} />
@@ -1175,11 +1130,7 @@ function VotePanel({
         </div>
       )}
       <div className="button-row">
-        <button className="secondary-action" type="button" onClick={onBuild} disabled={!connectedAddress || !form.voterJettonWallet}>
-          <Settings2 size={18} />
-          {copy.common.buildPayload}
-        </button>
-        <button className="primary-action" type="button" onClick={onSend} disabled={!connectedAddress}>
+        <button className="primary-action wide-action" type="button" onClick={onSend} disabled={!connectedAddress || !form.voterJettonWallet}>
           <Send size={18} />
           {copy.common.send}
         </button>
@@ -1189,32 +1140,61 @@ function VotePanel({
 }
 
 function ProposalBuilder({
+  language,
   copy,
   form,
+  connectedAddress,
+  onConnectWallet,
   onChange,
-  onBuild,
   onSend,
 }: {
+  language: LanguageKey;
   copy: AppCopy;
   form: ProposalFormState;
+  connectedAddress: string;
+  onConnectWallet: () => void;
   onChange: (patch: Partial<ProposalFormState>) => void;
-  onBuild: () => void;
   onSend: () => void;
 }) {
   return (
     <section className="panel form-panel">
       <div className="section-header">
         <h2>{copy.vote.createTitle}</h2>
-        <span className="status status-queued">{copy.vote.globalRoute}</span>
+        <span className="status status-queued">{form.kind === 'wallet' ? copy.vote.walletRoute : copy.vote.globalRoute}</span>
       </div>
+      <div className="proposal-kind-switch" aria-label={copy.vote.createTitle}>
+        {(['global', 'wallet'] as const).map((kind) => (
+          <button
+            key={kind}
+            className={form.kind === kind ? 'is-active' : ''}
+            type="button"
+            onClick={() => onChange({ kind })}
+          >
+            {kind === 'global' ? copy.vote.proposalKindGlobal : copy.vote.proposalKindWallet}
+          </button>
+        ))}
+      </div>
+      {form.kind === 'wallet' && (
+        <label>
+          {copy.vote.targetWallet}
+          <input
+            value={form.targetWallet}
+            onChange={(event) => onChange({ targetWallet: event.target.value })}
+            placeholder={copy.vote.targetWalletPlaceholder}
+            spellCheck={false}
+          />
+        </label>
+      )}
       <div className="field-row">
         <label>
-          {copy.vote.queryId}
-          <input value={form.queryId} onChange={(event) => onChange({ queryId: event.target.value })} />
-        </label>
-        <label>
-          {copy.vote.votingEnds}
-          <input value={form.votingEndsAt} onChange={(event) => onChange({ votingEndsAt: event.target.value })} />
+          {copy.vote.votingDuration}
+          <select value={form.votingDurationHours} onChange={(event) => onChange({ votingDurationHours: event.target.value })}>
+            {VOTING_DURATION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label[language]}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <div className="fee-grid">
@@ -1226,17 +1206,20 @@ function ProposalBuilder({
           {copy.vote.sellFee}
           <input value={form.sellFeePercent} onChange={(event) => onChange({ sellFeePercent: event.target.value })} />
         </label>
-        <label>
-          {copy.vote.gasTon}
-          <input value={form.gasTon} onChange={(event) => onChange({ gasTon: event.target.value })} />
-        </label>
       </div>
-      <div className="button-row">
-        <button className="secondary-action" type="button" onClick={onBuild}>
-          <Settings2 size={18} />
-          {copy.common.buildPayload}
+      {!connectedAddress && (
+        <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
+          <Wallet size={18} />
+          {copy.common.connect}
         </button>
-        <button className="primary-action" type="button" onClick={onSend}>
+      )}
+      <div className="button-row">
+        <button
+          className="primary-action wide-action"
+          type="button"
+          onClick={onSend}
+          disabled={!connectedAddress || (form.kind === 'wallet' && !form.targetWallet)}
+        >
           <Plus size={18} />
           {copy.common.create}
         </button>
@@ -1245,50 +1228,15 @@ function ProposalBuilder({
   );
 }
 
-function TransactionPreview({
-  copy,
-  transaction,
-  status,
-  error,
-}: {
-  copy: AppCopy;
-  transaction: TonConnectTransaction | null;
-  status: string;
-  error: string;
-}) {
-  const firstMessage = transaction?.messages[0];
+function FeedbackPanel({ status, error }: { status: string; error: string }) {
+  if (!status && !error) {
+    return null;
+  }
 
   return (
-    <section className="panel preview-panel">
-      <div className="section-header">
-        <h2>{copy.vote.transaction}</h2>
-        {status && <span className="status status-executed">{status}</span>}
-      </div>
+    <section className="feedback-panel">
+      {status && <div className="feedback-success">{status}</div>}
       {error && <div className="feedback-error">{error}</div>}
-      {transaction && firstMessage ? (
-        <>
-          <div className="transaction-summary">
-            <div>
-              <span>{copy.vote.txTo}</span>
-              <code>{shortAddress(firstMessage.address)}</code>
-            </div>
-            <div>
-              <span>{copy.vote.txAmount}</span>
-              <strong>{formatNanoTon(firstMessage.amount)}</strong>
-            </div>
-            <div>
-              <span>{copy.vote.txUntil}</span>
-              <strong>{formatTimestamp(transaction.validUntil)}</strong>
-            </div>
-          </div>
-          <details className="technical-details">
-            <summary>{copy.vote.rawDetails}</summary>
-            <pre>{JSON.stringify(transaction, null, 2)}</pre>
-          </details>
-        </>
-      ) : (
-        <div className="empty-preview">{copy.vote.noTransaction}</div>
-      )}
     </section>
   );
 }
@@ -1368,25 +1316,12 @@ function walletBindingText(copy: AppCopy, state: WalletBindingState, details: st
   return copy.vote.bindingIdle;
 }
 
-function formatNanoTon(value: string): string {
-  try {
-    const nano = BigInt(value);
-    const whole = nano / 1_000_000_000n;
-    const fraction = nano % 1_000_000_000n;
-    const fractionText = fraction.toString().padStart(9, '0').replace(/0+$/, '');
-    return `${whole.toString()}${fractionText ? `.${fractionText}` : ''} TON`;
-  } catch {
-    return `${value} nanoTON`;
+function parseDurationHours(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error('Voting duration is invalid');
   }
-}
-
-function formatTimestamp(value: number): string {
-  return new Date(value * 1000).toLocaleString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-  });
+  return parsed;
 }
 
 function formatError(error: unknown): string {

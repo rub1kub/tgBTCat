@@ -55,7 +55,8 @@ body::after {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -69,7 +70,8 @@ button:focus {
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(0, 152, 234, 0.28);
   outline-offset: 2px;
 }
@@ -755,14 +757,13 @@ main {
 
 .governance-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 0.96fr) minmax(0, 1.04fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .proposal-panel,
-.form-panel,
-.preview-panel {
+.form-panel {
   min-height: 100%;
 }
 
@@ -858,19 +859,13 @@ main {
   background: var(--red);
 }
 
-.vote-bars .abstain {
-  flex: 1;
-  background: #aeb7c6;
-}
-
 .proposal-meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.form-panel,
-.preview-panel {
+.form-panel {
   display: grid;
   gap: 18px;
 }
@@ -892,7 +887,8 @@ label {
   font-weight: 780;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 54px;
   padding: 0 14px;
@@ -905,7 +901,20 @@ input {
   outline: none;
 }
 
-input:focus {
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #4d5868 50%),
+    linear-gradient(135deg, #4d5868 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 23px,
+    calc(100% - 12px) 23px;
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+}
+
+input:focus,
+select:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 4px rgba(0, 152, 234, 0.12);
 }
@@ -917,20 +926,22 @@ input:focus {
 }
 
 .field-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .fee-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.side-selector {
+.side-selector,
+.proposal-kind-switch {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.side-selector button {
+.side-selector button,
+.proposal-kind-switch button {
   min-height: 42px;
   padding: 0 8px;
   border: 1px solid var(--line);
@@ -944,7 +955,8 @@ input:focus {
   white-space: normal;
 }
 
-.side-selector .is-active {
+.side-selector .is-active,
+.proposal-kind-switch .is-active {
   border-color: var(--dark);
   background: var(--dark);
   color: #ffffff;
@@ -1003,26 +1015,6 @@ input:focus {
   box-shadow: 0 18px 30px rgba(0, 0, 0, 0.14);
 }
 
-.advanced-options,
-.technical-details {
-  border: 1px solid var(--soft-line);
-  background: rgba(247, 249, 252, 0.72);
-}
-
-.advanced-options summary,
-.technical-details summary {
-  min-height: 42px;
-  padding: 11px 14px;
-  color: #4d5868;
-  font-size: 13px;
-  font-weight: 850;
-  cursor: pointer;
-}
-
-.advanced-options .field-row {
-  padding: 0 14px 14px;
-}
-
 .wallet-strip-loading {
   background: #fff5de;
   color: var(--amber);
@@ -1068,67 +1060,29 @@ input:focus {
   color: var(--green);
 }
 
+.feedback-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.feedback-success,
 .feedback-error {
   padding: 12px 14px;
-  border: 1px solid #ffd1d1;
-  border-radius: 8px;
-  background: #fff4f4;
-  color: var(--red);
   font-size: 13px;
   font-weight: 800;
   line-height: 1.35;
 }
 
-.transaction-summary {
-  display: grid;
-  gap: 10px;
+.feedback-success {
+  border: 1px solid rgba(17, 163, 106, 0.32);
+  background: #eaf7f1;
+  color: var(--green);
 }
 
-.transaction-summary div,
-.empty-preview {
-  display: grid;
-  gap: 6px;
-  min-height: 58px;
-  padding: 14px;
-  border: 1px solid var(--soft-line);
-  background: var(--surface-soft);
-}
-
-.transaction-summary span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 820;
-}
-
-.transaction-summary strong,
-.transaction-summary code {
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 850;
-}
-
-.empty-preview {
-  place-items: center start;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 820;
-}
-
-.preview-panel pre {
-  min-height: 260px;
-  max-height: 420px;
-  margin: 0;
-  padding: 20px;
-  overflow: auto;
-  border-radius: 8px;
-  background: #071225;
-  color: #eef7ff;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.technical-details pre {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+.feedback-error {
+  border: 1px solid #ffd1d1;
+  background: #fff4f4;
+  color: var(--red);
 }
 
 .contract-section .section-copy {
@@ -1227,6 +1181,7 @@ input:focus {
 
 button,
 input,
+select,
 .main-nav,
 .network-switch,
 .mode-switch,
@@ -1249,16 +1204,15 @@ input,
 .status,
 .vote-bars,
 .selected-proposal,
+.proposal-kind-switch,
+.proposal-kind-switch button,
 .connect-wallet-panel,
 .wallet-strip,
 .owner-strip,
-.advanced-options,
-.technical-details,
-.transaction-summary div,
-.empty-preview,
 .decision-line,
+.feedback-panel,
+.feedback-success,
 .feedback-error,
-.preview-panel pre,
 .social-links a,
 .contract-title span,
 .address-line,
@@ -1361,6 +1315,7 @@ input,
   .field-row,
   .fee-grid,
   .side-selector,
+  .proposal-kind-switch,
   .vote-flow {
     grid-template-columns: 1fr;
   }
@@ -1394,9 +1349,6 @@ input,
     grid-column: 1 / -1;
   }
 
-  .preview-panel pre {
-    min-height: 280px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
