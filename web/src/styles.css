@@ -490,6 +490,102 @@ main {
   padding-bottom: 72px;
 }
 
+.rule-strip,
+.vote-rules-panel {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.compact-header h2 {
+  margin-bottom: 0;
+  font-size: 24px;
+}
+
+.compact-header > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rule-grid,
+.event-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.rule-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vote-rules-panel .rule-grid,
+.event-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rule-card,
+.event-card {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-height: 154px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.055);
+}
+
+.rule-card > span,
+.event-card > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  background: var(--dark);
+  color: #ffffff;
+}
+
+.rule-card svg,
+.event-card svg {
+  width: 19px;
+  height: 19px;
+}
+
+.rule-card strong,
+.event-card strong {
+  font-size: 17px;
+}
+
+.rule-card p,
+.event-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.42;
+}
+
+.event-section {
+  padding: 0 0 78px;
+}
+
+.slim-copy {
+  max-width: 860px;
+  margin-bottom: 24px;
+}
+
+.slim-copy h2 {
+  margin-bottom: 14px;
+  font-size: clamp(36px, 4.6vw, 76px);
+  line-height: 0.98;
+}
+
+.slim-copy p {
+  color: #202735;
+  font-size: clamp(17px, 1.35vw, 22px);
+  line-height: 1.4;
+}
+
 .feature-panel,
 .network-panel,
 .panel,
@@ -883,6 +979,29 @@ main {
   background: var(--surface-soft);
 }
 
+.balance-card,
+.impact-panel,
+.fee-preview {
+  display: grid;
+  gap: 11px;
+  padding: 16px;
+  border: 1px solid var(--soft-line);
+  background: rgba(247, 249, 252, 0.88);
+}
+
+.balance-card strong {
+  color: var(--ink);
+  font-size: clamp(24px, 3vw, 42px);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.balance-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+}
+
 label {
   display: grid;
   gap: 9px;
@@ -903,6 +1022,15 @@ select {
   font-size: 15px;
   font-weight: 720;
   outline: none;
+}
+
+input[type="range"] {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  accent-color: var(--blue);
 }
 
 select {
@@ -955,6 +1083,181 @@ select:focus {
   border-color: var(--dark);
   background: var(--dark);
   color: #ffffff;
+}
+
+.label-row,
+.fee-control-header,
+.impact-heading,
+.impact-totals {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mini-action {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--dark);
+  background: #ffffff;
+  color: var(--dark);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.field-error,
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.field-error {
+  color: var(--red);
+}
+
+.field-hint {
+  color: var(--muted);
+}
+
+.form-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+.create-scenarios {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.create-scenarios button {
+  display: grid;
+  gap: 9px;
+  min-height: 142px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.create-scenarios span {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: #eef7ff;
+  color: var(--blue);
+}
+
+.create-scenarios strong {
+  font-size: 17px;
+}
+
+.create-scenarios small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.create-scenarios .is-active {
+  border-color: var(--dark);
+  background: var(--dark);
+  color: #ffffff;
+}
+
+.create-scenarios .is-active span {
+  background: #ffffff;
+  color: var(--dark);
+}
+
+.create-scenarios .is-active small {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.fee-control {
+  padding: 16px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+}
+
+.fee-control-header strong {
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.fee-preview strong {
+  font-size: 17px;
+}
+
+.fee-preview p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 730;
+  line-height: 1.42;
+}
+
+.impact-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.impact-heading strong {
+  padding: 6px 9px;
+  background: var(--dark);
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.impact-grid div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+}
+
+.impact-grid span,
+.impact-grid small,
+.impact-totals {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.impact-grid strong {
+  color: var(--ink);
+  font-size: 19px;
+}
+
+.impact-totals {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.impact-panel p {
+  margin: 0;
+  color: #384253;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.42;
 }
 
 .side-selector,
@@ -1112,6 +1415,24 @@ select:focus {
 }
 
 .feedback-success {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.feedback-success a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid currentColor;
+  font-size: 12px;
+  font-weight: 880;
+}
+
+.feedback-success {
   border: 1px solid rgba(17, 163, 106, 0.32);
   background: #eaf7f1;
   color: var(--green);
@@ -1238,10 +1559,23 @@ select,
 .timeline-item,
 .timeline-item > span,
 .timeline-title b,
+.rule-card,
+.event-card,
+.rule-card > span,
+.event-card > span,
 .proposal-row,
 .status,
 .vote-bars,
 .selected-proposal,
+.balance-card,
+.impact-panel,
+.impact-heading strong,
+.impact-grid div,
+.fee-control,
+.fee-preview,
+.create-scenarios button,
+.create-scenarios span,
+.mini-action,
 .proposal-kind-switch,
 .proposal-kind-switch button,
 .duration-presets,
@@ -1293,7 +1627,9 @@ select,
   }
 
   .contract-grid,
-  .metric-strip {
+  .metric-strip,
+  .vote-rules-panel .rule-grid,
+  .event-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1353,10 +1689,15 @@ select,
 
   .metric-strip,
   .contract-grid,
+  .rule-grid,
+  .vote-rules-panel .rule-grid,
+  .event-grid,
   .field-row,
   .fee-grid,
   .side-selector,
   .proposal-kind-switch,
+  .create-scenarios,
+  .impact-grid,
   .duration-presets,
   .vote-flow {
     grid-template-columns: 1fr;

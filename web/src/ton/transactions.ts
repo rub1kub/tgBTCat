@@ -217,6 +217,27 @@ export function formatVotes(value: number, locale = 'en-US'): string {
   }).format(value);
 }
 
+export function isValidTonAddress(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  try {
+    Address.parse(normalized);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function signedBocHashHex(boc: string): string {
+  const hash = Cell.fromBase64(boc).hash() as Uint8Array;
+  return Array.from(hash)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 function parseJettonAmount(value: string): bigint {
   const normalized = value.trim();
   if (!/^\d+(\.\d{0,9})?$/.test(normalized)) {

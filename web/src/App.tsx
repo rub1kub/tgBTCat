@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useTonAddress, useTonConnectModal, useTonConnectUI } from '@tonconnect/ui-react';
 import {
   Activity,
+  AlertCircle,
   ArrowRight,
+  CheckCircle2,
   Clock3,
   Copy,
   ExternalLink,
@@ -11,6 +13,10 @@ import {
   Landmark,
   Plus,
   Send,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Trophy,
   Vote,
   Wallet,
 } from 'lucide-react';
@@ -28,8 +34,10 @@ import {
   buildWalletFeeProposalTransaction,
   createQueryId,
   formatVotes,
+  isValidTonAddress,
   resolveJettonWalletInfo,
   shortAddress,
+  signedBocHashHex,
   unixMinutesFromNow,
   type TonConnectTransaction,
   type VoteSide,
@@ -100,12 +108,15 @@ const copyByLanguage = {
       walletNotConnected: 'Wallet not connected',
       send: 'Send vote',
       create: 'Create question',
+      max: 'MAX',
+      openExplorer: 'Open in explorer',
     },
     hero: {
       title: 'Telegram BTC Cat',
       text: 'A community token on TON built around the tgBTC narrative. Holders use tokens to vote on fees, wallet rules, the treasury, and community events.',
       vote: 'Start voting',
       tokenomics: 'Tokenomics',
+      create: 'Create question',
       metrics: [
         ['Votes', '', 'community weight'],
         ['Fees', '0-100%', 'holder controlled'],
@@ -120,6 +131,20 @@ const copyByLanguage = {
         ['Buy and sell fees', 'from 0% to 100%'],
         ['Wallet rules', 'set by public vote'],
         ['Treasury actions', 'only through public decisions'],
+      ],
+      rulesTitle: 'Simple rules',
+      rules: [
+        ['Spend tokens to vote', 'More tgBTCat sent means more weight in the result.'],
+        ['FOR or AGAINST', 'No abstain option and no hidden middle state.'],
+        ['Small question fee', '0.05 TON to create a public question and reduce spam.'],
+      ],
+      eventsTitle: 'Event ideas the DAO can run',
+      eventsText: 'Events should create visible action: memes, raids, rankings, rewards, and public wallet decisions.',
+      events: [
+        ['Satoshi Council', 'Weekly leaderboard for voters who spend the most tgBTCat on public decisions.'],
+        ['Fee Arena', 'A weekend vote where holders pick temporary buy and sell fees for a campaign.'],
+        ['Wallet Trial', 'A public vote to set or clear a rule for a specific wallet address.'],
+        ['Cat Meme Season', 'Meme contest with treasury-backed rewards and on-chain final vote.'],
       ],
     },
     tokenomics: {
@@ -201,21 +226,45 @@ const copyByLanguage = {
       bindingLoading: 'Finding your token balance...',
       bindingReady: 'Token balance found:',
       bindingManual: 'Manual token balance route is used.',
+      rulesTitle: 'How voting works',
+      rules: [
+        ['1 tgBTCat = 1 vote', 'Your weight equals the token amount you send.'],
+        ['Tokens are final', 'Sent tokens are not returned after voting.'],
+        ['Only two choices', 'Each question has FOR and AGAINST.'],
+        ['Questions are paid', 'Creating a public question costs a small TON fee.'],
+      ],
+      balanceTitle: 'Your tgBTCat balance',
+      balanceEmpty: 'Connect wallet to see available tokens.',
+      amountInvalid: 'Enter a positive tgBTCat amount.',
+      amountTooHigh: 'This is higher than the token balance found for this wallet.',
+      impactTitle: 'Vote preview',
+      currentWeight: 'Current result',
+      afterVote: 'After your vote',
+      outcomeFor: 'If FOR wins, the question can be executed on-chain.',
+      outcomeAgainst: 'If AGAINST wins, nothing changes.',
       createTitle: 'Create a fee question',
+      createIntro: 'Choose what the question changes. The site prepares the transaction, the wallet shows it, and holders vote after it is created.',
       globalRoute: 'For all buys and sells',
       walletRoute: 'For one wallet',
       proposalKindGlobal: 'All buys and sells',
       proposalKindWallet: 'One wallet',
+      scenarioGlobal: 'Change the general buy and sell fees for everyone.',
+      scenarioWallet: 'Set buy and sell fees for one wallet address only.',
       targetWallet: 'Wallet address',
       targetWalletPlaceholder: 'Paste TON wallet address',
+      targetWalletInvalid: 'Paste a valid TON wallet address.',
       votingDuration: 'Voting duration in minutes',
+      durationHint: 'For quick community decisions use 10, 30, or 60 minutes. For larger questions use one day.',
       proposalFee: 'Question fee: {amount} TON',
+      proposalFeeDetail: 'This is paid when the question is created. It keeps spam away and covers network work.',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
+      feePreviewTitle: 'Fee preview',
+      feePreviewText: 'For a 1,000 tgBTCat trade: buy fee {buy} tgBTCat, sell fee {sell} tgBTCat.',
       votePrepared: 'Vote is ready for wallet signature',
-      voteSent: 'Open your wallet and confirm the vote',
+      voteSent: 'Vote was sent from the wallet. It should appear on-chain shortly.',
       proposalPrepared: 'Question is ready for wallet signature',
-      proposalSent: 'Open your wallet and confirm the question',
+      proposalSent: 'Question was sent from the wallet. It should appear on-chain shortly.',
       connectRequired: 'Connect wallet before voting',
       governorRequired: 'Voting is not available right now',
     },
@@ -277,12 +326,15 @@ const copyByLanguage = {
       walletNotConnected: 'Кошелек не подключен',
       send: 'Отправить голос',
       create: 'Создать вопрос',
+      max: 'МАКС',
+      openExplorer: 'Открыть в обозревателе',
     },
     hero: {
       title: 'Telegram BTC Cat',
       text: 'Токен сообщества на TON под нарратив tgBTC. Держатели голосуют токенами за комиссии, правила для кошельков, решения по казне и события для сообщества.',
       vote: 'Начать голосование',
       tokenomics: 'Токеномика',
+      create: 'Создать вопрос',
       metrics: [
         ['Голоса', '', 'вес сообщества'],
         ['Комиссии', '0-100%', 'решают держатели'],
@@ -297,6 +349,20 @@ const copyByLanguage = {
         ['Комиссии покупки и продажи', 'от 0% до 100%'],
         ['Правила для кошельков', 'через публичное голосование'],
         ['Действия с казной', 'только через публичные решения'],
+      ],
+      rulesTitle: 'Простые правила',
+      rules: [
+        ['Тратишь токены за голос', 'Чем больше tgBTCat отправишь, тем больше вес голоса.'],
+        ['Только ЗА или ПРОТИВ', 'Без воздержаться и без скрытых промежуточных вариантов.'],
+        ['Маленькая плата за вопрос', '0.05 TON за создание публичного вопроса, чтобы не было спама.'],
+      ],
+      eventsTitle: 'Какие события может запускать сообщество',
+      eventsText: 'События должны давать видимое движение: мемы, рейды, рейтинги, награды и публичные решения по кошелькам.',
+      events: [
+        ['Совет Сатоши', 'Еженедельный рейтинг тех, кто вложил больше всего tgBTCat в решения сообщества.'],
+        ['Арена комиссий', 'Голосование на выходные, где держатели выбирают комиссии покупки и продажи для кампании.'],
+        ['Разбор кошелька', 'Публичное решение: поставить или убрать правило для конкретного кошелька.'],
+        ['Мем-сезон кота', 'Конкурс мемов с наградами из казны и финальным голосованием ончейн.'],
       ],
     },
     tokenomics: {
@@ -378,21 +444,45 @@ const copyByLanguage = {
       bindingLoading: 'Ищу баланс токенов...',
       bindingReady: 'Баланс токенов:',
       bindingManual: 'Используется ручной маршрут баланса токенов.',
+      rulesTitle: 'Как работает голосование',
+      rules: [
+        ['1 tgBTCat = 1 голос', 'Вес голоса равен количеству токенов, которые вы отправляете.'],
+        ['Токены не возвращаются', 'После голосования отправленные токены остаются в системе.'],
+        ['Только два выбора', 'В каждом вопросе есть ЗА и ПРОТИВ.'],
+        ['Вопросы платные', 'Создание публичного вопроса стоит небольшую плату в TON.'],
+      ],
+      balanceTitle: 'Ваш баланс tgBTCat',
+      balanceEmpty: 'Подключите кошелек, чтобы увидеть доступные токены.',
+      amountInvalid: 'Введите положительное количество tgBTCat.',
+      amountTooHigh: 'Это больше баланса токенов, найденного у кошелька.',
+      impactTitle: 'Предпросмотр голоса',
+      currentWeight: 'Текущий результат',
+      afterVote: 'После вашего голоса',
+      outcomeFor: 'Если победит ЗА, вопрос можно будет исполнить ончейн.',
+      outcomeAgainst: 'Если победит ПРОТИВ, ничего не изменится.',
       createTitle: 'Создать вопрос про комиссии',
+      createIntro: 'Выберите, что меняет вопрос. Сайт подготовит транзакцию, кошелек покажет ее, а держатели смогут голосовать после создания.',
       globalRoute: 'Для всех покупок и продаж',
       walletRoute: 'Для одного кошелька',
       proposalKindGlobal: 'Все покупки и продажи',
       proposalKindWallet: 'Один кошелек',
+      scenarioGlobal: 'Изменить общие комиссии покупки и продажи для всех.',
+      scenarioWallet: 'Поставить комиссии покупки и продажи только для одного кошелька.',
       targetWallet: 'Адрес кошелька',
       targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
+      targetWalletInvalid: 'Вставьте корректный TON-адрес кошелька.',
       votingDuration: 'Сколько минут идет голосование',
+      durationHint: 'Для быстрых решений подойдут 10, 30 или 60 минут. Для больших вопросов лучше один день.',
       proposalFee: 'Плата за вопрос: {amount} TON',
+      proposalFeeDetail: 'Она списывается при создании вопроса, уменьшает спам и покрывает работу сети.',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
+      feePreviewTitle: 'Предпросмотр комиссии',
+      feePreviewText: 'На сделке 1 000 tgBTCat: комиссия покупки {buy} tgBTCat, комиссия продажи {sell} tgBTCat.',
       votePrepared: 'Голос готов к подписи в кошельке',
-      voteSent: 'Откройте кошелек и подтвердите голос',
+      voteSent: 'Голос отправлен из кошелька. Скоро он появится ончейн.',
       proposalPrepared: 'Вопрос готов к подписи в кошельке',
-      proposalSent: 'Откройте кошелек и подтвердите вопрос',
+      proposalSent: 'Вопрос отправлен из кошелька. Скоро он появится ончейн.',
       connectRequired: 'Сначала подключите кошелек',
       governorRequired: 'Голосование сейчас недоступно',
     },
@@ -457,6 +547,7 @@ export default function App() {
   const [selectedProposalId, setSelectedProposalId] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [lastExplorerHref, setLastExplorerHref] = useState('');
   const [walletBinding, setWalletBinding] = useState<WalletBindingState>('idle');
   const [walletBindingMessage, setWalletBindingMessage] = useState('');
   const [tokenBalance, setTokenBalance] = useState('');
@@ -606,7 +697,11 @@ export default function App() {
 
   const sendPreparedTransaction = async (transaction: TonConnectTransaction, success: string) => {
     try {
-      await tonConnectUI.sendTransaction(transaction);
+      const result = await tonConnectUI.sendTransaction(transaction);
+      const signedHash = result.boc ? signedBocHashHex(result.boc) : '';
+      if (signedHash) {
+        setLastExplorerHref(`${addressBook.explorerBaseUrl}/transaction/${signedHash}`);
+      }
       setStatusMessage(success);
     } catch (error) {
       setErrorMessage(formatError(error));
@@ -616,6 +711,7 @@ export default function App() {
   const clearFeedback = () => {
     setErrorMessage('');
     setStatusMessage('');
+    setLastExplorerHref('');
   };
 
   return (
@@ -687,6 +783,10 @@ export default function App() {
               copy={t}
               totalVotes={totalVotes}
               onOpenVote={openVote}
+              onOpenCreate={() => {
+                setActivePage('vote');
+                setGovernanceMode('propose');
+              }}
               onOpenTokenomics={() => setActivePage('tokenomics')}
             />
           )}
@@ -715,6 +815,7 @@ export default function App() {
               tokenBalance={tokenBalance}
               statusMessage={statusMessage}
               errorMessage={errorMessage}
+              explorerHref={lastExplorerHref}
               onConnectWallet={openConnectModal}
               onVoteChange={updateVoteForm}
               onProposalChange={(patch) => setProposalForm((current) => ({ ...current, ...patch }))}
@@ -735,12 +836,14 @@ function HomePage({
   copy,
   totalVotes,
   onOpenVote,
+  onOpenCreate,
   onOpenTokenomics,
 }: {
   language: LanguageKey;
   copy: AppCopy;
   totalVotes: number;
   onOpenVote: () => void;
+  onOpenCreate: () => void;
   onOpenTokenomics: () => void;
 }) {
   const metricIcons = [<Vote />, <Gauge />, <Wallet />, <Activity />];
@@ -758,6 +861,9 @@ function HomePage({
             </button>
             <button className="secondary-action" type="button" onClick={onOpenTokenomics}>
               {copy.hero.tokenomics}
+            </button>
+            <button className="secondary-action" type="button" onClick={onOpenCreate}>
+              {copy.hero.create}
             </button>
           </div>
         </div>
@@ -783,6 +889,22 @@ function HomePage({
         ))}
       </section>
 
+      <section className="rule-strip" aria-label={copy.hero.rulesTitle}>
+        <div className="section-header compact-header">
+          <h2>{copy.hero.rulesTitle}</h2>
+          <span>tgBTCat</span>
+        </div>
+        <div className="rule-grid">
+          {copy.hero.rules.map(([title, detail], index) => (
+            <article key={title} className="rule-card">
+              <span>{index === 0 ? <Vote /> : index === 1 ? <ShieldCheck /> : <Wallet />}</span>
+              <strong>{title}</strong>
+              <p>{detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="landing-grid">
         <section className="feature-panel dark-panel">
           <h2>{copy.hero.featureTitle}</h2>
@@ -802,6 +924,22 @@ function HomePage({
             ))}
           </div>
         </section>
+      </section>
+
+      <section className="event-section">
+        <div className="section-copy slim-copy">
+          <h2>{copy.hero.eventsTitle}</h2>
+          <p>{copy.hero.eventsText}</p>
+        </div>
+        <div className="event-grid">
+          {copy.hero.events.map(([title, detail], index) => (
+            <article key={title} className="event-card">
+              <span>{index === 0 ? <Trophy /> : index === 1 ? <SlidersHorizontal /> : index === 2 ? <AlertCircle /> : <Sparkles />}</span>
+              <strong>{title}</strong>
+              <p>{detail}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </>
   );
@@ -888,6 +1026,7 @@ function VotePage({
   tokenBalance,
   statusMessage,
   errorMessage,
+  explorerHref,
   onConnectWallet,
   onVoteChange,
   onProposalChange,
@@ -909,6 +1048,7 @@ function VotePage({
   tokenBalance: string;
   statusMessage: string;
   errorMessage: string;
+  explorerHref: string;
   onConnectWallet: () => void;
   onVoteChange: (patch: Partial<VoteFormState>) => void;
   onProposalChange: (patch: Partial<ProposalFormState>) => void;
@@ -940,11 +1080,14 @@ function VotePage({
         </div>
       </div>
 
+      <VoteRulesPanel copy={copy} />
+
       <div className="governance-grid">
         <ProposalTable copy={copy} selectedProposalId={selectedProposalId} onSelect={onSelectProposal} />
         <div className="governance-workspace">
           {governanceMode === 'cast' ? (
             <VotePanel
+              language={language}
               copy={copy}
               form={voteForm}
               proposal={selectedProposal}
@@ -967,7 +1110,7 @@ function VotePage({
               onSend={onSendProposal}
             />
           )}
-          <FeedbackPanel status={statusMessage} error={errorMessage} />
+          <FeedbackPanel copy={copy} status={statusMessage} error={errorMessage} explorerHref={explorerHref} />
         </div>
       </div>
     </section>
@@ -1015,6 +1158,28 @@ function Principle({ icon, title, text }: { icon: ReactNode; title: string; text
       <strong>{title}</strong>
       <p>{text}</p>
     </article>
+  );
+}
+
+function VoteRulesPanel({ copy }: { copy: AppCopy }) {
+  const icons = [<Vote />, <Flame />, <CheckCircle2 />, <Wallet />];
+
+  return (
+    <section className="vote-rules-panel">
+      <div className="section-header compact-header">
+        <h2>{copy.vote.rulesTitle}</h2>
+        <span>{copy.vote.jettonTransfer}</span>
+      </div>
+      <div className="rule-grid">
+        {copy.vote.rules.map(([title, detail], index) => (
+          <article key={title} className="rule-card">
+            <span>{icons[index]}</span>
+            <strong>{title}</strong>
+            <p>{detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1077,6 +1242,7 @@ function VoteBars({ proposal }: { proposal: ProposalRow }) {
 }
 
 function VotePanel({
+  language,
   copy,
   form,
   proposal,
@@ -1088,6 +1254,7 @@ function VotePanel({
   onChange,
   onSend,
 }: {
+  language: LanguageKey;
   copy: AppCopy;
   form: VoteFormState;
   proposal: ProposalRow;
@@ -1101,6 +1268,15 @@ function VotePanel({
 }) {
   const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
   const bindingText = walletBindingText(copy, walletBinding, walletBindingMessage);
+  const amountUnits = parseDecimalUnits(form.jettonAmount, true);
+  const balanceUnits = tokenBalance ? parseDecimalUnits(tokenBalance, false) : null;
+  const amountInvalid = amountUnits === null;
+  const amountTooHigh =
+    walletBinding === 'ready' && amountUnits !== null && balanceUnits !== null && amountUnits > balanceUnits;
+  const voteAmount = amountUnits === null ? 0 : Number(form.jettonAmount);
+  const preview = buildVotePreview(proposal, form.side, Number.isFinite(voteAmount) ? voteAmount : 0);
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+  const canUseMax = walletBinding === 'ready' && balanceUnits !== null && balanceUnits > 0n;
 
   return (
     <section className="panel form-panel">
@@ -1131,13 +1307,13 @@ function VotePanel({
         <small>{proposalCopy?.execution ?? proposal.execution}</small>
       </div>
       {connectedAddress ? (
-        <div className={`wallet-strip wallet-strip-${walletBinding}`}>
-          <Wallet size={17} />
-          <span>
-            {walletBinding === 'ready' && tokenBalance
-              ? `${bindingText} ${tokenBalance} tgBTCat`
-              : bindingText}
-          </span>
+        <div className="balance-card">
+          <div className={`wallet-strip wallet-strip-${walletBinding}`}>
+            <Wallet size={17} />
+            <span>{bindingText}</span>
+          </div>
+          <strong>{walletBinding === 'ready' && tokenBalance ? `${tokenBalance} tgBTCat` : copy.vote.balanceEmpty}</strong>
+          <small>{shortAddress(connectedAddress)}</small>
         </div>
       ) : (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
@@ -1145,10 +1321,26 @@ function VotePanel({
           {copy.common.connect}
         </button>
       )}
-      <label>
-        {copy.vote.amount}
-        <input value={form.jettonAmount} onChange={(event) => onChange({ jettonAmount: event.target.value })} />
+      <label className="amount-field">
+        <span className="label-row">
+          {copy.vote.amount}
+          <button
+            className="mini-action"
+            type="button"
+            disabled={!canUseMax}
+            onClick={() => onChange({ jettonAmount: tokenBalance })}
+          >
+            {copy.common.max}
+          </button>
+        </span>
+        <input
+          inputMode="decimal"
+          value={form.jettonAmount}
+          onChange={(event) => onChange({ jettonAmount: event.target.value })}
+        />
       </label>
+      {amountInvalid && <p className="field-error">{copy.vote.amountInvalid}</p>}
+      {amountTooHigh && <p className="field-error">{copy.vote.amountTooHigh}</p>}
       <div className="side-selector" aria-label="Vote side">
         {([1, 2] as const).map((side) => (
           <button
@@ -1161,14 +1353,40 @@ function VotePanel({
           </button>
         ))}
       </div>
-      {connectedAddress && (
-        <div className="owner-strip">
-          <Wallet size={17} />
-          <span>{shortAddress(connectedAddress)}</span>
+
+      <div className="impact-panel">
+        <div className="impact-heading">
+          <span>
+            <Gauge size={17} />
+            {copy.vote.impactTitle}
+          </span>
+          <strong>{copy.sides[form.side]}</strong>
         </div>
-      )}
+        <div className="impact-grid">
+          <div>
+            <span>{copy.vote.currentWeight}</span>
+            <strong>{copy.sides[1]} {formatPercent(preview.currentForPercent)}</strong>
+            <small>{copy.sides[2]} {formatPercent(preview.currentAgainstPercent)}</small>
+          </div>
+          <div>
+            <span>{copy.vote.afterVote}</span>
+            <strong>{copy.sides[1]} {formatPercent(preview.nextForPercent)}</strong>
+            <small>{copy.sides[2]} {formatPercent(preview.nextAgainstPercent)}</small>
+          </div>
+        </div>
+        <div className="impact-totals">
+          <span>{copy.sides[1]} {formatVotes(preview.nextForVotes, locale)}</span>
+          <span>{copy.sides[2]} {formatVotes(preview.nextAgainstVotes, locale)}</span>
+        </div>
+        <p>{form.side === 1 ? copy.vote.outcomeFor : copy.vote.outcomeAgainst}</p>
+      </div>
       <div className="button-row">
-        <button className="primary-action wide-action" type="button" onClick={onSend} disabled={!connectedAddress || !form.voterJettonWallet}>
+        <button
+          className="primary-action wide-action"
+          type="button"
+          onClick={onSend}
+          disabled={!connectedAddress || !form.voterJettonWallet || amountInvalid || amountTooHigh}
+        >
           <Send size={18} />
           {copy.common.send}
         </button>
@@ -1194,13 +1412,30 @@ function ProposalBuilder({
   onChange: (patch: Partial<ProposalFormState>) => void;
   onSend: () => void;
 }) {
+  const targetWalletInvalid =
+    form.kind === 'wallet' && form.targetWallet.trim() !== '' && !isValidTonAddress(form.targetWallet);
+  const targetWalletMissing = form.kind === 'wallet' && !form.targetWallet.trim();
+  const durationInvalid = !isPositiveInteger(form.votingDurationMinutes);
+  const buyFeeInvalid = !isFeePercentValid(form.buyFeePercent);
+  const sellFeeInvalid = !isFeePercentValid(form.sellFeePercent);
+  const createDisabled =
+    !connectedAddress ||
+    targetWalletMissing ||
+    targetWalletInvalid ||
+    durationInvalid ||
+    buyFeeInvalid ||
+    sellFeeInvalid;
+  const buyPreview = feePreviewAmount(form.buyFeePercent);
+  const sellPreview = feePreviewAmount(form.sellFeePercent);
+
   return (
     <section className="panel form-panel">
       <div className="section-header">
         <h2>{copy.vote.createTitle}</h2>
         <span className="status status-queued">{form.kind === 'wallet' ? copy.vote.walletRoute : copy.vote.globalRoute}</span>
       </div>
-      <div className="proposal-kind-switch" aria-label={copy.vote.createTitle}>
+      <p className="form-intro">{copy.vote.createIntro}</p>
+      <div className="create-scenarios" aria-label={copy.vote.createTitle}>
         {(['global', 'wallet'] as const).map((kind) => (
           <button
             key={kind}
@@ -1208,7 +1443,9 @@ function ProposalBuilder({
             type="button"
             onClick={() => onChange({ kind })}
           >
-            {kind === 'global' ? copy.vote.proposalKindGlobal : copy.vote.proposalKindWallet}
+            <span>{kind === 'global' ? <SlidersHorizontal /> : <Wallet />}</span>
+            <strong>{kind === 'global' ? copy.vote.proposalKindGlobal : copy.vote.proposalKindWallet}</strong>
+            <small>{kind === 'global' ? copy.vote.scenarioGlobal : copy.vote.scenarioWallet}</small>
           </button>
         ))}
       </div>
@@ -1221,6 +1458,7 @@ function ProposalBuilder({
             placeholder={copy.vote.targetWalletPlaceholder}
             spellCheck={false}
           />
+          {targetWalletInvalid && <span className="field-error">{copy.vote.targetWalletInvalid}</span>}
         </label>
       )}
       <div className="field-row">
@@ -1233,6 +1471,7 @@ function ProposalBuilder({
             value={form.votingDurationMinutes}
             onChange={(event) => onChange({ votingDurationMinutes: event.target.value })}
           />
+          <span className="field-hint">{copy.vote.durationHint}</span>
         </label>
         <div className="duration-presets">
           {VOTING_DURATION_PRESETS.map((option) => (
@@ -1251,15 +1490,14 @@ function ProposalBuilder({
         <Wallet size={17} />
         <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_TON)}</span>
       </div>
+      <p className="field-hint">{copy.vote.proposalFeeDetail}</p>
       <div className="fee-grid">
-        <label>
-          {copy.vote.buyFee}
-          <input value={form.buyFeePercent} onChange={(event) => onChange({ buyFeePercent: event.target.value })} />
-        </label>
-        <label>
-          {copy.vote.sellFee}
-          <input value={form.sellFeePercent} onChange={(event) => onChange({ sellFeePercent: event.target.value })} />
-        </label>
+        <FeeControl label={copy.vote.buyFee} value={form.buyFeePercent} onChange={(buyFeePercent) => onChange({ buyFeePercent })} />
+        <FeeControl label={copy.vote.sellFee} value={form.sellFeePercent} onChange={(sellFeePercent) => onChange({ sellFeePercent })} />
+      </div>
+      <div className="fee-preview">
+        <strong>{copy.vote.feePreviewTitle}</strong>
+        <p>{copy.vote.feePreviewText.replace('{buy}', buyPreview).replace('{sell}', sellPreview)}</p>
       </div>
       {!connectedAddress && (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
@@ -1272,7 +1510,7 @@ function ProposalBuilder({
           className="primary-action wide-action"
           type="button"
           onClick={onSend}
-          disabled={!connectedAddress || (form.kind === 'wallet' && !form.targetWallet)}
+          disabled={createDisabled}
         >
           <Plus size={18} />
           {copy.common.create}
@@ -1282,14 +1520,71 @@ function ProposalBuilder({
   );
 }
 
-function FeedbackPanel({ status, error }: { status: string; error: string }) {
+function FeeControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const rangeValue = feeRangeValue(value);
+  const isInvalid = !isFeePercentValid(value);
+
+  return (
+    <label className="fee-control">
+      <span className="fee-control-header">
+        {label}
+        <strong>{rangeValue}%</strong>
+      </span>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        value={rangeValue}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <input
+        inputMode="decimal"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={isInvalid}
+      />
+      {isInvalid && <span className="field-error">0-100%</span>}
+    </label>
+  );
+}
+
+function FeedbackPanel({
+  copy,
+  status,
+  error,
+  explorerHref,
+}: {
+  copy: AppCopy;
+  status: string;
+  error: string;
+  explorerHref: string;
+}) {
   if (!status && !error) {
     return null;
   }
 
   return (
     <section className="feedback-panel">
-      {status && <div className="feedback-success">{status}</div>}
+      {status && (
+        <div className="feedback-success">
+          <span>{status}</span>
+          {explorerHref && (
+            <a href={explorerHref} target="_blank" rel="noreferrer">
+              {copy.common.openExplorer}
+              <ExternalLink size={15} />
+            </a>
+          )}
+        </div>
+      )}
       {error && <div className="feedback-error">{error}</div>}
     </section>
   );
@@ -1345,6 +1640,73 @@ function AddressLine({
       </div>
     </div>
   );
+}
+
+function buildVotePreview(proposal: ProposalRow, side: VoteSide, amount: number) {
+  const currentTotal = proposal.forVotes + proposal.againstVotes || 1;
+  const safeAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
+  const nextForVotes = proposal.forVotes + (side === 1 ? safeAmount : 0);
+  const nextAgainstVotes = proposal.againstVotes + (side === 2 ? safeAmount : 0);
+  const nextTotal = nextForVotes + nextAgainstVotes || 1;
+
+  return {
+    currentForPercent: (proposal.forVotes / currentTotal) * 100,
+    currentAgainstPercent: (proposal.againstVotes / currentTotal) * 100,
+    nextForPercent: (nextForVotes / nextTotal) * 100,
+    nextAgainstPercent: (nextAgainstVotes / nextTotal) * 100,
+    nextForVotes,
+    nextAgainstVotes,
+  };
+}
+
+function parseDecimalUnits(value: string, requirePositive: boolean): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+(\.\d{0,9})?$/.test(normalized)) {
+    return null;
+  }
+
+  const [whole, fraction = ''] = normalized.split('.');
+  const units = BigInt(whole + fraction.padEnd(9, '0'));
+  if (requirePositive && units <= 0n) {
+    return null;
+  }
+  return units;
+}
+
+function isPositiveInteger(value: string): boolean {
+  const normalized = value.trim();
+  return /^\d+$/.test(normalized) && Number(normalized) > 0;
+}
+
+function isFeePercentValid(value: string): boolean {
+  const normalized = value.trim();
+  if (!/^\d+(\.\d{0,2})?$/.test(normalized)) {
+    return false;
+  }
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 100;
+}
+
+function feeRangeValue(value: string): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, Math.round(numeric)));
+}
+
+function feePreviewAmount(value: string): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 2,
+  }).format((1000 * Math.min(100, numeric)) / 100);
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value)}%`;
 }
 
 function requireAddress(address: string | null, message: string): string {
