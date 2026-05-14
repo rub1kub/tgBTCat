@@ -1,4 +1,4 @@
-import { Address, beginCell, toNano } from '@ton/core';
+import { Address, beginCell, Cell, toNano } from '@ton/core';
 import { TgBtcCatGovernor } from '../../../wrappers-ts/TgBtcCatGovernor.gen';
 import { TgBtcCatJettonWallet } from '../../../wrappers-ts/TgBtcCatJettonWallet.gen';
 
@@ -35,9 +35,19 @@ export interface GlobalFeeProposalInput {
   gasTon: string;
 }
 
+export interface ResolveJettonWalletInput {
+  network: 'mainnet' | 'testnet';
+  jettonMaster: string;
+  ownerAddress: string;
+}
+
 const CAST_VOTE_OPCODE = 0x766f7465;
 const ACTION_SET_GLOBAL_FEES = 1;
 const JETTON_DECIMALS = 9;
+const TONCENTER_V3_ENDPOINTS: Record<ResolveJettonWalletInput['network'], string> = {
+  mainnet: 'https://toncenter.com/api/v3/runGetMethod',
+  testnet: 'https://testnet.toncenter.com/api/v3/runGetMethod',
+};
 
 export function buildVoteTransaction(input: VoteTransactionInput): TonConnectTransaction {
   const votePayload = beginCell()
@@ -101,6 +111,44 @@ export function buildGlobalFeeProposalTransaction(
   };
 }
 
+export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput): Promise<string> {
+  const testOnly = input.network === 'testnet';
+  const ownerSlice = beginCell().storeAddress(Address.parse(input.ownerAddress)).endCell();
+  const response = await fetch(TONCENTER_V3_ENDPOINTS[input.network], {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      address: Address.parse(input.jettonMaster).toString({ testOnly }),
+      method: 'get_wallet_address',
+      stack: [
+        {
+          type: 'slice',
+          value: cellToBase64(ownerSlice, { idx: false }),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Jetton wallet lookup failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as {
+    exit_code?: number;
+    stack?: unknown[];
+    error?: string;
+  };
+
+  if (result.exit_code !== 0) {
+    throw new Error(result.error || `Jetton wallet lookup exited with code ${result.exit_code ?? 'unknown'}`);
+  }
+
+  const walletCell = Cell.fromBase64(readStackCell(result.stack?.[0]));
+  return walletCell.beginParse().loadAddress().toString({ testOnly });
+}
+
 export function unixHoursFromNow(hours: number): string {
   return String(Math.floor(Date.now() / 1000) + hours * 60 * 60);
 }
@@ -112,8 +160,8 @@ export function shortAddress(address: string | null): string {
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
 }
 
-export function formatVotes(value: number): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatVotes(value: number, locale = 'en-US'): string {
+  return new Intl.NumberFormat(locale, {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value);
@@ -148,8 +196,36 @@ function validUntil(): number {
   return Math.floor(Date.now() / 1000) + 5 * 60;
 }
 
-function cellToBase64(cell: { toBoc(): Uint8Array }): string {
-  const bytes = cell.toBoc();
+function readStackCell(stackItem: unknown): string {
+  if (Array.isArray(stackItem)) {
+    const value = stackItem[1];
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (isRecord(value) && typeof value.bytes === 'string') {
+      return value.bytes;
+    }
+  }
+
+  if (isRecord(stackItem)) {
+    const value = stackItem.value;
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (isRecord(value) && typeof value.bytes === 'string') {
+      return value.bytes;
+    }
+  }
+
+  throw new Error('Jetton wallet lookup returned an unsupported stack value');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function cellToBase64(cell: { toBoc(options?: { idx?: boolean }): Uint8Array }, options?: { idx?: boolean }): string {
+  const bytes = cell.toBoc(options);
   let binary = '';
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
