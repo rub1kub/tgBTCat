@@ -3,6 +3,7 @@
 .acton/
 gen/
 build/
+output/
 lcov.info
 coverage.txt
 libraries.toml
@@ -13,3 +14,9 @@ global.libraries.toml
 *.mnemonic
 wallets.toml
 global.wallets.toml
+
+# Web app
+web/node_modules/
+web/dist/
+web/.vite/
+web/output/

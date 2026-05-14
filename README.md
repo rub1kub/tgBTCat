@@ -1,46 +1,91 @@
-# TG BTC Cat
+<p align="center">
+  <img src="assets/logo.png" alt="TG BTC Cat" width="160" />
+</p>
 
-TG BTC Cat is a production-target community DAO jetton project on TON built with Acton/Tolk around the tgBTC narrative.
+<h1 align="center">TG BTC Cat</h1>
 
-Holders are intended to govern protocol parameters on-chain, including buy/sell fees, wallet-specific fee rules, and community event campaigns.
+<p align="center">
+  A governance-first TON jetton protocol for the tgBTC narrative.
+</p>
 
-## Status
+<p align="center">
+  <img alt="TON" src="https://img.shields.io/badge/TON-0098EA?style=for-the-badge&logo=ton&logoColor=white" />
+  <img alt="Acton" src="https://img.shields.io/badge/Acton-1.0.0-111827?style=for-the-badge" />
+  <img alt="Tolk" src="https://img.shields.io/badge/Tolk-smart%20contracts-0B1020?style=for-the-badge" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-95%20passing-16A34A?style=for-the-badge" />
+</p>
 
-This repository is the source of truth for the full product:
+## Protocol
 
-- Acton `1.0.0` project setup for TON smart contract development.
-- Token avatar asset and jetton metadata draft.
-- Production contract architecture and wallet roles.
-- Production Tolk contracts for jetton master/wallet, irreversible governor, fee controller, wallet fee registry, DEX registry, DAO treasury, and event controller.
+TG BTC Cat is a DAO-governed jetton system built on TON with Acton and Tolk. The core idea is simple: holders can commit `tgBTCat` on-chain to shape protocol behavior, fee policy, treasury movement, wallet-specific rules, and community events.
+
+Voting is intentionally irreversible. A vote is cast by sending `tgBTCat` to governance; the amount sent becomes vote weight and remains in the governance treasury. This creates a direct cost for influence and makes governance activity visible on-chain.
+
+## What It Controls
+
+- Global buy and sell fees from `0%` to `100%`.
+- Wallet-specific buy and sell fee rules from `0%` to `100%`.
+- DEX wallet classification for transfer-side fee logic.
+- DAO treasury TON and jetton operations.
+- Community event creation, updates, scheduling, and status changes.
+- Jetton wallet runtime propagation through governed execution.
+
+## Contract Stack
+
+| Contract | Role |
+| --- | --- |
+| `TgBtcCatJettonMaster` | Jetton master, metadata, mint/admin flow, wallet discovery |
+| `TgBtcCatJettonWallet` | Custom fee-aware jetton wallet with bounce restoration |
+| `TgBtcCatGovernor` | Irreversible token voting, proposal execution, raw governed calls |
+| `TgBtcCatFeeController` | Global buy/sell fee state |
+| `TgBtcCatWalletFeeRegistry` | Wallet-specific fee governance |
+| `TgBtcCatDexRegistry` | DEX wallet classification |
+| `TgBtcCatTreasury` | DAO-controlled TON and jetton treasury operations |
+| `TgBtcCatEventController` | On-chain community event registry |
+
+## Current Build
+
+- Production Tolk contracts for the current protocol surface.
 - Generated Tolk and TypeScript wrappers.
-- Acton deployment script for local emulation and testnet/mainnet execution.
-- Contract tests, bounce/security coverage, and critical mutation checks.
-- Web app work remains a separate implementation track.
+- Acton deployment script for local emulation, testnet, and mainnet execution.
+- Contract tests for governance, fees, wallet runtime, bounce handling, gas edges, protocol validation, treasury, and events.
+- Critical mutation checks for the active governance and controller paths.
+- TON Connect governance console with vote payloads, fee proposal builder, transaction previews, and contract registry.
 
-The target is not an MVP. The target is a full launchable product with production contracts, a public web interface, TON Connect transaction flows, visible vote history, treasury tracking, testnet deployment, verification, and security review.
+Latest local gate:
 
-## Product Scope
+```bash
+acton wrapper --all
+acton wrapper --all --ts
+acton build
+acton test        # 95 passed
+acton check
+acton fmt --check
+acton script scripts/deploy.tolk
+```
 
-The final product includes:
+## Governance Model
 
-- `tgBTCat` jetton master and custom jetton wallet.
-- Irreversible treasury-to-vote governance.
-- Global buy/sell fee governance from `0%` to `100%`.
-- Wallet-specific buy/sell fee governance from `0%` to `100%`.
-- DEX registry for buy/sell classification.
-- Vote treasury and fee treasury.
-- Public web app with TON Connect.
-- On-chain proposal creation and execution.
-- Vote explorer: voter, side, amount, transaction hash, timestamp, proposal totals.
-- Minimalist brand interface matching TG BTC Cat identity.
+1. A proposal is created on-chain.
+2. A holder sends `tgBTCat` to the governor with an encoded vote payload.
+3. The received token amount becomes vote weight.
+4. Votes are counted as `FOR`, `AGAINST`, or `ABSTAIN`.
+5. Passed proposals execute governed actions through typed controller routes or whitelisted raw execution.
+6. Failed outbound execution can bounce and restore proposal execution state.
 
-## Metadata
+## Repository Layout
 
-Draft jetton metadata lives in [`metadata/jetton.json`](metadata/jetton.json).
-
-Current asset:
-
-![TG BTC Cat logo](assets/logo.png)
+```text
+contracts/      Tolk smart contracts and shared message/storage schemas
+wrappers/       Generated Tolk wrappers
+wrappers-ts/    Generated TypeScript wrappers for app integration
+tests/          Acton contract tests
+scripts/        Deployment and configuration scripts
+metadata/       Jetton metadata draft
+assets/         Brand assets
+docs/           Product, persistence, and wallet notes
+web/            TON Connect governance console
+```
 
 ## Development
 
@@ -53,17 +98,41 @@ acton check
 acton fmt --check
 ```
 
-Regenerate wrappers after ABI changes:
+Regenerate wrappers after ABI or message changes:
 
 ```bash
 acton wrapper --all
 acton wrapper --all --ts
 ```
 
-## Storage Plan
+Run deployment emulation:
 
-GitHub is used for public source control and asset backup. For token metadata and image URLs, prefer permanent or content-addressed storage:
+```bash
+acton script scripts/deploy.tolk
+```
 
-- Primary: Arweave permanent upload.
-- Secondary: IPFS CID pinned by multiple pinning providers.
-- Backup: GitHub release/source asset.
+Broadcast only after testnet validation:
+
+```bash
+acton script scripts/deploy.tolk --net testnet
+```
+
+Run the web console:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Production web checks:
+
+```bash
+cd web
+npm run build
+npm run lint
+```
+
+## Product Direction
+
+The target is a launch-ready TON DAO product: audited contracts, verified deployments, a public TON Connect interface, proposal and vote explorer, treasury visibility, permanent metadata, and a clean brand surface around the tgBTC narrative.
