@@ -126,7 +126,7 @@ export default function App() {
   const selectedProposal = proposalRows.find((proposal) => proposal.id === selectedProposalId) ?? proposalRows[0];
 
   const [voteForm, setVoteForm] = useState<VoteFormState>({
-    voterJettonWallet: addressBooks.testnet.addresses.governorVoteJettonWallet ?? '',
+    voterJettonWallet: '',
     proposalId: '0',
     side: 1,
     jettonAmount: '1000',
@@ -677,6 +677,7 @@ function VotePanel({
         <input
           value={form.voterJettonWallet}
           onChange={(event) => onChange({ voterJettonWallet: event.target.value })}
+          placeholder="Your tgBTCat jetton wallet"
           spellCheck={false}
         />
       </label>
