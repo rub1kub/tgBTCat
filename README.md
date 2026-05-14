@@ -12,7 +12,7 @@
   <img alt="TON" src="https://img.shields.io/badge/TON-0098EA?style=for-the-badge&logo=ton&logoColor=white" />
   <img alt="Acton" src="https://img.shields.io/badge/Acton-1.0.0-111827?style=for-the-badge" />
   <img alt="Tolk" src="https://img.shields.io/badge/Tolk-smart%20contracts-0B1020?style=for-the-badge" />
-  <img alt="Tests" src="https://img.shields.io/badge/tests-95%20passing-16A34A?style=for-the-badge" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-99%20passing-16A34A?style=for-the-badge" />
 </p>
 
 ## Protocol
@@ -58,11 +58,27 @@ Latest local gate:
 acton wrapper --all
 acton wrapper --all --ts
 acton build
-acton test        # 95 passed
+acton test        # 99 passed
 acton check
 acton fmt --check
 acton script scripts/deploy.tolk
 ```
+
+## Testnet Deployment
+
+The current testnet deployment is live and wired into the web console.
+
+| Contract | Address |
+| --- | --- |
+| Governor | `kQA1GaTDOvM36bPDcBl8j1t1XAwzxTaAuNqrr0K2fRYMm5Vc` |
+| Jetton Master | `kQBmTqJHA8NBgpBu4tNXHwcOSEQKSTiPsDKZoZ0HVOR0xZlo` |
+| Vote Jetton Wallet | `kQA1i5KmymwMKEx2ET_XSQlkYFCKSKB03-mVbrZABWSyJaQ7` |
+| Fee Controller | `kQAe6eyIysCucV94ZOE4n62Cn8_NRqRT0FwnmITXxi4_g1vu` |
+| Wallet Fee Registry | `kQANR_V5_bi1zKutTcCRSakJ8lcNaRLULy6beEGDIffYVilw` |
+| DEX Registry | `kQBY1IAJoAihGBN3zhPqSt8QzaY6GZKjB5xrnMV5-I8VlzRt` |
+| DAO Treasury | `kQD4NsPFs18yjR_eqyhIItwr-xNQ4h4gR45-X2ZsaiK3HRMa` |
+| Event Controller | `kQAsrtKveDh-cgmqf1EYSjy_knLxKqI8GUZZwwKXGfDtNKxI` |
+| Fee Treasury | `kQC2sHx4TKwlHSxCwH-CsZ0DFUzV9zZMdJIaWNTEvc1BLdp7` |
 
 ## Governance Model
 

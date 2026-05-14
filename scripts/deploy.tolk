@@ -1,4 +1,5 @@
 import "@stdlib/strings"
+import "@acton/env"
 import "@acton/io"
 
 import "@acton/emulation/network"
@@ -34,14 +35,19 @@ fun waitFor(label: string, result: SendResultList): bool {
 }
 
 fun main() {
-    val metadataUri = "https://tgbtcat.fun/metadata/jetton.json";
-    val initialSupply = 0;
-    val minVoteAmount = 1;
-    val minQuorumVotes = 0;
-    val handoffMinterAdmin = false;
+    val deployerWalletName = env<string>("TGBTCAT_DEPLOYER_WALLET") ?? "tgbtcat_ops_admin";
+    val feeTreasuryWalletName = env<string>("TGBTCAT_FEE_TREASURY_WALLET") ??
+    "tgbtcat_fee_treasury";
+    val metadataUri = env<string>("TGBTCAT_METADATA_URI") ??
+    "https://tgbtcat.fun/metadata/jetton.json";
+    val initialSupply = env<int>("TGBTCAT_INITIAL_SUPPLY") ?? 0;
+    val minVoteAmount = env<int>("TGBTCAT_MIN_VOTE_AMOUNT") ?? 1;
+    val minQuorumVotes = env<int>("TGBTCAT_MIN_QUORUM_VOTES") ?? 0;
+    val governorTopUp = env<int>("TGBTCAT_GOVERNOR_TOP_UP") ?? 2000000000;
+    val handoffMinterAdmin = env<bool>("TGBTCAT_HANDOFF_MINTER_ADMIN") ?? false;
 
-    val deployer = scripts.wallet("tgbtcat_ops_admin");
-    val feeTreasury = scripts.wallet("tgbtcat_fee_treasury");
+    val deployer = scripts.wallet(deployerWalletName);
+    val feeTreasury = scripts.wallet(feeTreasuryWalletName);
 
     val governor = TgBtcCatGovernor.fromStorage({
         admin: deployer.address,
@@ -77,8 +83,12 @@ fun main() {
     });
 
     println("TG BTC Cat deployer {}", deployer.address);
+    println("deployer wallet {}", deployerWalletName);
     println("fee treasury {}", feeTreasury.address);
+    println("fee treasury wallet {}", feeTreasuryWalletName);
     println("metadata uri {}", metadataUri);
+    println("initial supply {}", initialSupply);
+    println("governor top up {}", governorTopUp);
 
     if (!scripts.isContractDeployed(governor.address)) {
         if (!waitFor("deploy governor", governor.deploy(deployer.address, { value: ton("0.1") }))) {
@@ -241,13 +251,15 @@ fun main() {
         return;
     }
 
-    if (
-        !waitFor(
-            "top up governor execution balance",
-            governor.sendGovernanceTopUp(deployer.address, { value: ton("2") }),
-        )
-    ) {
-        return;
+    if (governorTopUp != 0) {
+        if (
+            !waitFor(
+                "top up governor execution balance",
+                governor.sendGovernanceTopUp(deployer.address, { value: governorTopUp }),
+            )
+        ) {
+            return;
+        }
     }
 
     if (initialSupply != 0) {

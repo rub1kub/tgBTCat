@@ -73,6 +73,26 @@ get fun `test admin: non-admin should not be able to mint jettons`() {
     expect(minter.getTotalSupply()).toEqual(supplyBefore);
 }
 
+get fun `test admin: minter rejects masterchain mint recipients`() {
+    val (minter, deployer, _) = setupTest();
+    val supplyBefore = minter.getTotalSupply();
+    val invalidRecipient = address.fromWorkchainAndHash(-1, 0);
+
+    val mintResult = minter.sendMint(
+        deployer.address,
+        invalidRecipient,
+        ton("1"),
+        ton("0.05"),
+        ton("0.3"),
+    );
+    expect(mintResult).toHaveFailedTx<MintNewJettons>({
+        from: deployer.address,
+        to: minter.address,
+        exitCode: Errors.WrongWorkchain,
+    });
+    expect(minter.getTotalSupply()).toEqual(supplyBefore);
+}
+
 get fun `test admin: change-admin flow should work and only next admin can claim`() {
     val (minter, deployer, notDeployer) = setupTest();
     expect(minter.getAdminAddress()).toEqual(deployer.address);
@@ -364,6 +384,65 @@ get fun `test admin: admin should be able to upgrade minter code and data`() {
         return;
     }
     expect(uri).toEqual(upgradedUri);
+}
+
+get fun `test admin: minter upgrade should apply new code`() {
+    val (minter, deployer, _) = setupTest();
+    val newCode = build("TgBtcCatDao");
+    val newData = beginCell().storeAddress(deployer.address).endCell();
+
+    val res = minter.sendUpgradeMinterCode(
+        deployer.address,
+        0,
+        newData,
+        newCode,
+        { bounce: false, value: ton("0.2") },
+    );
+    expect(res).toHaveSuccessfulTx<UpgradeMinterCode>({
+        from: deployer.address,
+        to: minter.address,
+    });
+
+    val upgradedOwner: address = net.runGetMethod(minter.address, "owner");
+    expect(upgradedOwner).toEqual(deployer.address);
+}
+
+get fun `test admin: minter rejects unknown messages`() {
+    val (minter, deployer, _) = setupTest();
+
+    val unknown = minter.sendAny(
+        deployer.address,
+        beginCell().storeUint(0x2508ffff, 32).endCell(),
+        { value: ton("0.05") },
+    );
+    expect(unknown).toHaveFailedTx({
+        from: deployer.address,
+        to: minter.address,
+        exitCode: 0xFFFF,
+    });
+}
+
+get fun `test admin: minter rejects masterchain wallet runtime routes`() {
+    val (minter, deployer, _) = setupTest();
+    val invalidOwner = address.fromWorkchainAndHash(-1, 0);
+    val feeTreasury = testing.treasury("route-masterchain-fee-treasury");
+
+    val route = minter.sendRouteSetWalletFeeRuntime(
+        deployer.address,
+        1,
+        invalidOwner,
+        ton("0.15"),
+        feeTreasury.address,
+        100,
+        200,
+        false,
+        { value: ton("0.2") },
+    );
+    expect(route).toHaveFailedTx<RouteSetWalletFeeRuntime>({
+        from: deployer.address,
+        to: minter.address,
+        exitCode: Errors.WrongWorkchain,
+    });
 }
 
 get fun `test shard: wallet address should keep owner shard prefix in get/discovery/transfer`() {

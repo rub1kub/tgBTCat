@@ -29,6 +29,14 @@ testnet: kQB5PH2RRIcPSCOh1b8Hldtm5FPJnt88w72D7--6vWNcxPb7
 mainnet: EQB5PH2RRIcPSCOh1b8Hldtm5FPJnt88w72D7--6vWNcxE1x
 ```
 
+## Active Testnet Deployer
+
+Used for the current public testnet deployment.
+
+```text
+testnet: kQC820tGBtPVavhCbFZHnFavQObnCLitBKlGaEZ6-eyQTIY6
+```
+
 ## Local Secrets
 
 Development wallet secrets are stored in local `wallets.toml`, which is ignored by git.
@@ -41,4 +49,3 @@ acton wallet export-mnemonic tgbtcat_vote_treasury
 acton wallet export-mnemonic tgbtcat_fee_treasury
 acton wallet export-mnemonic tgbtcat_ops_admin
 ```
-
