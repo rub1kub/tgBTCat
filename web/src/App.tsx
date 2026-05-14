@@ -121,7 +121,7 @@ const copyByLanguage = {
         ['Vote with tokens', 'for / against', 'send tgBTCat to add weight'],
         ['Create questions', 'tgBTCat fee', 'pay tokens so spam is expensive'],
         ['Change fees', '0-100%', 'buy and sell fees are public'],
-        ['Wallet rules', 'one address', 'propose a fee for a specific wallet'],
+        ['Wallet fees', 'specific wallet', 'apply fees to one wallet address'],
       ],
       featureTitle: 'The community decides the rules.',
       featureText:
@@ -343,7 +343,7 @@ const copyByLanguage = {
         ['голосовать токенами', 'за / против', 'отправляешь tgbtcat и добавляешь вес'],
         ['создавать вопросы', 'плата tgbtcat', 'платишь токенами, чтобы не было спама'],
         ['менять комиссии', '0-100%', 'покупка и продажа решаются публично'],
-        ['правила кошельков', 'один адрес', 'можно предложить комиссию для кошелька'],
+        ['комиссии для кошелька', 'конкретный кошелек', 'возможность накладывать комиссии на конкретный кошелек'],
       ],
       featureTitle: 'Правила решает сообщество.',
       featureText:
