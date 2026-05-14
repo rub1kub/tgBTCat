@@ -45,6 +45,12 @@ export interface ResolveJettonWalletInput {
   ownerAddress: string;
 }
 
+export interface JettonWalletInfo {
+  address: string;
+  balance: string;
+  formattedBalance: string;
+}
+
 const CAST_VOTE_OPCODE = 0x766f7465;
 const ACTION_SET_GLOBAL_FEES = 1;
 const ACTION_SET_WALLET_FEES = 2;
@@ -179,8 +185,18 @@ export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput
   return walletCell.beginParse().loadAddress().toString({ testOnly });
 }
 
-export function unixHoursFromNow(hours: number): string {
-  return String(Math.floor(Date.now() / 1000) + hours * 60 * 60);
+export async function resolveJettonWalletInfo(input: ResolveJettonWalletInput): Promise<JettonWalletInfo> {
+  const address = await resolveJettonWalletAddress(input);
+  const balance = await resolveJettonWalletBalance(input.network, address);
+  return {
+    address,
+    balance,
+    formattedBalance: formatJettonAmount(balance),
+  };
+}
+
+export function unixMinutesFromNow(minutes: number): string {
+  return String(Math.floor(Date.now() / 1000) + minutes * 60);
 }
 
 export function createQueryId(): string {
@@ -252,6 +268,85 @@ function readStackCell(stackItem: unknown): string {
   }
 
   throw new Error('Jetton wallet lookup returned an unsupported stack value');
+}
+
+async function resolveJettonWalletBalance(network: ResolveJettonWalletInput['network'], walletAddress: string): Promise<string> {
+  const testOnly = network === 'testnet';
+  const response = await fetch(TONCENTER_V3_ENDPOINTS[network], {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      address: Address.parse(walletAddress).toString({ testOnly }),
+      method: 'get_wallet_data',
+      stack: [],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Token balance lookup failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as {
+    exit_code?: number;
+    stack?: unknown[];
+    error?: string;
+  };
+
+  if (result.exit_code !== 0) {
+    return '0';
+  }
+
+  return readStackInt(result.stack?.[0]).toString();
+}
+
+function readStackInt(stackItem: unknown): bigint {
+  if (Array.isArray(stackItem)) {
+    return parseStackNumber(stackItem[1]);
+  }
+
+  if (isRecord(stackItem)) {
+    if ('value' in stackItem) {
+      return parseStackNumber(stackItem.value);
+    }
+    if ('num' in stackItem) {
+      return parseStackNumber(stackItem.num);
+    }
+  }
+
+  throw new Error('Token balance lookup returned an unsupported stack value');
+}
+
+function parseStackNumber(value: unknown): bigint {
+  if (typeof value === 'bigint') {
+    return value;
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return BigInt(value);
+  }
+  if (typeof value === 'string') {
+    return BigInt(value);
+  }
+  if (isRecord(value)) {
+    if ('value' in value) {
+      return parseStackNumber(value.value);
+    }
+    if ('bytes' in value) {
+      return parseStackNumber(value.bytes);
+    }
+  }
+
+  throw new Error('Token balance lookup returned an unsupported integer');
+}
+
+function formatJettonAmount(value: string): string {
+  const amount = BigInt(value);
+  const scale = 10n ** BigInt(JETTON_DECIMALS);
+  const whole = amount / scale;
+  const fraction = amount % scale;
+  const fractionText = fraction.toString().padStart(JETTON_DECIMALS, '0').replace(/0+$/, '');
+  return `${whole.toString()}${fractionText ? `.${fractionText}` : ''}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -193,14 +193,14 @@ get fun `test governor rejects small vote invalid side unknown proposal and late
     });
 }
 
-get fun `test governor enforces admin proposal validation and unknown message rejection`() {
+get fun `test governor charges public proposal fee and rejects invalid proposal messages`() {
     testing.setNow(1000);
     val (minter, _, _) = setupTest();
     val governorAdmin = testing.treasury("admin-validation-admin");
     val outsider = testing.treasury("admin-validation-outsider");
     val governor = deployGovernor(minter, governorAdmin, 10);
 
-    val nonAdminCreate = governor.sendCreateGovernanceProposal(
+    val publicCreate = governor.sendCreateGovernanceProposal(
         outsider.address,
         1,
         1,
@@ -213,10 +213,29 @@ get fun `test governor enforces admin proposal validation and unknown message re
         2000,
         { value: ton("0.05") },
     );
-    expect(nonAdminCreate).toHaveFailedTx({
+    expect(publicCreate).toHaveSuccessfulTx<CreateGovernanceProposal>({
         from: outsider.address,
         to: governor.address,
-        exitCode: GovErrors.NotGovernor,
+    });
+    expect(governor.getProposal(0).isSet).toEqual(true);
+
+    val underpaidCreate = governor.sendCreateGovernanceProposal(
+        outsider.address,
+        2,
+        1,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        2000,
+        { value: ton("0.049") },
+    );
+    expect(underpaidCreate).toHaveFailedTx({
+        from: outsider.address,
+        to: governor.address,
+        exitCode: GovErrors.ProposalFeeTooSmall,
     });
 
     val invalidFee = governor.sendCreateGovernanceProposal(
@@ -257,7 +276,7 @@ get fun `test governor enforces admin proposal validation and unknown message re
         exitCode: GovErrors.VotingClosed,
     });
 
-    expect(governor.getNextProposalId()).toEqual(0);
+    expect(governor.getNextProposalId()).toEqual(1);
     expect(governor.getProposal(999).isSet).toEqual(false);
 
     val unknown = governor.sendAny(

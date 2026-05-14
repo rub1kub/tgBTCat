@@ -28,9 +28,9 @@ import {
   buildWalletFeeProposalTransaction,
   createQueryId,
   formatVotes,
-  resolveJettonWalletAddress,
+  resolveJettonWalletInfo,
   shortAddress,
-  unixHoursFromNow,
+  unixMinutesFromNow,
   type TonConnectTransaction,
   type VoteSide,
 } from './ton/transactions';
@@ -55,19 +55,19 @@ interface ProposalFormState {
   targetWallet: string;
   buyFeePercent: string;
   sellFeePercent: string;
-  votingDurationHours: string;
+  votingDurationMinutes: string;
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
 const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
 const DEFAULT_VOTE_GAS_TON = '0.3';
 const DEFAULT_VOTE_FORWARD_TON = '0.05';
-const DEFAULT_PROPOSAL_GAS_TON = '0.05';
-const VOTING_DURATION_OPTIONS = [
-  { value: '6', label: { en: '6 hours', ru: '6 часов' } },
-  { value: '24', label: { en: '1 day', ru: '1 день' } },
-  { value: '72', label: { en: '3 days', ru: '3 дня' } },
-  { value: '168', label: { en: '7 days', ru: '7 дней' } },
+const PROPOSAL_CREATE_TON = '0.05';
+const VOTING_DURATION_PRESETS = [
+  { value: '10', label: { en: '10 min', ru: '10 мин' } },
+  { value: '30', label: { en: '30 min', ru: '30 мин' } },
+  { value: '60', label: { en: '60 min', ru: '60 мин' } },
+  { value: '1440', label: { en: '1 day', ru: '1 день' } },
 ] as const;
 
 const contractOrder: ContractKey[] = [
@@ -98,7 +98,7 @@ const copyByLanguage = {
       pending: 'Pending',
       address: 'Address',
       walletNotConnected: 'Wallet not connected',
-      send: 'Sign in wallet',
+      send: 'Send vote',
       create: 'Create question',
     },
     hero: {
@@ -142,32 +142,44 @@ const copyByLanguage = {
     },
     roadmap: {
       title: 'Roadmap',
-      text: 'A simple path: prepare the product, open voting, launch the token, then run recurring community seasons.',
+      text: 'The path from launch to a governed token economy: token, voting, wallet rules, treasury, and recurring community seasons.',
       openVote: 'Open voting',
       phases: [
         {
           phase: '01',
-          title: 'Preparation',
+          title: 'Foundation',
           status: 'In progress',
-          detail: 'Finalize the website, token identity, wallet connection, and first public votes.',
+          detail: 'Finalize token identity, public metadata, source code, contract addresses, and the voting interface.',
         },
         {
           phase: '02',
-          title: 'Voting opens',
+          title: 'Public voting',
           status: 'Next',
-          detail: 'Holders start deciding buy fees, sell fees, wallet rules, and first community events.',
+          detail: 'Open token-weighted votes where holders spend tgBTCat to support or reject fee changes.',
         },
         {
           phase: '03',
           title: 'Token launch',
           status: 'Queued',
-          detail: 'Publish final metadata, open liquidity, and route users from socials to the voting page.',
+          detail: 'Publish final metadata, seed liquidity, connect socials, and route new holders into the vote page.',
         },
         {
           phase: '04',
+          title: 'Wallet rules',
+          status: 'Planned',
+          detail: 'Let holders propose wallet-specific buy and sell fees through paid public questions.',
+        },
+        {
+          phase: '05',
           title: 'Community seasons',
           status: 'Planned',
-          detail: 'Run recurring events, treasury votes, and wallet rule campaigns.',
+          detail: 'Run recurring events, contests, raids, leaderboard votes, and treasury-backed community campaigns.',
+        },
+        {
+          phase: '06',
+          title: 'Treasury expansion',
+          status: 'Planned',
+          detail: 'Move treasury actions, rewards, and operational spending into public on-chain decisions.',
         },
       ],
     },
@@ -184,11 +196,11 @@ const copyByLanguage = {
       voterJettonWallet: 'Token wallet',
       walletPlaceholder: 'Auto-filled after Ton Connect',
       amount: 'tgBTCat to give to this vote',
-      flow: ['Connect wallet', 'We find your token wallet', 'Enter vote amount', 'Sign in wallet'],
-      bindingIdle: 'Connect wallet and the token wallet will be found automatically.',
-      bindingLoading: 'Finding your token wallet...',
-      bindingReady: 'Token wallet is connected automatically.',
-      bindingManual: 'Manual token wallet value is used.',
+      flow: ['Connect wallet', 'We find your token balance', 'Enter vote amount', 'Sign the transaction in wallet'],
+      bindingIdle: 'Connect wallet and token balance will be found automatically.',
+      bindingLoading: 'Finding your token balance...',
+      bindingReady: 'Token balance found:',
+      bindingManual: 'Manual token balance route is used.',
       createTitle: 'Create a fee question',
       globalRoute: 'For all buys and sells',
       walletRoute: 'For one wallet',
@@ -196,7 +208,8 @@ const copyByLanguage = {
       proposalKindWallet: 'One wallet',
       targetWallet: 'Wallet address',
       targetWalletPlaceholder: 'Paste TON wallet address',
-      votingDuration: 'Voting duration',
+      votingDuration: 'Voting duration in minutes',
+      proposalFee: 'Question fee: {amount} TON',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
       votePrepared: 'Vote is ready for wallet signature',
@@ -262,7 +275,7 @@ const copyByLanguage = {
       pending: 'Скоро',
       address: 'Адрес',
       walletNotConnected: 'Кошелек не подключен',
-      send: 'Подписать в кошельке',
+      send: 'Отправить голос',
       create: 'Создать вопрос',
     },
     hero: {
@@ -306,32 +319,44 @@ const copyByLanguage = {
     },
     roadmap: {
       title: 'Роадмапа',
-      text: 'Простой путь: подготовить продукт, открыть голосование, запустить токен и проводить регулярные сезоны сообщества.',
+      text: 'Путь от запуска к управляемой токен-экономике: токен, голосование, правила кошельков, казна и регулярные сезоны сообщества.',
       openVote: 'Открыть голосование',
       phases: [
         {
           phase: '01',
-          title: 'Подготовка',
+          title: 'Фундамент',
           status: 'Идет',
-          detail: 'Финализируем сайт, образ токена, подключение кошелька и первые публичные вопросы.',
+          detail: 'Финализируем образ токена, публичные метаданные, исходный код, адреса контрактов и интерфейс голосования.',
         },
         {
           phase: '02',
-          title: 'Открытие голосований',
+          title: 'Публичное голосование',
           status: 'Далее',
-          detail: 'Держатели начинают решать комиссии покупки, комиссии продажи, правила кошельков и первые события.',
+          detail: 'Открываем голосования, где держатели тратят tgBTCat, чтобы поддержать или отклонить изменение комиссий.',
         },
         {
           phase: '03',
           title: 'Запуск токена',
           status: 'В очереди',
-          detail: 'Публикуем финальное описание, открываем ликвидность и ведем пользователей из соцсетей на голосование.',
+          detail: 'Публикуем финальные метаданные, запускаем ликвидность, подключаем соцсети и ведем держателей на страницу голосования.',
         },
         {
           phase: '04',
+          title: 'Правила кошельков',
+          status: 'План',
+          detail: 'Даем держателям возможность создавать платные публичные вопросы по комиссиям для конкретных кошельков.',
+        },
+        {
+          phase: '05',
           title: 'Сезоны сообщества',
           status: 'План',
-          detail: 'Проводим повторяющиеся события, решения по казне и кампании для отдельных кошельков.',
+          detail: 'Проводим события, конкурсы, рейды, голосования рейтингов и кампании сообщества с поддержкой из казны.',
+        },
+        {
+          phase: '06',
+          title: 'Расширение казны',
+          status: 'План',
+          detail: 'Переводим расходы, награды и операционные решения в публичные ончейн-голосования.',
         },
       ],
     },
@@ -348,11 +373,11 @@ const copyByLanguage = {
       voterJettonWallet: 'Кошелек токена',
       walletPlaceholder: 'Заполнится автоматически',
       amount: 'Сколько tgBTCat отдать за голос',
-      flow: ['Подключите кошелек', 'Мы сами найдем кошелек токена', 'Введите количество tgBTCat', 'Подпишите в кошельке'],
-      bindingIdle: 'Подключите кошелек, и кошелек токена найдется автоматически.',
-      bindingLoading: 'Ищу кошелек токена...',
-      bindingReady: 'Кошелек токена подключен автоматически.',
-      bindingManual: 'Используется кошелек токена, введенный вручную.',
+      flow: ['Подключите кошелек', 'Мы сами найдем баланс токенов', 'Введите количество tgBTCat', 'Подпишите транзакцию в кошельке'],
+      bindingIdle: 'Подключите кошелек, и баланс токенов найдется автоматически.',
+      bindingLoading: 'Ищу баланс токенов...',
+      bindingReady: 'Баланс токенов:',
+      bindingManual: 'Используется ручной маршрут баланса токенов.',
       createTitle: 'Создать вопрос про комиссии',
       globalRoute: 'Для всех покупок и продаж',
       walletRoute: 'Для одного кошелька',
@@ -360,7 +385,8 @@ const copyByLanguage = {
       proposalKindWallet: 'Один кошелек',
       targetWallet: 'Адрес кошелька',
       targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
-      votingDuration: 'Сколько идет голосование',
+      votingDuration: 'Сколько минут идет голосование',
+      proposalFee: 'Плата за вопрос: {amount} TON',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
       votePrepared: 'Голос готов к подписи в кошельке',
@@ -433,6 +459,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [walletBinding, setWalletBinding] = useState<WalletBindingState>('idle');
   const [walletBindingMessage, setWalletBindingMessage] = useState('');
+  const [tokenBalance, setTokenBalance] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const { open: openConnectModal } = useTonConnectModal();
   const connectedAddress = useTonAddress();
@@ -462,7 +489,7 @@ export default function App() {
     targetWallet: '',
     buyFeePercent: '1',
     sellFeePercent: '2',
-    votingDurationHours: '24',
+    votingDurationMinutes: '60',
   });
 
   const totalVotes = useMemo(
@@ -492,8 +519,9 @@ export default function App() {
     const bindJettonWallet = async () => {
       setWalletBinding('loading');
       setWalletBindingMessage('');
+      setTokenBalance('');
       try {
-        const walletAddress = await resolveJettonWalletAddress({
+        const walletInfo = await resolveJettonWalletInfo({
           network,
           jettonMaster,
           ownerAddress: connectedAddress,
@@ -501,7 +529,8 @@ export default function App() {
         if (cancelled) {
           return;
         }
-        setVoteForm((current) => ({ ...current, voterJettonWallet: walletAddress }));
+        setVoteForm((current) => ({ ...current, voterJettonWallet: walletInfo.address }));
+        setTokenBalance(walletInfo.formattedBalance);
         setWalletBinding('ready');
       } catch (error) {
         if (cancelled) {
@@ -545,14 +574,14 @@ export default function App() {
     try {
       requireAddress(connectedAddress, t.vote.connectRequired);
       const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
-      const votingEndsAt = unixHoursFromNow(parseDurationHours(proposalForm.votingDurationHours));
+      const votingEndsAt = unixMinutesFromNow(parseDurationMinutes(proposalForm.votingDurationMinutes));
       const baseInput = {
         governorAddress,
         queryId: createQueryId(),
         buyFeePercent: proposalForm.buyFeePercent,
         sellFeePercent: proposalForm.sellFeePercent,
         votingEndsAt,
-        gasTon: DEFAULT_PROPOSAL_GAS_TON,
+        gasTon: PROPOSAL_CREATE_TON,
       };
       const transaction =
         proposalForm.kind === 'wallet'
@@ -635,6 +664,7 @@ export default function App() {
                 if (connectedAddress) {
                   setWalletBinding('idle');
                   setWalletBindingMessage('');
+                  setTokenBalance('');
                   setVoteForm((current) => ({ ...current, voterJettonWallet: '' }));
                   void tonConnectUI.disconnect();
                 } else {
@@ -682,6 +712,7 @@ export default function App() {
               connectedAddress={connectedAddress}
               walletBinding={effectiveWalletBinding}
               walletBindingMessage={effectiveWalletBindingMessage}
+              tokenBalance={tokenBalance}
               statusMessage={statusMessage}
               errorMessage={errorMessage}
               onConnectWallet={openConnectModal}
@@ -854,6 +885,7 @@ function VotePage({
   connectedAddress,
   walletBinding,
   walletBindingMessage,
+  tokenBalance,
   statusMessage,
   errorMessage,
   onConnectWallet,
@@ -874,6 +906,7 @@ function VotePage({
   connectedAddress: string;
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
+  tokenBalance: string;
   statusMessage: string;
   errorMessage: string;
   onConnectWallet: () => void;
@@ -918,6 +951,7 @@ function VotePage({
               connectedAddress={connectedAddress}
               walletBinding={walletBinding}
               walletBindingMessage={walletBindingMessage}
+              tokenBalance={tokenBalance}
               onConnectWallet={onConnectWallet}
               onChange={onVoteChange}
               onSend={onSendVote}
@@ -1049,6 +1083,7 @@ function VotePanel({
   connectedAddress,
   walletBinding,
   walletBindingMessage,
+  tokenBalance,
   onConnectWallet,
   onChange,
   onSend,
@@ -1059,6 +1094,7 @@ function VotePanel({
   connectedAddress: string;
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
+  tokenBalance: string;
   onConnectWallet: () => void;
   onChange: (patch: Partial<VoteFormState>) => void;
   onSend: () => void;
@@ -1098,7 +1134,9 @@ function VotePanel({
         <div className={`wallet-strip wallet-strip-${walletBinding}`}>
           <Wallet size={17} />
           <span>
-            {form.voterJettonWallet ? `${bindingText} ${shortAddress(form.voterJettonWallet)}` : bindingText}
+            {walletBinding === 'ready' && tokenBalance
+              ? `${bindingText} ${tokenBalance} tgBTCat`
+              : bindingText}
           </span>
         </div>
       ) : (
@@ -1188,14 +1226,30 @@ function ProposalBuilder({
       <div className="field-row">
         <label>
           {copy.vote.votingDuration}
-          <select value={form.votingDurationHours} onChange={(event) => onChange({ votingDurationHours: event.target.value })}>
-            {VOTING_DURATION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label[language]}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            pattern="[0-9]*"
+            inputMode="numeric"
+            value={form.votingDurationMinutes}
+            onChange={(event) => onChange({ votingDurationMinutes: event.target.value })}
+          />
         </label>
+        <div className="duration-presets">
+          {VOTING_DURATION_PRESETS.map((option) => (
+            <button
+              key={option.value}
+              className={form.votingDurationMinutes === option.value ? 'is-active' : ''}
+              type="button"
+              onClick={() => onChange({ votingDurationMinutes: option.value })}
+            >
+              {option.label[language]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="proposal-fee-note">
+        <Wallet size={17} />
+        <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_TON)}</span>
       </div>
       <div className="fee-grid">
         <label>
@@ -1316,9 +1370,9 @@ function walletBindingText(copy: AppCopy, state: WalletBindingState, details: st
   return copy.vote.bindingIdle;
 }
 
-function parseDurationHours(value: string): number {
+function parseDurationMinutes(value: string): number {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error('Voting duration is invalid');
   }
   return parsed;

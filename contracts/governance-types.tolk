@@ -19,10 +19,12 @@ enum GovErrors {
     InvalidEventStatus = 416
     InvalidEventTime = 417
     InvalidEventKind = 418
+    ProposalFeeTooSmall = 419
     InvalidMessage = 0xFFFF
 }
 
 const FEE_BPS_DENOMINATOR = 10000
+const MIN_PROPOSAL_CREATE_VALUE = 50000000
 const VOTE_SIDE_FOR = 1
 const VOTE_SIDE_AGAINST = 2
 const VOTE_SIDE_ABSTAIN = 3

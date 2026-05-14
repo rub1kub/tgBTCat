@@ -131,7 +131,7 @@ fun onInternalMessage(in: InMessage) {
     match (msg) {
         CreateGovernanceProposal => {
             var storage = lazy GovernorStorage.load();
-            assertGovernor(in.senderAddress, storage.admin);
+            assert (in.valueCoins >= MIN_PROPOSAL_CREATE_VALUE) throw GovErrors.ProposalFeeTooSmall;
             assertFeeBps(msg.buyFeeBps);
             assertFeeBps(msg.sellFeeBps);
             assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
