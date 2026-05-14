@@ -168,6 +168,18 @@ struct (0x20020005) RouteClearWalletSpecificFee {
     target: address
 }
 
+struct (0x10050002) SendTreasuryJettons {
+    queryId: uint64
+    jettonWallet: address
+    jettonAmount: coins
+    transferRecipient: address
+    sendExcessesTo: address?
+    walletTonAmount: coins
+    forwardTonAmount: coins
+    @abi.clientType(PayloadInline | PayloadInRef)
+    forwardPayload: ForwardPayloadRemainder
+}
+
 struct (0xd372158c) TopUpTons {}
 
 fun ForwardPayloadRemainder.checkIsCorrectTlbEither(self) {

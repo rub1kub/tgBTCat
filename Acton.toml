@@ -37,6 +37,16 @@ display-name = "TG BTC Cat DEX Registry"
 src = "contracts/TgBtcCatDexRegistry.tolk"
 depends = []
 
+[contracts.TgBtcCatTreasury]
+display-name = "TG BTC Cat Treasury"
+src = "contracts/TgBtcCatTreasury.tolk"
+depends = []
+
+[contracts.TgBtcCatEventController]
+display-name = "TG BTC Cat Event Controller"
+src = "contracts/TgBtcCatEventController.tolk"
+depends = []
+
 [contracts.TgBtcCatGovernor]
 display-name = "TG BTC Cat Governor"
 src = "contracts/TgBtcCatGovernor.tolk"

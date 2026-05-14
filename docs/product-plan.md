@@ -8,6 +8,24 @@ TG BTC Cat is a TON jetton with irreversible on-chain treasury voting.
 
 Users vote by sending `tgBTCat` to governance. The sent amount becomes vote weight and is not returned. Governance controls global buy/sell fees, wallet-specific buy/sell fees, DEX classification, treasury actions, and community events.
 
+## Current Implementation Status
+
+Implemented in Tolk/Acton:
+
+- TEP-0074-style jetton master and custom jetton wallet.
+- Fee-aware wallet runtime with global fees, wallet-specific overrides, DEX classification, and bounce restoration.
+- Irreversible governor: vote weight is the received `tgBTCat` amount; tokens are not returned.
+- Governor execution routing for fee controller, wallet fee registry, DEX registry, jetton wallet runtime updates, and whitelisted raw governed calls.
+- DAO treasury for governed TON and jetton sends.
+- Event controller for governed community event create/update/status flows.
+- Local deployment emulation script and generated Tolk/TypeScript wrappers.
+
+Remaining production tracks:
+
+- Public web app with TON Connect and transaction builders.
+- Indexer/API for proposal/vote history and wallet runtime visibility.
+- Testnet deployment, fork-net checks, contract verification, permanent metadata storage, and independent review.
+
 ## Production Smart Contracts
 
 ### 1. Jetton Master
@@ -51,8 +69,9 @@ Responsibilities:
 - Quorum and majority checks.
 - Execution routing to controllers.
 - Execution routing to the Jetton Master for wallet runtime updates.
+- Whitelisted raw execution proposals for governed Treasury and Event Controller calls.
 - Claiming Jetton Master admin authority after bootstrap handoff.
-- Public getters for proposals and vote totals.
+- Public getters for proposals, vote totals, and raw execution payloads.
 
 Vote payload fields:
 
@@ -66,7 +85,9 @@ Responsibilities:
 
 - Holds irreversible vote tokens.
 - Holds DAO-managed jetton assets.
-- Executes governed treasury operations.
+- Executes governed TON sends.
+- Executes governed jetton sends through configured treasury jetton wallets.
+- Supports governed treasury governor and primary jetton wallet updates.
 - Rejects unauthorized withdrawals.
 
 ### 5. Fee Controller
@@ -114,10 +135,11 @@ The public app/indexer must show both governance registry state and the applied 
 
 Responsibilities:
 
-- Creates community event proposals.
-- Tracks active events.
+- Creates community events after governor execution.
+- Updates event metadata, kind, schedule, and status after governor execution.
+- Tracks draft, active, paused, ended, and cancelled events.
 - Stores event metadata hash/URI.
-- Allows governance-controlled start/stop/update.
+- Rejects invalid event kind, invalid status, invalid time range, missing event, and non-governor messages.
 
 ## Web Product
 
@@ -173,9 +195,9 @@ Production release requires:
 
 ## Launch Stages
 
-1. Implement production contracts.
-2. Generate wrappers.
-3. Contract test suite.
+1. Implement production contracts. Done for current contract set.
+2. Generate wrappers. Done for current ABI set.
+3. Contract test suite. Done locally; keep expanding with every ABI change.
 4. Deploy to testnet.
 5. Build web app.
 6. Connect web app to testnet contracts.

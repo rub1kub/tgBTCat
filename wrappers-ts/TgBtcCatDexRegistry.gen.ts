@@ -350,7 +350,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatDexRegistry implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('te6ccgEBBgEAyQABFP8A9KQT9LzyyAsBAgFiAgMC9tD4kZEw4NcsIIAYAAyOKe1E0PpI9AX4kiLHBfLhkQLTPzH6SDDIz4NAE4EBC/RBAcj6UvQAye1U4NcsIIAYABSOJu1E0PpI9AX4kiLHBfLhkQLTPzH6SDBYgQEL9FkwAcj6UvQAye1U4NcsIIAYABzjAtcsJpuQrGQx3AQFACWhEsHaiaH0kGPoCwICF+gU30JjADbtRND6SPiSWMcF8uGRAdM/MfpIMMj6Us7J7VQACIQP8vA=');
+    static CodeCell = c.Cell.fromBase64('te6ccgEBBgEA0gABFP8A9KQT9LzyyAsBAgFiAgMC+ND4kZEw4CDXLCCAGAAMjiox7UTQ+kj0BfiSIscF8uGRAtM/MfpIMMjPg0ATgQEL9EEByPpS9ADJ7VTg1ywggBgAFI4nMe1E0PpI9AX4kiLHBfLhkQLTPzH6SDBYgQEL9FkwAcj6UvQAye1U4NcsIIAYABzjAtcsJpuQrGQEBQAloRLB2omh9JBj6AsCAhfoFN9CYwA4Me1E0PpI+JJYxwXy4ZEB0z8x+kgwyPpSzsntVAAWMZEw4IQPAccA8vQ=');
 
     static Errors = {
         'GovErrors.NotGovernor': 401,

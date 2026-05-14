@@ -182,6 +182,7 @@ type uint256 = bigint
  >     againstVotes: coins
  >     abstainVotes: coins
  >     executed: bool
+ >     rawExecution: Cell<RawExecution>?
  > }
  */
 export interface Proposal {
@@ -198,6 +199,7 @@ export interface Proposal {
     againstVotes: coins
     abstainVotes: coins
     executed: boolean
+    rawExecution: CellRef<RawExecution> | null /* = null */
 }
 
 export const Proposal = {
@@ -214,11 +216,13 @@ export const Proposal = {
         againstVotes: coins
         abstainVotes: coins
         executed: boolean
+        rawExecution?: CellRef<RawExecution> | null /* = null */
     }): Proposal {
         return {
             $: 'Proposal',
             auxTarget: null,
             flags: 0n,
+            rawExecution: null,
             ...args
         }
     },
@@ -239,6 +243,7 @@ export const Proposal = {
             againstVotes: s.loadCoins(),
             abstainVotes: s.loadCoins(),
             executed: s.loadBoolean(),
+            rawExecution: s.loadBoolean() ? loadCellRef<RawExecution>(s, RawExecution.fromSlice) : null,
         }
     },
     store(self: Proposal, b: c.Builder): void {
@@ -258,9 +263,55 @@ export const Proposal = {
         b.storeCoins(self.againstVotes);
         b.storeCoins(self.abstainVotes);
         b.storeBit(self.executed);
+        storeTolkNullable<CellRef<RawExecution>>(self.rawExecution, b,
+            (v,b) => storeCellRef<RawExecution>(v, b, RawExecution.store)
+        );
     },
     toCell(self: Proposal): c.Cell {
         return makeCellFrom<Proposal>(self, Proposal.store);
+    }
+}
+
+/**
+ > struct RawExecution {
+ >     dest: address
+ >     value: coins
+ >     body: cell
+ > }
+ */
+export interface RawExecution {
+    readonly $: 'RawExecution'
+    dest: c.Address
+    value: coins
+    body: c.Cell
+}
+
+export const RawExecution = {
+    create(args: {
+        dest: c.Address
+        value: coins
+        body: c.Cell
+    }): RawExecution {
+        return {
+            $: 'RawExecution',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RawExecution {
+        return {
+            $: 'RawExecution',
+            dest: s.loadAddress(),
+            value: s.loadCoins(),
+            body: s.loadRef(),
+        }
+    },
+    store(self: RawExecution, b: c.Builder): void {
+        b.storeAddress(self.dest);
+        b.storeCoins(self.value);
+        b.storeRef(self.body);
+    },
+    toCell(self: RawExecution): c.Cell {
+        return makeCellFrom<RawExecution>(self, RawExecution.store);
     }
 }
 
@@ -480,6 +531,7 @@ export const GovernorStorage = {
  >     againstVotes: coins
  >     abstainVotes: coins
  >     executed: bool
+ >     hasRawExecution: bool
  > }
  */
 export interface ProposalReply {
@@ -497,6 +549,7 @@ export interface ProposalReply {
     againstVotes: coins
     abstainVotes: coins
     executed: boolean
+    hasRawExecution: boolean
 }
 
 export const ProposalReply = {
@@ -514,6 +567,7 @@ export const ProposalReply = {
         againstVotes: coins
         abstainVotes: coins
         executed: boolean
+        hasRawExecution: boolean
     }): ProposalReply {
         return {
             $: 'ProposalReply',
@@ -536,6 +590,7 @@ export const ProposalReply = {
             againstVotes: s.loadCoins(),
             abstainVotes: s.loadCoins(),
             executed: s.loadBoolean(),
+            hasRawExecution: s.loadBoolean(),
         }
     },
     store(self: ProposalReply, b: c.Builder): void {
@@ -552,9 +607,60 @@ export const ProposalReply = {
         b.storeCoins(self.againstVotes);
         b.storeCoins(self.abstainVotes);
         b.storeBit(self.executed);
+        b.storeBit(self.hasRawExecution);
     },
     toCell(self: ProposalReply): c.Cell {
         return makeCellFrom<ProposalReply>(self, ProposalReply.store);
+    }
+}
+
+/**
+ > struct RawExecutionReply {
+ >     isSet: bool
+ >     dest: address?
+ >     value: coins
+ >     body: cell?
+ > }
+ */
+export interface RawExecutionReply {
+    readonly $: 'RawExecutionReply'
+    isSet: boolean
+    dest: c.Address | null
+    value: coins
+    body: c.Cell | null
+}
+
+export const RawExecutionReply = {
+    create(args: {
+        isSet: boolean
+        dest: c.Address | null
+        value: coins
+        body: c.Cell | null
+    }): RawExecutionReply {
+        return {
+            $: 'RawExecutionReply',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): RawExecutionReply {
+        return {
+            $: 'RawExecutionReply',
+            isSet: s.loadBoolean(),
+            dest: s.loadMaybeAddress(),
+            value: s.loadCoins(),
+            body: s.loadBoolean() ? s.loadRef() : null,
+        }
+    },
+    store(self: RawExecutionReply, b: c.Builder): void {
+        b.storeBit(self.isSet);
+        b.storeAddress(self.dest);
+        b.storeCoins(self.value);
+        storeTolkNullable<c.Cell>(self.body, b,
+            (v,b) => b.storeRef(v)
+        );
+    },
+    toCell(self: RawExecutionReply): c.Cell {
+        return makeCellFrom<RawExecutionReply>(self, RawExecutionReply.store);
     }
 }
 
@@ -1227,6 +1333,68 @@ export const ClaimJettonMasterAdmin = {
 }
 
 /**
+ > struct (0x1004000a) CreateRawExecutionProposal {
+ >     queryId: uint64
+ >     dest: address
+ >     value: coins
+ >     body: cell
+ >     reasonHash: uint256
+ >     votingEndsAt: uint32
+ > }
+ */
+export interface CreateRawExecutionProposal {
+    readonly $: 'CreateRawExecutionProposal'
+    queryId: uint64
+    dest: c.Address
+    value: coins
+    body: c.Cell
+    reasonHash: uint256
+    votingEndsAt: uint32
+}
+
+export const CreateRawExecutionProposal = {
+    PREFIX: 0x1004000a,
+
+    create(args: {
+        queryId: uint64
+        dest: c.Address
+        value: coins
+        body: c.Cell
+        reasonHash: uint256
+        votingEndsAt: uint32
+    }): CreateRawExecutionProposal {
+        return {
+            $: 'CreateRawExecutionProposal',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): CreateRawExecutionProposal {
+        loadAndCheckPrefix32(s, 0x1004000a, 'CreateRawExecutionProposal');
+        return {
+            $: 'CreateRawExecutionProposal',
+            queryId: s.loadUintBig(64),
+            dest: s.loadAddress(),
+            value: s.loadCoins(),
+            body: s.loadRef(),
+            reasonHash: s.loadUintBig(256),
+            votingEndsAt: s.loadUintBig(32),
+        }
+    },
+    store(self: CreateRawExecutionProposal, b: c.Builder): void {
+        b.storeUint(0x1004000a, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.dest);
+        b.storeCoins(self.value);
+        b.storeRef(self.body);
+        b.storeUint(self.reasonHash, 256);
+        b.storeUint(self.votingEndsAt, 32);
+    },
+    toCell(self: CreateRawExecutionProposal): c.Cell {
+        return makeCellFrom<CreateRawExecutionProposal>(self, CreateRawExecutionProposal.store);
+    }
+}
+
+/**
  > struct (0xd372158c) GovernanceTopUp {
  > }
  */
@@ -1769,7 +1937,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatGovernor implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'GovErrors.NotGovernor': 401,
@@ -1828,6 +1996,17 @@ export class TgBtcCatGovernor implements c.Contract {
         votingEndsAt: uint32
     }) {
         return CreateGovernanceProposal.toCell(CreateGovernanceProposal.create(body));
+    }
+
+    static createCellOfCreateRawExecutionProposal(body: {
+        queryId: uint64
+        dest: c.Address
+        value: coins
+        body: c.Cell
+        reasonHash: uint256
+        votingEndsAt: uint32
+    }) {
+        return CreateRawExecutionProposal.toCell(CreateRawExecutionProposal.create(body));
     }
 
     static createCellOfSetVoteJettonWallet(body: {
@@ -1927,6 +2106,21 @@ export class TgBtcCatGovernor implements c.Contract {
         return provider.internal(via, {
             value: msgValue,
             body: CreateGovernanceProposal.toCell(CreateGovernanceProposal.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendCreateRawExecutionProposal(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        dest: c.Address
+        value: coins
+        body: c.Cell
+        reasonHash: uint256
+        votingEndsAt: uint32
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: CreateRawExecutionProposal.toCell(CreateRawExecutionProposal.create(body)),
             ...extraOptions
         });
     }
@@ -2047,7 +2241,7 @@ export class TgBtcCatGovernor implements c.Contract {
     }
 
     async getProposal(provider: ContractProvider, proposalId: uint64): Promise<ProposalReply> {
-        const r = StackReader.fromGetMethod(13, await provider.get('get_proposal', [
+        const r = StackReader.fromGetMethod(14, await provider.get('get_proposal', [
             { type: 'int', value: proposalId },
         ]));
         return ({
@@ -2069,6 +2263,24 @@ export class TgBtcCatGovernor implements c.Contract {
             againstVotes: r.readBigInt(),
             abstainVotes: r.readBigInt(),
             executed: r.readBoolean(),
+            hasRawExecution: r.readBoolean(),
+        });
+    }
+
+    async getRawExecution(provider: ContractProvider, proposalId: uint64): Promise<RawExecutionReply> {
+        const r = StackReader.fromGetMethod(4, await provider.get('get_raw_execution', [
+            { type: 'int', value: proposalId },
+        ]));
+        return ({
+            $: 'RawExecutionReply',
+            isSet: r.readBoolean(),
+            dest: r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            value: r.readBigInt(),
+            body: r.readNullable<c.Cell>(
+                (r) => r.readCell()
+            ),
         });
     }
 

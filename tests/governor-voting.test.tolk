@@ -1,15 +1,18 @@
+import "@stdlib/strings"
+
 import "@acton/emulation/network"
 import "@acton/emulation/testing"
 import "@acton/testing/expect"
-
 import "@contracts/errors"
 import "@contracts/governance-types"
 import "@contracts/messages"
 import "@wrappers/TgBtcCatDexRegistry.gen"
+import "@wrappers/TgBtcCatEventController.gen"
 import "@wrappers/TgBtcCatFeeController.gen"
 import "@wrappers/TgBtcCatGovernor.gen"
 import "@wrappers/TgBtcCatJettonMaster.gen"
 import "@wrappers/TgBtcCatJettonWallet.gen"
+import "@wrappers/TgBtcCatTreasury.gen"
 import "@wrappers/TgBtcCatWalletFeeRegistry.gen"
 import "@wrappers/utils"
 
@@ -1052,6 +1055,393 @@ get fun `test governor rolls back runtime route proposal when master rejects it`
     expect(governor.getProposal(proposalId).executed).toEqual(false);
 }
 
+get fun `test governor executes raw treasury and event controller proposals`() {
+    testing.setNow(1000);
+    val (minter, _, _) = setupTest();
+    val governorAdmin = testing.treasury("raw-exec-admin");
+    val executor = testing.treasury("raw-exec-executor");
+    val voter = testing.treasury("raw-exec-voter");
+    val deployer = testing.treasury("raw-exec-deployer");
+    val recipient = testing.treasury("raw-exec-recipient");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+    configureExecutionTargets(
+        governor,
+        governorAdmin,
+        null,
+        null,
+        null,
+        0,
+    );
+
+    val treasury = TgBtcCatTreasury.fromStorage({
+        governor: governor.address,
+        primaryJettonWallet: null,
+    });
+    expect(treasury.deploy(deployer.address, { value: ton("1") })).toHaveSuccessfulDeploy({
+        to: treasury.address,
+    });
+
+    val treasuryProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        treasury.address,
+        ton("0.05"),
+        SendTreasuryTon {
+            queryId: governor.getNextProposalId(),
+            recipient: recipient.address,
+            amount: ton("0.2"),
+            bounce: false,
+        }.toCell(),
+        91,
+        1100,
+    );
+    expect(governor.getProposal(treasuryProposal).hasRawExecution).toEqual(true);
+    val treasuryRaw = governor.getRawExecution(treasuryProposal);
+    expect(treasuryRaw.isSet).toEqual(true);
+    expect(treasuryRaw.dest).toEqual(treasury.address);
+    expect(treasuryRaw.value).toEqual(ton("0.05"));
+    val treasuryExec = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        treasuryProposal,
+        1,
+        1200,
+    );
+    expect(treasuryExec).toHaveSuccessfulTx<SendTreasuryTon>({
+        from: governor.address,
+        to: treasury.address,
+    });
+    expect(treasuryExec).toHaveSuccessfulTx<TopUpTons>({
+        from: treasury.address,
+        to: recipient.address,
+    });
+
+    testing.setNow(1300);
+    val eventController = TgBtcCatEventController.fromStorage({
+        governor: governor.address,
+        nextEventId: 0,
+    });
+    expect(
+        eventController.deploy(deployer.address, { value: ton("0.05") }),
+    ).toHaveSuccessfulDeploy({
+        to: eventController.address,
+    });
+
+    val eventProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        eventController.address,
+        ton("0.05"),
+        CreateCommunityEvent {
+            queryId: governor.getNextProposalId(),
+            eventKind: 1,
+            metadataHash: 92,
+            metadata: EventMetadata { uri: "ipfs://raw-event".prefixWith00() }.toCell(),
+            startsAt: 1400,
+            endsAt: 2400,
+        }.toCell(),
+        92,
+        1500,
+    );
+    val eventExec = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        eventProposal,
+        2,
+        1600,
+    );
+    expect(eventExec).toHaveSuccessfulTx<CreateCommunityEvent>({
+        from: governor.address,
+        to: eventController.address,
+    });
+    val event = eventController.getEvent(0);
+    expect(event.isSet).toEqual(true);
+    expect(event.metadataHash).toEqual(92);
+    expect(event.metadata!.load().uri).toEqual("ipfs://raw-event".prefixWith00());
+}
+
+get fun `test governor rolls back raw event proposals rejected by event controller`() {
+    testing.setNow(1000);
+    val (minter, _, _) = setupTest();
+    val governorAdmin = testing.treasury("raw-event-reject-admin");
+    val executor = testing.treasury("raw-event-reject-executor");
+    val voter = testing.treasury("raw-event-reject-voter");
+    val deployer = testing.treasury("raw-event-reject-deployer");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+    configureExecutionTargets(
+        governor,
+        governorAdmin,
+        null,
+        null,
+        null,
+        0,
+    );
+
+    val eventController = TgBtcCatEventController.fromStorage({
+        governor: governor.address,
+        nextEventId: 0,
+    });
+    expect(
+        eventController.deploy(deployer.address, { value: ton("0.05") }),
+    ).toHaveSuccessfulDeploy({
+        to: eventController.address,
+    });
+
+    val invalidKindProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        eventController.address,
+        ton("0.05"),
+        CreateCommunityEvent {
+            queryId: governor.getNextProposalId(),
+            eventKind: 0,
+            metadataHash: 101,
+            metadata: EventMetadata { uri: "ipfs://bad-kind".prefixWith00() }.toCell(),
+            startsAt: 1100,
+            endsAt: 2100,
+        }.toCell(),
+        101,
+        1100,
+    );
+    val invalidKind = executePassedProposalWithTargetBounce(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        invalidKindProposal,
+        1,
+        1200,
+    );
+    expect(invalidKind).toHaveFailedTx<CreateCommunityEvent>({
+        from: governor.address,
+        to: eventController.address,
+        exitCode: GovErrors.InvalidEventKind,
+    });
+    expect(eventController.getNextEventId()).toEqual(0);
+
+    testing.setNow(1300);
+    val invalidTimeProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        eventController.address,
+        ton("0.05"),
+        CreateCommunityEvent {
+            queryId: governor.getNextProposalId(),
+            eventKind: 1,
+            metadataHash: 102,
+            metadata: EventMetadata { uri: "ipfs://bad-time".prefixWith00() }.toCell(),
+            startsAt: 1600,
+            endsAt: 1500,
+        }.toCell(),
+        102,
+        1400,
+    );
+    val invalidTime = executePassedProposalWithTargetBounce(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        invalidTimeProposal,
+        2,
+        1500,
+    );
+    expect(invalidTime).toHaveFailedTx<CreateCommunityEvent>({
+        from: governor.address,
+        to: eventController.address,
+        exitCode: GovErrors.InvalidEventTime,
+    });
+    expect(eventController.getNextEventId()).toEqual(0);
+
+    testing.setNow(1600);
+    val validEventProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        eventController.address,
+        ton("0.05"),
+        CreateCommunityEvent {
+            queryId: governor.getNextProposalId(),
+            eventKind: 1,
+            metadataHash: 103,
+            metadata: EventMetadata { uri: "ipfs://valid-event".prefixWith00() }.toCell(),
+            startsAt: 1700,
+            endsAt: 2700,
+        }.toCell(),
+        103,
+        1700,
+    );
+    val validEvent = executePassedProposal(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        validEventProposal,
+        3,
+        1800,
+    );
+    expect(validEvent).toHaveSuccessfulTx<CreateCommunityEvent>({
+        from: governor.address,
+        to: eventController.address,
+    });
+    expect(eventController.getEvent(0).status).toEqual(EVENT_STATUS_DRAFT);
+
+    testing.setNow(1900);
+    val invalidStatusProposal = createRawProposal(
+        governor,
+        governorAdmin,
+        eventController.address,
+        ton("0.05"),
+        SetCommunityEventStatus {
+            queryId: governor.getNextProposalId(),
+            eventId: 0,
+            status: 99,
+        }.toCell(),
+        104,
+        2000,
+    );
+    val invalidStatus = executePassedProposalWithTargetBounce(
+        minter,
+        governor,
+        executor,
+        voter.address,
+        invalidStatusProposal,
+        4,
+        2100,
+    );
+    expect(invalidStatus).toHaveFailedTx<SetCommunityEventStatus>({
+        from: governor.address,
+        to: eventController.address,
+        exitCode: GovErrors.InvalidEventStatus,
+    });
+    expect(eventController.getEvent(0).status).toEqual(EVENT_STATUS_DRAFT);
+}
+
+get fun `test governor validates raw execution proposal body`() {
+    testing.setNow(1000);
+    val (minter, _, _) = setupTest();
+    val governorAdmin = testing.treasury("raw-validation-admin");
+    val target = testing.treasury("raw-validation-target");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+
+    expect(governor.getRawExecution(999).isSet).toEqual(false);
+    val nonRawProposal = createProposal(
+        governor,
+        governorAdmin,
+        ACTION_SET_GLOBAL_FEES,
+        null,
+        0,
+        0,
+        0,
+        1100,
+    );
+    expect(governor.getRawExecution(nonRawProposal).isSet).toEqual(false);
+
+    val expired = governor.sendCreateRawExecutionProposal(
+        governorAdmin.address,
+        1,
+        target.address,
+        ton("0.05"),
+        SendTreasuryTon {
+            queryId: governor.getNextProposalId(),
+            recipient: target.address,
+            amount: ton("0.1"),
+            bounce: false,
+        }.toCell(),
+        1,
+        1000,
+        { value: ton("0.05") },
+    );
+    expect(expired).toHaveFailedTx({
+        from: governorAdmin.address,
+        to: governor.address,
+        exitCode: GovErrors.VotingClosed,
+    });
+
+    val wrongQuery = governor.sendCreateRawExecutionProposal(
+        governorAdmin.address,
+        2,
+        target.address,
+        ton("0.05"),
+        SendTreasuryTon {
+            queryId: 999,
+            recipient: target.address,
+            amount: ton("0.1"),
+            bounce: false,
+        }.toCell(),
+        1,
+        1100,
+        { value: ton("0.05") },
+    );
+    expect(wrongQuery).toHaveFailedTx({
+        from: governorAdmin.address,
+        to: governor.address,
+        exitCode: GovErrors.InvalidMessage,
+    });
+
+    val unknownOpcode = governor.sendCreateRawExecutionProposal(
+        governorAdmin.address,
+        3,
+        target.address,
+        ton("0.05"),
+        beginCell().storeUint(0x12345678, 32).storeUint(0, 64).endCell(),
+        2,
+        1100,
+        { value: ton("0.05") },
+    );
+    expect(unknownOpcode).toHaveFailedTx({
+        from: governorAdmin.address,
+        to: governor.address,
+        exitCode: GovErrors.InvalidMessage,
+    });
+}
+
+get fun `test governor rejects raw execution proposal without raw payload`() {
+    testing.setNow(1000);
+    val governorAdmin = testing.treasury("raw-missing-payload-admin");
+    val executor = testing.treasury("raw-missing-payload-executor");
+    var proposals: map<uint64, Proposal> = [];
+    proposals.set(
+        0,
+        {
+            actionType: ACTION_RAW_EXECUTION,
+            target: null,
+            buyFeeBps: 0,
+            sellFeeBps: 0,
+            reasonHash: 0,
+            votingEndsAt: 900,
+            forVotes: 100,
+            againstVotes: 0,
+            abstainVotes: 0,
+            executed: false,
+        },
+    );
+    val governor = TgBtcCatGovernor.fromStorage({
+        admin: governorAdmin.address,
+        voteJettonWallet: randomAddress(),
+        minVoteAmount: 10,
+        nextProposalId: 1,
+        proposals,
+    });
+    expect(governor.deploy(governorAdmin.address, { value: ton("0.05") })).toHaveSuccessfulDeploy({
+        to: governor.address,
+    });
+
+    val execute = governor.sendExecuteProposal(
+        executor.address,
+        1,
+        0,
+        { value: ton("0.05") },
+    );
+    expect(execute).toHaveFailedTx({
+        from: executor.address,
+        to: governor.address,
+        exitCode: GovErrors.ExecutionTargetMissing,
+    });
+}
+
 get fun `test governor handles execution bounce query ids defensively`() {
     testing.setNow(1000);
     val (minter, _, _) = setupTest();
@@ -1450,6 +1840,33 @@ fun createExtendedProposal(
     return proposalId;
 }
 
+fun createRawProposal(
+    governor: TgBtcCatGovernor,
+    admin: Treasury,
+    dest: address,
+    value: coins,
+    body: cell,
+    reasonHash: uint256,
+    votingEndsAt: uint32,
+): uint64 {
+    val proposalId = governor.getNextProposalId();
+    val create = governor.sendCreateRawExecutionProposal(
+        admin.address,
+        proposalId,
+        dest,
+        value,
+        body,
+        reasonHash,
+        votingEndsAt,
+        { value: ton("0.05") },
+    );
+    expect(create).toHaveSuccessfulTx<CreateRawExecutionProposal>({
+        from: admin.address,
+        to: governor.address,
+    });
+    return proposalId;
+}
+
 fun configureRuntimeExecution(
     governor: TgBtcCatGovernor,
     admin: Treasury,
@@ -1555,6 +1972,38 @@ fun executePassedProposal(
         to: governor.address,
     });
     expect(governor.getProposal(proposalId).executed).toEqual(true);
+    return execute;
+}
+
+fun executePassedProposalWithTargetBounce(
+    minter: TgBtcCatJettonMaster,
+    governor: TgBtcCatGovernor,
+    executor: Treasury,
+    voter: address,
+    proposalId: uint64,
+    queryId: uint64,
+    executeAt: uint32,
+): SendResultList {
+    voteDirect(
+        minter,
+        governor,
+        voter,
+        proposalId,
+        100,
+        VOTE_SIDE_FOR,
+    );
+    testing.setNow(executeAt);
+    val execute = governor.sendExecuteProposal(
+        executor.address,
+        queryId,
+        proposalId,
+        { value: ton("0.05") },
+    );
+    expect(execute).toHaveSuccessfulTx<ExecuteProposal>({
+        from: executor.address,
+        to: governor.address,
+    });
+    expect(governor.getProposal(proposalId).executed).toEqual(false);
     return execute;
 }
 

@@ -6,9 +6,11 @@ import "@acton/emulation/scripts"
 import "@contracts/governance-types"
 import "@contracts/storage"
 import "@wrappers/TgBtcCatDexRegistry.gen"
+import "@wrappers/TgBtcCatEventController.gen"
 import "@wrappers/TgBtcCatFeeController.gen"
 import "@wrappers/TgBtcCatGovernor.gen"
 import "@wrappers/TgBtcCatJettonMaster.gen"
+import "@wrappers/TgBtcCatTreasury.gen"
 import "@wrappers/TgBtcCatWalletFeeRegistry.gen"
 import "@wrappers/utils"
 
@@ -64,6 +66,14 @@ fun main() {
     });
     val dexRegistry = TgBtcCatDexRegistry.fromStorage({
         governor: governor.address,
+    });
+    val treasury = TgBtcCatTreasury.fromStorage({
+        governor: governor.address,
+        primaryJettonWallet: null,
+    });
+    val eventController = TgBtcCatEventController.fromStorage({
+        governor: governor.address,
+        nextEventId: 0,
     });
 
     println("TG BTC Cat deployer {}", deployer.address);
@@ -128,6 +138,32 @@ fun main() {
         }
     } else {
         println("deploy dex registry: already deployed");
+    }
+
+    if (!scripts.isContractDeployed(treasury.address)) {
+        if (
+            !waitFor(
+                "deploy treasury",
+                treasury.deploy(deployer.address, { value: ton("0.2") }),
+            )
+        ) {
+            return;
+        }
+    } else {
+        println("deploy treasury: already deployed");
+    }
+
+    if (!scripts.isContractDeployed(eventController.address)) {
+        if (
+            !waitFor(
+                "deploy event controller",
+                eventController.deploy(deployer.address, { value: ton("0.05") }),
+            )
+        ) {
+            return;
+        }
+    } else {
+        println("deploy event controller: already deployed");
     }
 
     val voteJettonWallet = minter.getWalletAddress(governor.address);
@@ -268,6 +304,8 @@ fun main() {
     println("fee controller {}", feeController.address);
     println("wallet fee registry {}", walletFeeRegistry.address);
     println("dex registry {}", dexRegistry.address);
+    println("treasury {}", treasury.address);
+    println("event controller {}", eventController.address);
     println("minter admin {}", minter.getAdminAddress());
     println("total supply {}", minter.getTotalSupply());
 }

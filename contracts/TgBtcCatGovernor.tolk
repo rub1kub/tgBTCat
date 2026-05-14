@@ -11,6 +11,7 @@ contract TgBtcCatGovernor {
 
 type GovernorMessage =
     | CreateGovernanceProposal
+    | CreateRawExecutionProposal
     | SetVoteJettonWallet
     | SetMinimumVoteAmount
     | SetExecutionTargets
@@ -53,19 +54,34 @@ fun requireProposalAuxTarget(proposal: Proposal): address {
     return proposal.auxTarget!.load();
 }
 
-fun readExecutionBounceQueryId(body: slice): uint64 {
-    body.skipBouncedPrefix();
-    val opcode = body.loadUint(32);
-    val isExecutionOpcode = opcode == 0x10010001 || opcode == 0x10020001 || opcode == 0x10020002 ||
+fun isGovernedExecutionOpcode(opcode: int): bool {
+    return opcode == 0x10010001 || opcode == 0x10020001 || opcode == 0x10020002 ||
     opcode == 0x10030001 ||
     opcode == 0x10030002 ||
     opcode == 0x20020001 ||
     opcode == 0x20020002 ||
     opcode == 0x20020003 ||
     opcode == 0x20020004 ||
-    opcode == 0x20020005;
-    assert (isExecutionOpcode) throw GovErrors.InvalidMessage;
+    opcode == 0x20020005 ||
+    opcode == 0x10050001 ||
+    opcode == 0x10050002 ||
+    opcode == 0x10050003 ||
+    opcode == 0x10050004 ||
+    opcode == 0x10060001 ||
+    opcode == 0x10060002 ||
+    opcode == 0x10060003 ||
+    opcode == 0x10060004;
+}
+
+fun readGovernedExecutionQueryId(body: slice): uint64 {
+    val opcode = body.loadUint(32);
+    assert (isGovernedExecutionOpcode(opcode)) throw GovErrors.InvalidMessage;
     return body.loadUint(64);
+}
+
+fun readExecutionBounceQueryId(body: slice): uint64 {
+    body.skipBouncedPrefix();
+    return readGovernedExecutionQueryId(body);
 }
 
 fun assertProposalPassed(proposal: Proposal, minQuorumVotes: coins) {
@@ -139,6 +155,43 @@ fun onInternalMessage(in: InMessage) {
                         againstVotes: 0,
                         abstainVotes: 0,
                         executed: false,
+                    },
+                );
+            storage.save();
+        }
+
+        CreateRawExecutionProposal => {
+            var storage = lazy GovernorStorage.load();
+            assertGovernor(in.senderAddress, storage.admin);
+            assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
+
+            val proposalId = storage.nextProposalId;
+            val rawQueryId = readGovernedExecutionQueryId(msg.body.beginParse());
+            assert (rawQueryId == proposalId) throw GovErrors.InvalidMessage;
+
+            storage.nextProposalId += 1;
+            storage
+                .proposals
+                .set(
+                    proposalId,
+                    {
+                        actionType: ACTION_RAW_EXECUTION,
+                        target: msg.dest,
+                        auxTarget: null,
+                        flags: 0,
+                        buyFeeBps: 0,
+                        sellFeeBps: 0,
+                        reasonHash: msg.reasonHash,
+                        votingEndsAt: msg.votingEndsAt,
+                        forVotes: 0,
+                        againstVotes: 0,
+                        abstainVotes: 0,
+                        executed: false,
+                        rawExecution: RawExecution {
+                            dest: msg.dest,
+                            value: msg.value,
+                            body: msg.body,
+                        }.toCell(),
                     },
                 );
             storage.save();
@@ -439,6 +492,19 @@ fun onInternalMessage(in: InMessage) {
                     },
                 });
                 executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+            } else if (proposal.actionType == ACTION_RAW_EXECUTION) {
+                assert (proposal.rawExecution != null) throw GovErrors.ExecutionTargetMissing;
+                val raw = RawExecution.fromCell(proposal.rawExecution!);
+                proposal.executed = true;
+                storage.proposals.set(msg.proposalId, proposal);
+                storage.save();
+                val executeMsg = createMessage({
+                    bounce: BounceMode.Only256BitsOfBody,
+                    dest: raw.dest,
+                    value: raw.value,
+                    body: raw.body,
+                });
+                executeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
             } else {
                 throw GovErrors.InvalidActionType;
             }
@@ -484,6 +550,7 @@ get fun get_proposal(proposalId: uint64): ProposalReply {
             againstVotes: 0,
             abstainVotes: 0,
             executed: false,
+            hasRawExecution: false,
         };
     }
 
@@ -502,6 +569,38 @@ get fun get_proposal(proposalId: uint64): ProposalReply {
         againstVotes: proposal.againstVotes,
         abstainVotes: proposal.abstainVotes,
         executed: proposal.executed,
+        hasRawExecution: proposal.rawExecution != null,
+    };
+}
+
+get fun get_raw_execution(proposalId: uint64): RawExecutionReply {
+    val storage = lazy GovernorStorage.load();
+    val proposalResult = storage.proposals.get(proposalId);
+    if (!proposalResult.isFound) {
+        return {
+            isSet: false,
+            dest: null,
+            value: 0,
+            body: null,
+        };
+    }
+
+    val proposal = proposalResult.loadValue();
+    if (proposal.rawExecution == null) {
+        return {
+            isSet: false,
+            dest: null,
+            value: 0,
+            body: null,
+        };
+    }
+
+    val raw = RawExecution.fromCell(proposal.rawExecution!);
+    return {
+        isSet: true,
+        dest: raw.dest,
+        value: raw.value,
+        body: raw.body,
     };
 }
 

@@ -79,6 +79,26 @@ fun TgBtcCatGovernor.sendCreateGovernanceProposal(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatGovernor.sendCreateRawExecutionProposal(
+    self,
+    from: address,
+    queryId: uint64,
+    dest: address,
+    value: coins,
+    body: cell,
+    reasonHash: uint256,
+    votingEndsAt: uint32,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: CreateRawExecutionProposal { queryId, dest, value, body, reasonHash, votingEndsAt },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatGovernor.sendSetVoteJettonWallet(
     self,
     from: address,
@@ -269,6 +289,10 @@ fun TgBtcCatGovernor.sendAny(
 
 fun TgBtcCatGovernor.getProposal(self, proposalId: uint64): ProposalReply {
     return net.runGetMethod(self.address, "get_proposal", [proposalId]);
+}
+
+fun TgBtcCatGovernor.getRawExecution(self, proposalId: uint64): RawExecutionReply {
+    return net.runGetMethod(self.address, "get_raw_execution", [proposalId]);
 }
 
 fun TgBtcCatGovernor.getNextProposalId(self): uint64 {

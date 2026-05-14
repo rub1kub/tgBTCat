@@ -11,7 +11,11 @@ This repository is the source of truth for the full product:
 - Acton `1.0.0` project setup for TON smart contract development.
 - Token avatar asset and jetton metadata draft.
 - Production contract architecture and wallet roles.
-- Smart contracts, tests, wrappers, deployment scripts, and web app as they are implemented.
+- Production Tolk contracts for jetton master/wallet, irreversible governor, fee controller, wallet fee registry, DEX registry, DAO treasury, and event controller.
+- Generated Tolk and TypeScript wrappers.
+- Acton deployment script for local emulation and testnet/mainnet execution.
+- Contract tests, bounce/security coverage, and critical mutation checks.
+- Web app work remains a separate implementation track.
 
 The target is not an MVP. The target is a full launchable product with production contracts, a public web interface, TON Connect transaction flows, visible vote history, treasury tracking, testnet deployment, verification, and security review.
 

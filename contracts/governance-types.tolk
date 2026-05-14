@@ -1,3 +1,5 @@
+import "@stdlib/strings"
+
 enum GovErrors {
     NotGovernor = 401
     InvalidFee = 402
@@ -13,6 +15,10 @@ enum GovErrors {
     ExecutionTargetMissing = 412
     VotingOpen = 413
     InvalidActionType = 414
+    UnknownEvent = 415
+    InvalidEventStatus = 416
+    InvalidEventTime = 417
+    InvalidEventKind = 418
     InvalidMessage = 0xFFFF
 }
 
@@ -30,7 +36,14 @@ const ACTION_ROUTE_ADD_WALLET_DEX = 7
 const ACTION_ROUTE_REMOVE_WALLET_DEX = 8
 const ACTION_ROUTE_SET_WALLET_SPECIFIC_FEE = 9
 const ACTION_ROUTE_CLEAR_WALLET_SPECIFIC_FEE = 10
+const ACTION_RAW_EXECUTION = 11
 const RUNTIME_FLAG_IS_DEX_WALLET = 1
+
+const EVENT_STATUS_DRAFT = 1
+const EVENT_STATUS_ACTIVE = 2
+const EVENT_STATUS_PAUSED = 3
+const EVENT_STATUS_ENDED = 4
+const EVENT_STATUS_CANCELLED = 5
 
 struct FeeControllerStorage {
     governor: address
@@ -80,10 +93,71 @@ fun DexRegistryStorage.save(self) {
     contract.setData(self.toCell());
 }
 
+struct TreasuryStorage {
+    governor: address
+    primaryJettonWallet: address?
+}
+
+fun TreasuryStorage.load(): TreasuryStorage {
+    return TreasuryStorage.fromCell(contract.getData());
+}
+
+fun TreasuryStorage.save(self) {
+    contract.setData(self.toCell());
+}
+
+struct EventMetadata {
+    uri: string_prefixed0x
+}
+
+struct CommunityEvent {
+    eventKind: uint8
+    status: uint8
+    metadataHash: uint256
+    metadata: Cell<EventMetadata>
+    startsAt: uint32
+    endsAt: uint32
+    createdAt: uint32
+    updatedAt: uint32
+}
+
+struct EventControllerStorage {
+    governor: address
+    nextEventId: uint64
+    events: map<uint64, CommunityEvent> = []
+}
+
+fun EventControllerStorage.load(): EventControllerStorage {
+    return EventControllerStorage.fromCell(contract.getData());
+}
+
+fun EventControllerStorage.save(self) {
+    contract.setData(self.toCell());
+}
+
 struct FeeConfigReply {
     buyFeeBps: uint16
     sellFeeBps: uint16
     feeTreasury: address
+    governor: address
+}
+
+struct TreasuryConfigReply {
+    governor: address
+    primaryJettonWallet: address?
+}
+
+struct CommunityEventReply {
+    isSet: bool
+    eventId: uint64
+    eventKind: uint8
+    status: uint8
+    metadataHash: uint256
+    metadata: Cell<EventMetadata>?
+    startsAt: uint32
+    endsAt: uint32
+    createdAt: uint32
+    updatedAt: uint32
     governor: address
 }
 
@@ -107,6 +181,13 @@ struct Proposal {
     againstVotes: coins
     abstainVotes: coins
     executed: bool
+    rawExecution: Cell<RawExecution>? = null
+}
+
+struct RawExecution {
+    dest: address
+    value: coins
+    body: cell
 }
 
 struct GovernorExecutionTargets {
@@ -208,6 +289,14 @@ struct ProposalReply {
     againstVotes: coins
     abstainVotes: coins
     executed: bool
+    hasRawExecution: bool
+}
+
+struct RawExecutionReply {
+    isSet: bool
+    dest: address?
+    value: coins
+    body: cell?
 }
 
 struct (0x10010001) SetGlobalFees {
@@ -261,6 +350,53 @@ struct (0x10030002) RemoveDexWallet {
 }
 
 struct (0x10030003) SetDexRegistryGovernor {
+    queryId: uint64
+    governor: address
+}
+
+struct (0x10050001) SendTreasuryTon {
+    queryId: uint64
+    recipient: address
+    amount: coins
+    bounce: bool
+}
+
+struct (0x10050003) SetTreasuryGovernor {
+    queryId: uint64
+    governor: address
+}
+
+struct (0x10050004) SetTreasuryPrimaryJettonWallet {
+    queryId: uint64
+    primaryJettonWallet: address?
+}
+
+struct (0x10060001) CreateCommunityEvent {
+    queryId: uint64
+    eventKind: uint8
+    metadataHash: uint256
+    metadata: Cell<EventMetadata>
+    startsAt: uint32
+    endsAt: uint32
+}
+
+struct (0x10060002) UpdateCommunityEvent {
+    queryId: uint64
+    eventId: uint64
+    eventKind: uint8
+    metadataHash: uint256
+    metadata: Cell<EventMetadata>
+    startsAt: uint32
+    endsAt: uint32
+}
+
+struct (0x10060003) SetCommunityEventStatus {
+    queryId: uint64
+    eventId: uint64
+    status: uint8
+}
+
+struct (0x10060004) SetEventControllerGovernor {
     queryId: uint64
     governor: address
 }
@@ -322,6 +458,15 @@ struct (0x10040009) ClaimJettonMasterAdmin {
     claimValue: coins
 }
 
+struct (0x1004000a) CreateRawExecutionProposal {
+    queryId: uint64
+    dest: address
+    value: coins
+    body: cell
+    reasonHash: uint256
+    votingEndsAt: uint32
+}
+
 struct (0x766f7465) CastVotePayload {
     proposalId: uint64
     side: uint8
@@ -342,4 +487,21 @@ fun assertVoteSide(side: int) {
     assert (
         side == VOTE_SIDE_FOR || side == VOTE_SIDE_AGAINST || side == VOTE_SIDE_ABSTAIN
     ) throw GovErrors.InvalidVoteSide;
+}
+
+fun assertEventKind(eventKind: int) {
+    assert (eventKind != 0) throw GovErrors.InvalidEventKind;
+}
+
+fun assertEventStatus(status: int) {
+    assert (
+        status == EVENT_STATUS_DRAFT || status == EVENT_STATUS_ACTIVE ||
+        status == EVENT_STATUS_PAUSED ||
+        status == EVENT_STATUS_ENDED ||
+        status == EVENT_STATUS_CANCELLED
+    ) throw GovErrors.InvalidEventStatus;
+}
+
+fun assertEventTimeRange(startsAt: uint32, endsAt: uint32) {
+    assert (endsAt == 0 || endsAt > startsAt) throw GovErrors.InvalidEventTime;
 }
