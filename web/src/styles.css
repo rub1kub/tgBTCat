@@ -1071,7 +1071,8 @@ main {
 
 .balance-card,
 .impact-panel,
-.fee-preview {
+.fee-preview,
+.dex-fee-preview {
   display: grid;
   gap: 11px;
   padding: 16px;
@@ -1292,6 +1293,45 @@ select:focus {
   font-size: 13px;
   font-weight: 730;
   line-height: 1.42;
+}
+
+.dex-fee-preview {
+  border-color: #cce7ff;
+  background: #f3f9ff;
+}
+
+.dex-fee-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.dex-fee-preview p {
+  margin: 0;
+  color: #384253;
+  font-size: 13px;
+  font-weight: 730;
+  line-height: 1.42;
+}
+
+.dex-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dex-preview-grid div {
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid #d6eefe;
+  background: #ffffff;
+  color: #075985;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.35;
 }
 
 .impact-heading span {
@@ -1755,8 +1795,9 @@ select,
 
   .nav-item {
     min-height: 36px;
-    padding: 0 6px;
-    font-size: 11px;
+    padding: 0 2px;
+    font-size: 9px;
+    white-space: nowrap;
   }
 
   .network-switch,
@@ -1772,7 +1813,8 @@ select,
   .hero-copy h1,
   .section-copy h1,
   .vote-heading h1 {
-    font-size: clamp(46px, 16vw, 76px);
+    font-size: clamp(40px, 12.6vw, 60px);
+    overflow-wrap: anywhere;
   }
 
   .hero-copy p,
@@ -1793,6 +1835,7 @@ select,
   .create-scenarios,
   .impact-grid,
   .duration-presets,
+  .dex-preview-grid,
   .vote-flow {
     grid-template-columns: 1fr;
   }

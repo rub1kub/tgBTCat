@@ -162,6 +162,7 @@ class StackReader {
 
 type coins = bigint
 
+type uint8 = bigint
 type uint16 = bigint
 type uint64 = bigint
 
@@ -1160,6 +1161,74 @@ export const WalletTransferFeeRuleReply = {
     }
 }
 
+/**
+ > struct TransferFeeQuoteReply {
+ >     side: uint8
+ >     feeBps: uint16
+ >     feeAmount: coins
+ >     recipientAmount: coins
+ >     feeTreasury: address?
+ >     feeSubject: address?
+ >     senderIsDexWallet: bool
+ >     recipientIsDexWallet: bool
+ > }
+ */
+export interface TransferFeeQuoteReply {
+    readonly $: 'TransferFeeQuoteReply'
+    side: uint8
+    feeBps: uint16
+    feeAmount: coins
+    recipientAmount: coins
+    feeTreasury: c.Address | null
+    feeSubject: c.Address | null
+    senderIsDexWallet: boolean
+    recipientIsDexWallet: boolean
+}
+
+export const TransferFeeQuoteReply = {
+    create(args: {
+        side: uint8
+        feeBps: uint16
+        feeAmount: coins
+        recipientAmount: coins
+        feeTreasury: c.Address | null
+        feeSubject: c.Address | null
+        senderIsDexWallet: boolean
+        recipientIsDexWallet: boolean
+    }): TransferFeeQuoteReply {
+        return {
+            $: 'TransferFeeQuoteReply',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): TransferFeeQuoteReply {
+        return {
+            $: 'TransferFeeQuoteReply',
+            side: s.loadUintBig(8),
+            feeBps: s.loadUintBig(16),
+            feeAmount: s.loadCoins(),
+            recipientAmount: s.loadCoins(),
+            feeTreasury: s.loadMaybeAddress(),
+            feeSubject: s.loadMaybeAddress(),
+            senderIsDexWallet: s.loadBoolean(),
+            recipientIsDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: TransferFeeQuoteReply, b: c.Builder): void {
+        b.storeUint(self.side, 8);
+        b.storeUint(self.feeBps, 16);
+        b.storeCoins(self.feeAmount);
+        b.storeCoins(self.recipientAmount);
+        b.storeAddress(self.feeTreasury);
+        b.storeAddress(self.feeSubject);
+        b.storeBit(self.senderIsDexWallet);
+        b.storeBit(self.recipientIsDexWallet);
+    },
+    toCell(self: TransferFeeQuoteReply): c.Cell {
+        return makeCellFrom<TransferFeeQuoteReply>(self, TransferFeeQuoteReply.store);
+    }
+}
+
 // ————————————————————————————————————————————
 //    class TgBtcCatJettonWallet
 //
@@ -1199,7 +1268,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatJettonWallet implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'Errors.BalanceError': 47,
@@ -1479,6 +1548,30 @@ export class TgBtcCatJettonWallet implements c.Contract {
             isSet: r.readBoolean(),
             buyFeeBps: r.readBigInt(),
             sellFeeBps: r.readBigInt(),
+        });
+    }
+
+    async getTransferFeeQuote(provider: ContractProvider, recipient: c.Address, amount: coins): Promise<TransferFeeQuoteReply> {
+        const r = StackReader.fromGetMethod(8, await provider.get('get_transfer_fee_quote', [
+            { type: 'slice', cell: makeCellFrom<c.Address>(recipient,
+                (v,b) => b.storeAddress(v)
+            ) },
+            { type: 'int', value: amount },
+        ]));
+        return ({
+            $: 'TransferFeeQuoteReply',
+            side: r.readBigInt(),
+            feeBps: r.readBigInt(),
+            feeAmount: r.readBigInt(),
+            recipientAmount: r.readBigInt(),
+            feeTreasury: r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            feeSubject: r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+            senderIsDexWallet: r.readBoolean(),
+            recipientIsDexWallet: r.readBoolean(),
         });
     }
 }

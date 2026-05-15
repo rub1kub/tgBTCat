@@ -44,14 +44,28 @@ fun main() {
     val minVoteAmount = env<int>("TGBTCAT_MIN_VOTE_AMOUNT") ?? 1;
     val minQuorumVotes = env<int>("TGBTCAT_MIN_QUORUM_VOTES") ?? 0;
     val governorTopUp = env<int>("TGBTCAT_GOVERNOR_TOP_UP") ?? 2000000000;
+    val governorExecutionValue = env<int>("TGBTCAT_GOVERNOR_EXECUTION_VALUE") ??
+    DEFAULT_GOVERNOR_EXECUTION_VALUE;
+    val walletRouteValue = env<int>("TGBTCAT_WALLET_ROUTE_VALUE") ?? DEFAULT_WALLET_ROUTE_VALUE;
+    val deployGovernorValue = env<int>("TGBTCAT_DEPLOY_GOVERNOR_VALUE") ?? 100000000;
+    val deployMasterValue = env<int>("TGBTCAT_DEPLOY_MASTER_VALUE") ?? 200000000;
+    val deployControllerValue = env<int>("TGBTCAT_DEPLOY_CONTROLLER_VALUE") ?? 50000000;
+    val deployTreasuryValue = env<int>("TGBTCAT_DEPLOY_TREASURY_VALUE") ?? 200000000;
+    val configValue = env<int>("TGBTCAT_CONFIG_VALUE") ?? 50000000;
+    val mintValue = env<int>("TGBTCAT_MINT_VALUE") ?? 300000000;
+    val changeAdminValue = env<int>("TGBTCAT_CHANGE_ADMIN_VALUE") ?? 50000000;
+    val claimAdminValue = env<int>("TGBTCAT_CLAIM_ADMIN_VALUE") ?? 100000000;
+    val claimValue = env<int>("TGBTCAT_CLAIM_VALUE") ?? 50000000;
     val handoffMinterAdmin = env<bool>("TGBTCAT_HANDOFF_MINTER_ADMIN") ?? false;
 
     val deployer = scripts.wallet(deployerWalletName);
     val feeTreasury = scripts.wallet(feeTreasuryWalletName);
+    val initialVoteJettonWallet = env<address>("TGBTCAT_INITIAL_VOTE_JETTON_WALLET") ??
+    deployer.address;
 
     val governor = TgBtcCatGovernor.fromStorage({
         admin: deployer.address,
-        voteJettonWallet: deployer.address,
+        voteJettonWallet: initialVoteJettonWallet,
         minVoteAmount,
         nextProposalId: 0,
     });
@@ -88,10 +102,18 @@ fun main() {
     println("fee treasury wallet {}", feeTreasuryWalletName);
     println("metadata uri {}", metadataUri);
     println("initial supply {}", initialSupply);
+    println("initial vote wallet {}", initialVoteJettonWallet);
     println("governor top up {}", governorTopUp);
+    println("governor execution value {}", governorExecutionValue);
+    println("wallet route value {}", walletRouteValue);
 
     if (!scripts.isContractDeployed(governor.address)) {
-        if (!waitFor("deploy governor", governor.deploy(deployer.address, { value: ton("0.1") }))) {
+        if (
+            !waitFor(
+                "deploy governor",
+                governor.deploy(deployer.address, { value: deployGovernorValue }),
+            )
+        ) {
             return;
         }
     } else {
@@ -102,7 +124,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy jetton master",
-                minter.sendDeploy(deployer.address, { value: ton("0.2") }),
+                minter.sendDeploy(deployer.address, { value: deployMasterValue }),
             )
         ) {
             return;
@@ -115,7 +137,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy fee controller",
-                feeController.deploy(deployer.address, { value: ton("0.05") }),
+                feeController.deploy(deployer.address, { value: deployControllerValue }),
             )
         ) {
             return;
@@ -128,7 +150,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy wallet fee registry",
-                walletFeeRegistry.deploy(deployer.address, { value: ton("0.05") }),
+                walletFeeRegistry.deploy(deployer.address, { value: deployControllerValue }),
             )
         ) {
             return;
@@ -141,7 +163,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy dex registry",
-                dexRegistry.deploy(deployer.address, { value: ton("0.05") }),
+                dexRegistry.deploy(deployer.address, { value: deployControllerValue }),
             )
         ) {
             return;
@@ -154,7 +176,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy treasury",
-                treasury.deploy(deployer.address, { value: ton("0.2") }),
+                treasury.deploy(deployer.address, { value: deployTreasuryValue }),
             )
         ) {
             return;
@@ -167,7 +189,7 @@ fun main() {
         if (
             !waitFor(
                 "deploy event controller",
-                eventController.deploy(deployer.address, { value: ton("0.05") }),
+                eventController.deploy(deployer.address, { value: deployControllerValue }),
             )
         ) {
             return;
@@ -184,7 +206,7 @@ fun main() {
                 deployer.address,
                 1,
                 voteJettonWallet,
-                { value: ton("0.05") },
+                { value: configValue },
             ),
         )
     ) {
@@ -200,7 +222,7 @@ fun main() {
                 feeController.address,
                 walletFeeRegistry.address,
                 dexRegistry.address,
-                { value: ton("0.05") },
+                { value: configValue },
             ),
         )
     ) {
@@ -214,7 +236,7 @@ fun main() {
                 deployer.address,
                 3,
                 minQuorumVotes,
-                { value: ton("0.05") },
+                { value: configValue },
             ),
         )
     ) {
@@ -227,8 +249,8 @@ fun main() {
             governor.sendSetExecutionValue(
                 deployer.address,
                 4,
-                DEFAULT_GOVERNOR_EXECUTION_VALUE,
-                { value: ton("0.05") },
+                governorExecutionValue,
+                { value: configValue },
             ),
         )
     ) {
@@ -243,8 +265,8 @@ fun main() {
                 5,
                 minter.address,
                 feeTreasury.address,
-                DEFAULT_WALLET_ROUTE_VALUE,
-                { value: ton("0.05") },
+                walletRouteValue,
+                { value: configValue },
             ),
         )
     ) {
@@ -271,7 +293,7 @@ fun main() {
                     deployer.address,
                     initialSupply,
                     0,
-                    ton("0.3"),
+                    mintValue,
                 ),
             )
         ) {
@@ -287,7 +309,7 @@ fun main() {
                     deployer.address,
                     6,
                     governor.address,
-                    { value: ton("0.05") },
+                    { value: changeAdminValue },
                 ),
             )
         ) {
@@ -301,8 +323,8 @@ fun main() {
                     deployer.address,
                     7,
                     minter.address,
-                    ton("0.05"),
-                    { value: ton("0.1") },
+                    claimValue,
+                    { value: claimAdminValue },
                 ),
             )
         ) {

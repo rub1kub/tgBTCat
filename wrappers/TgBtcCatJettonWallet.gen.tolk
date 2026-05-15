@@ -260,3 +260,11 @@ fun TgBtcCatJettonWallet.isDexWallet(self, wallet: address): bool {
 fun TgBtcCatJettonWallet.getWalletSpecificFee(self, target: address): WalletTransferFeeRuleReply {
     return net.runGetMethod(self.address, "get_wallet_specific_fee", [target]);
 }
+
+fun TgBtcCatJettonWallet.getTransferFeeQuote(
+    self,
+    recipient: address,
+    amount: coins,
+): TransferFeeQuoteReply {
+    return net.runGetMethod(self.address, "get_transfer_fee_quote", [recipient, amount]);
+}

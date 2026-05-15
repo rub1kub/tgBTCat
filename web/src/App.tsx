@@ -68,8 +68,8 @@ interface ProposalFormState {
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
 const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
-const DEFAULT_VOTE_GAS_TON = '0.3';
-const DEFAULT_VOTE_FORWARD_TON = '0.05';
+const DEFAULT_VOTE_GAS_TON = '0.7';
+const DEFAULT_VOTE_FORWARD_TON = '0.1';
 const PROPOSAL_CREATE_JETTONS = '1000';
 const VOTING_DURATION_PRESETS = [
   { value: '10', label: { en: '10 min', ru: '10 мин' } },
@@ -269,6 +269,10 @@ const copyByLanguage = {
       sellFee: 'Sell fee %',
       feePreviewTitle: 'Fee preview',
       feePreviewText: 'For a 1,000 tgBTCat trade: buy fee {buy} tgBTCat, sell fee {sell} tgBTCat.',
+      dexPreviewTitle: 'STON.fi route preview',
+      dexPreviewText: 'STON.fi uses regular jetton transfers through its router. The token wallet takes the fee during transfer, so the router and the buyer see the amount after the fee.',
+      dexSellPreview: 'Sell: router {net} tgBTCat, treasury {fee}.',
+      dexBuyPreview: 'Buy: buyer {net} tgBTCat, treasury {fee}.',
       votePrepared: 'Vote is ready for wallet signature',
       voteSent: 'Vote was sent from the wallet. It should appear on-chain shortly.',
       proposalPrepared: 'Question is ready for wallet signature',
@@ -495,6 +499,10 @@ const copyByLanguage = {
       sellFee: 'Комиссия продажи, %',
       feePreviewTitle: 'Предпросмотр комиссии',
       feePreviewText: 'На сделке 1 000 tgBTCat: комиссия покупки {buy} tgBTCat, комиссия продажи {sell} tgBTCat.',
+      dexPreviewTitle: 'как это пройдет через ston.fi',
+      dexPreviewText: 'ston.fi использует обычные переводы токена через свой роутер. кошелек токена забирает комиссию во время перевода, поэтому роутер и покупатель видят сумму уже после комиссии.',
+      dexSellPreview: 'продажа: в роутер {net} tgbtcat, в казну {fee}.',
+      dexBuyPreview: 'покупка: покупателю {net} tgbtcat, в казну {fee}.',
       votePrepared: 'Голос готов к подписи в кошельке',
       voteSent: 'Голос отправлен из кошелька. Скоро он появится ончейн.',
       proposalPrepared: 'Вопрос готов к подписи в кошельке',
@@ -1577,6 +1585,7 @@ function ProposalBuilder({
         <strong>{copy.vote.feePreviewTitle}</strong>
         <p>{copy.vote.feePreviewText.replace('{buy}', buyPreview).replace('{sell}', sellPreview)}</p>
       </div>
+      <DexFeePreview copy={copy} buyFeePercent={form.buyFeePercent} sellFeePercent={form.sellFeePercent} />
       {!connectedAddress && (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
           <Wallet size={18} />
@@ -1595,6 +1604,35 @@ function ProposalBuilder({
         </button>
       </div>
     </section>
+  );
+}
+
+function DexFeePreview({
+  copy,
+  buyFeePercent,
+  sellFeePercent,
+}: {
+  copy: AppCopy;
+  buyFeePercent: string;
+  sellFeePercent: string;
+}) {
+  const buy = feePreviewBreakdown(buyFeePercent);
+  const sell = feePreviewBreakdown(sellFeePercent);
+
+  return (
+    <div className="dex-fee-preview">
+      <div className="dex-fee-heading">
+        <span>
+          <Activity size={17} />
+          {copy.vote.dexPreviewTitle}
+        </span>
+      </div>
+      <p>{copy.vote.dexPreviewText}</p>
+      <div className="dex-preview-grid">
+        <div>{copy.vote.dexSellPreview.replace('{net}', sell.net).replace('{fee}', sell.fee)}</div>
+        <div>{copy.vote.dexBuyPreview.replace('{net}', buy.net).replace('{fee}', buy.fee)}</div>
+      </div>
+    </div>
   );
 }
 
@@ -1774,13 +1812,29 @@ function feeRangeValue(value: string): number {
 }
 
 function feePreviewAmount(value: string): string {
+  return formatPreviewAmount(feePreviewNumeric(value));
+}
+
+function feePreviewBreakdown(value: string): { fee: string; net: string } {
+  const fee = feePreviewNumeric(value);
+  return {
+    fee: formatPreviewAmount(fee),
+    net: formatPreviewAmount(1000 - fee),
+  };
+}
+
+function feePreviewNumeric(value: string): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) {
-    return '0';
+    return 0;
   }
+  return (1000 * Math.min(100, numeric)) / 100;
+}
+
+function formatPreviewAmount(value: number): string {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2,
-  }).format((1000 * Math.min(100, numeric)) / 100);
+  }).format(value);
 }
 
 function formatPercent(value: number): string {

@@ -5,6 +5,7 @@ import "@acton/types/message"
 
 import "@contracts/errors"
 import "@contracts/messages"
+import "@contracts/storage"
 import "@wrappers/TgBtcCatJettonMaster.gen"
 import "@wrappers/TgBtcCatJettonWallet.gen"
 import "@wrappers/utils"
@@ -88,6 +89,92 @@ get fun `test fees: global buy fee applies when sender wallet is marked as dex`(
     expect(dexWallet.getJettonBalance()).toEqual(0);
     expect(userWallet(minter, buyer.address).getJettonBalance()).toEqual(900);
     expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(100);
+}
+
+get fun `test fees: stonfi router flow quotes and taxes sell and buy transfers`() {
+    val (minter, admin, _) = setupTest();
+    val seller = testing.treasury("fee-stonfi-seller");
+    val router = testing.treasury("fee-stonfi-router");
+    val buyer = testing.treasury("fee-stonfi-buyer");
+    val feeTreasury = testing.treasury("fee-stonfi-treasury");
+
+    val sellerWallet = mintTo(minter, admin, seller.address, 1000);
+    routeWalletRuntime(
+        minter,
+        admin,
+        seller.address,
+        feeTreasury.address,
+        0,
+        1000,
+        false,
+    );
+    routeAddDexWallet(minter, admin, seller.address, router.address);
+
+    val sellQuote = sellerWallet.getTransferFeeQuote(router.address, 1000);
+    expect(sellQuote.side).toEqual(TRANSFER_SIDE_SELL);
+    expect(sellQuote.feeBps).toEqual(1000);
+    expect(sellQuote.feeAmount).toEqual(100);
+    expect(sellQuote.recipientAmount).toEqual(900);
+    expect(sellQuote.feeTreasury).toEqual(feeTreasury.address);
+    expect(sellQuote.feeSubject).toEqual(seller.address);
+    expect(sellQuote.senderIsDexWallet).toEqual(false);
+    expect(sellQuote.recipientIsDexWallet).toEqual(true);
+
+    val sell = sellerWallet.sendTransfer(
+        seller.address,
+        FEE_TEST_TRANSFER_VALUE,
+        1000,
+        router.address,
+        seller.address,
+        null,
+        0,
+        null,
+    );
+    expect(sell).toHaveSuccessfulTx<AskToTransfer>({
+        from: seller.address,
+        to: sellerWallet.address,
+    });
+    expect(userWallet(minter, router.address).getJettonBalance()).toEqual(900);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(100);
+
+    val routerWallet = userWallet(minter, router.address);
+    routeWalletRuntime(
+        minter,
+        admin,
+        router.address,
+        feeTreasury.address,
+        1000,
+        0,
+        true,
+    );
+
+    val buyQuote = routerWallet.getTransferFeeQuote(buyer.address, 900);
+    expect(buyQuote.side).toEqual(TRANSFER_SIDE_BUY);
+    expect(buyQuote.feeBps).toEqual(1000);
+    expect(buyQuote.feeAmount).toEqual(90);
+    expect(buyQuote.recipientAmount).toEqual(810);
+    expect(buyQuote.feeTreasury).toEqual(feeTreasury.address);
+    expect(buyQuote.feeSubject).toEqual(buyer.address);
+    expect(buyQuote.senderIsDexWallet).toEqual(true);
+    expect(buyQuote.recipientIsDexWallet).toEqual(false);
+
+    val buy = routerWallet.sendTransfer(
+        router.address,
+        FEE_TEST_TRANSFER_VALUE,
+        900,
+        buyer.address,
+        router.address,
+        null,
+        0,
+        null,
+    );
+    expect(buy).toHaveSuccessfulTx<AskToTransfer>({
+        from: router.address,
+        to: routerWallet.address,
+    });
+    expect(routerWallet.getJettonBalance()).toEqual(0);
+    expect(userWallet(minter, buyer.address).getJettonBalance()).toEqual(810);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(190);
 }
 
 get fun `test fees: wallet-specific buy override beats global fee and can be cleared`() {

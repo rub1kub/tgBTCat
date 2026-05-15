@@ -53,30 +53,64 @@ fun classifyTransferSide(runtime: WalletFeeRuntime, recipient: address): uint8 {
     return TRANSFER_SIDE_NONE;
 }
 
-fun calcTransferFee(
+fun quoteTransferFee(
     storage: WalletStorage,
     runtime: WalletFeeRuntime,
     recipient: address,
     amount: coins,
-): coins {
-    if (runtime.feeTreasury == null) {
-        return 0;
-    }
-
+): TransferFeeQuoteReply {
+    val recipientIsDex = runtime.dexWallets.exists(recipient);
     val side = classifyTransferSide(runtime, recipient);
-    if (side == TRANSFER_SIDE_NONE) {
-        return 0;
+    var feeSubject: address? = null;
+
+    if (side != TRANSFER_SIDE_NONE) {
+        feeSubject = side == TRANSFER_SIDE_BUY ? recipient : storage.ownerAddress;
     }
 
-    val feeSubject = side == TRANSFER_SIDE_BUY ? recipient : storage.ownerAddress;
-    val rule = runtime.walletFeeRules.get(feeSubject);
+    if (runtime.feeTreasury == null) {
+        return {
+            side,
+            feeBps: 0,
+            feeAmount: 0,
+            recipientAmount: amount,
+            feeTreasury: runtime.feeTreasury,
+            feeSubject,
+            senderIsDexWallet: runtime.isDexWallet,
+            recipientIsDexWallet: recipientIsDex,
+        };
+    }
+
+    if (side == TRANSFER_SIDE_NONE) {
+        return {
+            side,
+            feeBps: 0,
+            feeAmount: 0,
+            recipientAmount: amount,
+            feeTreasury: runtime.feeTreasury,
+            feeSubject,
+            senderIsDexWallet: runtime.isDexWallet,
+            recipientIsDexWallet: recipientIsDex,
+        };
+    }
+
+    val rule = runtime.walletFeeRules.get(feeSubject!);
     var feeBps = side == TRANSFER_SIDE_BUY ? runtime.globalBuyFeeBps : runtime.globalSellFeeBps;
     if (rule.isFound) {
         val value = rule.loadValue();
         feeBps = side == TRANSFER_SIDE_BUY ? value.buyFeeBps : value.sellFeeBps;
     }
 
-    return calcFeeAmount(amount, feeBps);
+    val feeAmount = calcFeeAmount(amount, feeBps);
+    return {
+        side,
+        feeBps,
+        feeAmount,
+        recipientAmount: amount - feeAmount,
+        feeTreasury: runtime.feeTreasury,
+        feeSubject,
+        senderIsDexWallet: runtime.isDexWallet,
+        recipientIsDexWallet: recipientIsDex,
+    };
 }
 
 fun onBouncedMessage(in: InMessageBounced) {
@@ -158,12 +192,13 @@ fun onInternalMessage(in: InMessage) {
             assert (in.senderAddress == storage.ownerAddress) throw Errors.NotOwner;
             assert (storage.jettonBalance >= msg.jettonAmount) throw Errors.BalanceError;
             val runtime = storage.loadFeeRuntime();
-            val feeAmount = calcTransferFee(
+            val feeQuote = quoteTransferFee(
                 storage,
                 runtime,
                 msg.transferRecipient,
                 msg.jettonAmount,
             );
+            val feeAmount = feeQuote.feeAmount;
             val feeForwardTonAmount = feeAmount == 0 ? 0 : FEE_INTERNAL_TRANSFER_TON_AMOUNT;
             checkAmountIsEnoughToTransfer(
                 in.valueCoins,
@@ -349,4 +384,10 @@ get fun get_wallet_specific_fee(target: address): WalletTransferFeeRuleReply {
         buyFeeBps: value.buyFeeBps,
         sellFeeBps: value.sellFeeBps,
     };
+}
+
+get fun get_transfer_fee_quote(recipient: address, amount: coins): TransferFeeQuoteReply {
+    val storage = lazy WalletStorage.load();
+    val runtime = storage.loadFeeRuntime();
+    return quoteTransferFee(storage, runtime, recipient, amount);
 }

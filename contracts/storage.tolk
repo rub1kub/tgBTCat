@@ -91,6 +91,17 @@ struct WalletTransferFeeRuleReply {
     sellFeeBps: uint16
 }
 
+struct TransferFeeQuoteReply {
+    side: uint8
+    feeBps: uint16
+    feeAmount: coins
+    recipientAmount: coins
+    feeTreasury: address?
+    feeSubject: address?
+    senderIsDexWallet: bool
+    recipientIsDexWallet: bool
+}
+
 struct JettonDataReply {
     totalSupply: int
     mintable: bool
