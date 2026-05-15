@@ -103,6 +103,7 @@ fun TgBtcCatJettonWallet.sendInternalTransferStep(
     transferInitiator: address?,
     sendExcessesTo: address?,
     forwardTonAmount: coins,
+    feeRuntime: Cell<WalletFeeRuntime>?,
     forwardPayload: PayloadInline | PayloadInRef,
     config: SendParams = {},
 ): SendResultList {
@@ -114,6 +115,7 @@ fun TgBtcCatJettonWallet.sendInternalTransferStep(
         .storeAny(transferInitiator)
         .storeAny(sendExcessesTo)
         .storeAny(forwardTonAmount)
+        .storeAny(feeRuntime)
         .storeAny(forwardPayload);
     val genericMsg = createMessage({
         bounce: config.bounce,

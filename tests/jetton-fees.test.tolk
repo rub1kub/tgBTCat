@@ -177,6 +177,80 @@ get fun `test fees: stonfi router flow quotes and taxes sell and buy transfers`(
     expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(190);
 }
 
+get fun `test fees: dedust vault flow inherits runtime for sell and buy transfers`() {
+    val (minter, admin, _) = setupTest();
+    val seller = testing.treasury("fee-dedust-seller");
+    val vault = testing.treasury("fee-dedust-vault");
+    val buyer = testing.treasury("fee-dedust-buyer");
+    val feeTreasury = testing.treasury("fee-dedust-treasury");
+
+    val sellerWallet = mintTo(minter, admin, seller.address, 1000);
+    routeWalletRuntime(
+        minter,
+        admin,
+        seller.address,
+        feeTreasury.address,
+        500,
+        1000,
+        false,
+    );
+    routeAddDexWallet(minter, admin, seller.address, vault.address);
+
+    val sell = sellerWallet.sendTransfer(
+        seller.address,
+        FEE_TEST_TRANSFER_VALUE,
+        1000,
+        vault.address,
+        seller.address,
+        null,
+        DEFAULT_FORWARD_TON_AMOUNT,
+        beginCell().storeUint(0xe3a0d482, 32).endCell(),
+    );
+    val vaultWallet = userWallet(minter, vault.address);
+    expect(sell).toHaveSuccessfulTx<AskToTransfer>({
+        from: seller.address,
+        to: sellerWallet.address,
+    });
+    expect(sell).toHaveSuccessfulTx<TransferNotificationForRecipient>({
+        from: vaultWallet.address,
+        to: vault.address,
+    });
+    expect(vaultWallet.getJettonBalance()).toEqual(900);
+    expect(vaultWallet.getFeeRuntime().isDexWallet).toEqual(true);
+    expect(vaultWallet.isDexWallet(vault.address)).toEqual(true);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(100);
+
+    val buyQuote = vaultWallet.getTransferFeeQuote(buyer.address, 900);
+    expect(buyQuote.side).toEqual(TRANSFER_SIDE_BUY);
+    expect(buyQuote.feeBps).toEqual(500);
+    expect(buyQuote.feeAmount).toEqual(45);
+    expect(buyQuote.recipientAmount).toEqual(855);
+
+    val buy = vaultWallet.sendTransfer(
+        vault.address,
+        ton("10"),
+        900,
+        buyer.address,
+        vault.address,
+        null,
+        DEFAULT_FORWARD_TON_AMOUNT,
+        null,
+    );
+    val buyerWallet = userWallet(minter, buyer.address);
+    expect(buy).toHaveSuccessfulTx<AskToTransfer>({
+        from: vault.address,
+        to: vaultWallet.address,
+    });
+    expect(buy).toHaveSuccessfulTx<TransferNotificationForRecipient>({
+        from: buyerWallet.address,
+        to: buyer.address,
+    });
+    expect(buyerWallet.getJettonBalance()).toEqual(855);
+    expect(buyerWallet.getFeeRuntime().isDexWallet).toEqual(false);
+    expect(buyerWallet.isDexWallet(vault.address)).toEqual(true);
+    expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(145);
+}
+
 get fun `test fees: wallet-specific buy override beats global fee and can be cleared`() {
     val (minter, admin, _) = setupTest();
     val dex = testing.treasury("fee-override-dex");

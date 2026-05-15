@@ -403,6 +403,7 @@ export const TransferNotificationForRecipient = {
  >     transferInitiator: address?
  >     sendExcessesTo: address?
  >     forwardTonAmount: coins
+ >     feeRuntime: Cell<WalletFeeRuntime>?
  >     forwardPayload: ForwardPayloadRemainder
  > }
  */
@@ -413,6 +414,7 @@ export interface InternalTransferStep {
     transferInitiator: c.Address | null
     sendExcessesTo: c.Address | null
     forwardTonAmount: coins
+    feeRuntime: CellRef<WalletFeeRuntime> | null /* = null */
     forwardPayload: PayloadInline | PayloadInRef
 }
 
@@ -425,10 +427,12 @@ export const InternalTransferStep = {
         transferInitiator: c.Address | null
         sendExcessesTo: c.Address | null
         forwardTonAmount: coins
+        feeRuntime?: CellRef<WalletFeeRuntime> | null /* = null */
         forwardPayload: PayloadInline | PayloadInRef
     }): InternalTransferStep {
         return {
             $: 'InternalTransferStep',
+            feeRuntime: null,
             ...args
         }
     },
@@ -441,6 +445,7 @@ export const InternalTransferStep = {
             transferInitiator: s.loadMaybeAddress(),
             sendExcessesTo: s.loadMaybeAddress(),
             forwardTonAmount: s.loadCoins(),
+            feeRuntime: s.loadBoolean() ? loadCellRef<WalletFeeRuntime>(s, WalletFeeRuntime.fromSlice) : null,
             forwardPayload: lookupPrefix(s, 0b0, 1) ? PayloadInline.fromSlice(s) :
                 lookupPrefix(s, 0b1, 1) ? PayloadInRef.fromSlice(s) :
                 throwNonePrefixMatch('InternalTransferStep.forwardPayload'),
@@ -453,6 +458,9 @@ export const InternalTransferStep = {
         b.storeAddress(self.transferInitiator);
         b.storeAddress(self.sendExcessesTo);
         b.storeCoins(self.forwardTonAmount);
+        storeTolkNullable<CellRef<WalletFeeRuntime>>(self.feeRuntime, b,
+            (v,b) => storeCellRef<WalletFeeRuntime>(v, b, WalletFeeRuntime.store)
+        );
         switch (self.forwardPayload.$) {
             case 'PayloadInline':
                 PayloadInline.store(self.forwardPayload, b);
@@ -1268,7 +1276,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatJettonWallet implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'Errors.BalanceError': 47,
@@ -1333,6 +1341,7 @@ export class TgBtcCatJettonWallet implements c.Contract {
         transferInitiator: c.Address | null
         sendExcessesTo: c.Address | null
         forwardTonAmount: coins
+        feeRuntime?: CellRef<WalletFeeRuntime> | null /* = null */
         forwardPayload: PayloadInline | PayloadInRef
     }) {
         return InternalTransferStep.toCell(InternalTransferStep.create(body));
@@ -1426,6 +1435,7 @@ export class TgBtcCatJettonWallet implements c.Contract {
         transferInitiator: c.Address | null
         sendExcessesTo: c.Address | null
         forwardTonAmount: coins
+        feeRuntime?: CellRef<WalletFeeRuntime> | null /* = null */
         forwardPayload: PayloadInline | PayloadInRef
     }, extraOptions?: ExtraSendOptions) {
         return provider.internal(via, {

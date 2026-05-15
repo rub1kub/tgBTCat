@@ -1,3 +1,5 @@
+import "storage"
+
 type ForwardPayloadRemainder = RemainingBitsAndRefs
 
 struct (0b0) PayloadInline {
@@ -33,6 +35,7 @@ struct (0x178d4519) InternalTransferStep {
     transferInitiator: address?
     sendExcessesTo: address?
     forwardTonAmount: coins
+    feeRuntime: Cell<WalletFeeRuntime>? = null
     @abi.clientType(PayloadInline | PayloadInRef)
     forwardPayload: ForwardPayloadRemainder
 }

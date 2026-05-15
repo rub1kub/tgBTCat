@@ -28,6 +28,7 @@ type AllowedMessageToWallet =
 type BounceOpToHandle = InternalTransferStep | BurnNotificationForMinter
 
 const FEE_INTERNAL_TRANSFER_TON_AMOUNT = 50000000
+const FEE_TRANSFER_ACTION_TON_BUFFER = 100000000
 
 fun assertSenderIsMinter(sender: address, minter: address) {
     assert (sender == minter) throw Errors.NotMinter;
@@ -113,6 +114,28 @@ fun quoteTransferFee(
     };
 }
 
+fun inheritedFeeRuntimeForRecipient(
+    storage: WalletStorage,
+    runtime: WalletFeeRuntime,
+    recipient: address,
+): WalletFeeRuntime {
+    var inherited: WalletFeeRuntime = {
+        feeTreasury: runtime.feeTreasury,
+        globalBuyFeeBps: runtime.globalBuyFeeBps,
+        globalSellFeeBps: runtime.globalSellFeeBps,
+        isDexWallet: runtime.dexWallets.exists(recipient),
+    };
+
+    if (runtime.dexWallets.exists(recipient)) {
+        inherited.dexWallets.set(recipient, true);
+    }
+    if (runtime.isDexWallet) {
+        inherited.dexWallets.set(storage.ownerAddress, true);
+    }
+
+    return inherited;
+}
+
 fun onBouncedMessage(in: InMessageBounced) {
     in.bouncedBody.skipBouncedPrefix();
 
@@ -144,6 +167,9 @@ fun onInternalMessage(in: InMessage) {
                 ) throw Errors.NotValidWallet;
             }
             storage.jettonBalance += msg.jettonAmount;
+            if (storage.feeRuntime == null && msg.feeRuntime != null) {
+                storage.feeRuntime = msg.feeRuntime;
+            }
             storage.save();
 
             if (msg.forwardTonAmount != 0) {
@@ -224,6 +250,7 @@ fun onInternalMessage(in: InMessage) {
                         transferInitiator: storage.ownerAddress,
                         sendExcessesTo: null,
                         forwardTonAmount: 0,
+                        feeRuntime: null,
                         forwardPayload: beginCell().storeMaybeRef(null).endCell().beginParse(),
                     },
                 });
@@ -231,6 +258,21 @@ fun onInternalMessage(in: InMessage) {
             }
 
             val recipientAmount = msg.jettonAmount - feeAmount;
+            var recipientMsgValue: coins = 0;
+            if (feeAmount != 0) {
+                val senderWalletBuffer = max(
+                    calculateJettonWalletMinStorageFee(),
+                    FEE_TRANSFER_ACTION_TON_BUFFER,
+                );
+                assert (
+                    in.valueCoins > feeForwardTonAmount + senderWalletBuffer
+                ) throw Errors.NotEnoughGas;
+                recipientMsgValue = in.valueCoins - feeForwardTonAmount - senderWalletBuffer;
+                assert (
+                    recipientMsgValue >
+                    calcMinimalTransferAmount(msg.forwardTonAmount, in.originalForwardFee)
+                ) throw Errors.NotEnoughGas;
+            }
             val deployMsg = createMessage({
                 bounce: BounceMode.Only256BitsOfBody,
                 dest: calcDeployedJettonWallet(
@@ -238,19 +280,25 @@ fun onInternalMessage(in: InMessage) {
                     storage.minterAddress,
                     contract.getCode(),
                 ),
-                value: 0,
+                value: recipientMsgValue,
                 body: InternalTransferStep {
                     queryId: msg.queryId,
                     jettonAmount: recipientAmount,
                     transferInitiator: storage.ownerAddress,
                     sendExcessesTo: msg.sendExcessesTo,
                     forwardTonAmount: msg.forwardTonAmount,
+                    feeRuntime: inheritedFeeRuntimeForRecipient(
+                        storage,
+                        runtime,
+                        msg.transferRecipient,
+                    ).toCell(),
                     forwardPayload: msg.forwardPayload,
                 },
             });
-            deployMsg.send(
-                SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE | SEND_MODE_BOUNCE_ON_ACTION_FAIL,
-            );
+            val recipientSendMode = feeAmount == 0
+                ? SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE | SEND_MODE_BOUNCE_ON_ACTION_FAIL
+                : SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL;
+            deployMsg.send(recipientSendMode);
         }
 
         AskToBurn => {

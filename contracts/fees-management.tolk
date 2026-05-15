@@ -16,6 +16,7 @@ const GAS_CONSUMPTION_JETTON_TRANSFER = 6327
 const GAS_CONSUMPTION_JETTON_RECEIVE = 7443
 const GAS_CONSUMPTION_BURN_REQUEST = 4254
 const GAS_CONSUMPTION_BURN_NOTIFICATION = 4071
+const TRANSFER_ACTION_SAFETY_BUFFER = 1000000
 
 // SAFETY: Safe opcode, returning int/null
 fun getPrecompiledGasConsumption(): int?
@@ -52,7 +53,8 @@ fun calcMinimalTransferAmount(forwardTonAmount: int, fwdFee: int): int {
     return forwardTonAmount + fwdCount * fwdFee + forwardInitStateOverhead() +
     calculateGasFee(MY_WORKCHAIN, sendTransferGasConsumption) +
     calculateGasFee(MY_WORKCHAIN, receiveTransferGasConsumption) +
-    calculateJettonWalletMinStorageFee();
+    calculateJettonWalletMinStorageFee() +
+    TRANSFER_ACTION_SAFETY_BUFFER;
 }
 
 fun checkAmountIsEnoughToTransfer(msgValue: int, forwardTonAmount: int, fwdFee: int) {
