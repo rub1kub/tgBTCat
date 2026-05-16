@@ -270,6 +270,11 @@ const copyByLanguage = {
       proposalFee: 'Question fee: {amount} tgBTCat',
       proposalFeeDetail: 'This token payment is not returned. It makes spam expensive.',
       proposalFeeTooHigh: 'You need at least {amount} tgBTCat to create a question.',
+      mainnetContractsMissing: 'The token and voting are not live on mainnet yet. After deployment this button will turn on.',
+      tokenBalanceRequired: 'Token balance was not found yet. Connect a wallet that holds mainnet tgBTCat.',
+      targetWalletRequired: 'Paste the wallet address that should receive the fee rule.',
+      durationInvalid: 'Enter voting duration in minutes.',
+      feeInvalid: 'Fees must be from 0% to 100%.',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
       feePreviewTitle: 'Fee preview',
@@ -504,6 +509,11 @@ const copyByLanguage = {
       proposalFee: 'плата за вопрос: {amount} tgbtcat',
       proposalFeeDetail: 'эта оплата токенами не возвращается. так спамить вопросами становится дорого.',
       proposalFeeTooHigh: 'нужно минимум {amount} tgbtcat, чтобы создать вопрос.',
+      mainnetContractsMissing: 'токен и голосование еще не запущены в mainnet. после деплоя кнопка включится.',
+      tokenBalanceRequired: 'баланс токенов пока не найден. подключите кошелек, где есть mainnet tgBTCat.',
+      targetWalletRequired: 'вставьте адрес кошелька, для которого создается правило комиссии.',
+      durationInvalid: 'укажите длительность голосования в минутах.',
+      feeInvalid: 'комиссии должны быть от 0% до 100%.',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
       feePreviewTitle: 'Предпросмотр комиссии',
@@ -594,6 +604,7 @@ export default function App() {
 
   const t = copyByLanguage[language];
   const addressBook = addressBooks[network];
+  const contractsReady = Boolean(addressBook.addresses.governor && addressBook.addresses.jettonMaster);
   const selectedProposal = proposals.find((proposal) => proposal.id === selectedProposalId);
   const navItems = useMemo(
     () => navItemIds.map((id) => ({ id, label: t.nav[id] })),
@@ -910,6 +921,7 @@ export default function App() {
               voteForm={voteForm}
               proposalForm={proposalForm}
               connectedAddress={connectedAddress}
+              contractsReady={contractsReady}
               walletBinding={effectiveWalletBinding}
               walletBindingMessage={effectiveWalletBindingMessage}
               tokenBalance={tokenBalance}
@@ -1124,6 +1136,7 @@ function VotePage({
   voteForm,
   proposalForm,
   connectedAddress,
+  contractsReady,
   walletBinding,
   walletBindingMessage,
   tokenBalance,
@@ -1149,6 +1162,7 @@ function VotePage({
   voteForm: VoteFormState;
   proposalForm: ProposalFormState;
   connectedAddress: string;
+  contractsReady: boolean;
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
   tokenBalance: string;
@@ -1221,6 +1235,7 @@ function VotePage({
               copy={copy}
               form={proposalForm}
               connectedAddress={connectedAddress}
+              contractsReady={contractsReady}
               voterJettonWallet={voteForm.voterJettonWallet}
               walletBinding={walletBinding}
               tokenBalance={tokenBalance}
@@ -1584,6 +1599,7 @@ function ProposalBuilder({
   copy,
   form,
   connectedAddress,
+  contractsReady,
   voterJettonWallet,
   walletBinding,
   tokenBalance,
@@ -1595,6 +1611,7 @@ function ProposalBuilder({
   copy: AppCopy;
   form: ProposalFormState;
   connectedAddress: string;
+  contractsReady: boolean;
   voterJettonWallet: string;
   walletBinding: WalletBindingState;
   tokenBalance: string;
@@ -1613,6 +1630,7 @@ function ProposalBuilder({
   const buyFeeInvalid = !isFeePercentValid(form.buyFeePercent);
   const sellFeeInvalid = !isFeePercentValid(form.sellFeePercent);
   const createDisabled =
+    !contractsReady ||
     !connectedAddress ||
     !voterJettonWallet ||
     proposalFeeTooHigh ||
@@ -1621,6 +1639,26 @@ function ProposalBuilder({
     durationInvalid ||
     buyFeeInvalid ||
     sellFeeInvalid;
+  const createDisabledReason =
+    !contractsReady
+      ? copy.vote.mainnetContractsMissing
+      : !connectedAddress
+        ? copy.vote.connectRequired
+        : walletBinding === 'loading'
+          ? copy.vote.bindingLoading
+          : !voterJettonWallet
+            ? copy.vote.tokenBalanceRequired
+            : proposalFeeTooHigh
+              ? copy.vote.proposalFeeTooHigh.replace('{amount}', PROPOSAL_CREATE_JETTONS)
+              : targetWalletMissing
+                ? copy.vote.targetWalletRequired
+                : targetWalletInvalid
+                  ? copy.vote.targetWalletInvalid
+                  : durationInvalid
+                    ? copy.vote.durationInvalid
+                    : buyFeeInvalid || sellFeeInvalid
+                      ? copy.vote.feeInvalid
+                      : '';
   const buyPreview = feePreviewAmount(form.buyFeePercent);
   const sellPreview = feePreviewAmount(form.sellFeePercent);
 
@@ -1716,6 +1754,7 @@ function ProposalBuilder({
           {copy.common.create}
         </button>
       </div>
+      {createDisabledReason && <p className="field-error create-disabled-reason">{createDisabledReason}</p>}
     </section>
   );
 }
