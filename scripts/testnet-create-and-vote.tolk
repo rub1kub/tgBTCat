@@ -28,7 +28,6 @@ fun main() {
     address("kQA1GaTDOvM36bPDcBl8j1t1XAwzxTaAuNqrr0K2fRYMm5Vc");
     val jettonMasterAddress = env<address>("TGBTCAT_JETTON_MASTER_ADDRESS") ??
     address("kQBmTqJHA8NBgpBu4tNXHwcOSEQKSTiPsDKZoZ0HVOR0xZlo");
-    val votingSeconds = env<int>("TGBTCAT_VOTING_SECONDS") ?? 75;
     val actionType = env<int>("TGBTCAT_ACTION_TYPE") ?? ACTION_SET_GLOBAL_FEES;
     val proposalTarget = env<address>("TGBTCAT_PROPOSAL_TARGET");
     val proposalAuxTarget = env<address>("TGBTCAT_PROPOSAL_AUX_TARGET");
@@ -47,12 +46,13 @@ fun main() {
         jettonMaster.getWalletAddress(voter.address),
     );
     val proposalId = governor.getNextProposalId();
-    val votingEndsAt = blockchain.now() + votingSeconds;
+    val votingEndsAt = blockchain.now() + FIXED_VOTING_DURATION_SECONDS;
 
     println("voter {}", voter.address);
     println("voter jetton wallet {}", voterJettonWallet.address);
     println("governor vote jetton wallet {}", voteJettonWallet.address);
     println("proposal id {}", proposalId);
+    println("fixed voting duration seconds {}", FIXED_VOTING_DURATION_SECONDS);
     println("voting ends at {}", votingEndsAt);
 
     if (

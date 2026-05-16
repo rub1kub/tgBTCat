@@ -19,7 +19,7 @@
 
 TG BTC Cat is a DAO-governed jetton system built on TON with Acton and Tolk. The core idea is simple: holders can commit `tgBTCat` on-chain to shape protocol behavior, fee policy, treasury movement, wallet-specific rules, and community events.
 
-Voting is intentionally irreversible. A vote is cast by sending `tgBTCat` to governance; the amount sent becomes vote weight and remains in the governance treasury. This creates a direct cost for influence and makes governance activity visible on-chain.
+Voting is intentionally irreversible. A vote is cast by sending `tgBTCat` to governance; the amount sent becomes vote weight and remains in the governance treasury. Every proposal is open for exactly 30 minutes, enforced by the Governor contract, not by the website.
 
 ## What It Controls
 
@@ -122,9 +122,10 @@ mainnet launch. The web console now points to mainnet only.
 1. A proposal is created on-chain.
 2. A holder sends `tgBTCat` to the governor with an encoded vote payload.
 3. The received token amount becomes vote weight.
-4. Votes are counted as `FOR`, `AGAINST`, or `ABSTAIN`.
-5. Passed proposals execute governed actions through typed controller routes or whitelisted raw execution.
-6. Failed outbound execution can bounce and restore proposal execution state.
+4. Votes are counted only as `FOR` or `AGAINST`; invalid sides are rejected.
+5. The voting window is exactly 30 minutes from proposal creation.
+6. Passed proposals execute governed actions through typed controller routes or whitelisted raw execution.
+7. Failed outbound execution can bounce and restore proposal execution state.
 
 ## Repository Layout
 

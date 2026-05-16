@@ -10,7 +10,7 @@ The project direction is a token whose holders coordinate token economics throug
 1 tgBTCat sent to governance = 1 vote
 ```
 
-The tokens used for voting are not returned. They become DAO treasury assets.
+The tokens used for voting are not returned. They become DAO treasury assets. Every proposal is open for exactly 30 minutes by contract.
 
 ## Contract Modules
 
@@ -40,7 +40,7 @@ User wallet
 The vote payload contains:
 
 - proposal id
-- vote side: `FOR`, `AGAINST`, or `ABSTAIN`
+- vote side: `FOR` or `AGAINST`
 - optional comment hash
 
 The public interface shows every vote transaction, voter address, amount, side, and proposal totals.
@@ -63,12 +63,12 @@ Production proposal types:
 Initial governance ideas:
 
 - Vote weight: `1 tgBTCat = 1 vote`.
+- Voting window: exactly 30 minutes from proposal creation.
 - Minimum vote amount: configurable.
 - Proposal creation cost: paid in `tgBTCat` and sent to treasury.
 - Buy fee vote range: `0%` to `100%`.
 - Sell fee vote range: `0%` to `100%`.
 - Wallet-specific fee proposals: target wallet, buy fee, sell fee, reason hash.
-- Timelock for sensitive proposals.
 - Higher quorum for wallet-specific fee proposals.
 - No max duration by default: wallet-specific fee rules remain until changed or cleared by governance.
 
@@ -97,7 +97,7 @@ The public app should include:
 - Proposal creation forms.
 - Vote forms that build jetton transfer transactions with encoded `forward_payload`.
 - Public vote table: voter, side, amount, transaction hash, timestamp.
-- Live totals: `FOR`, `AGAINST`, `ABSTAIN`, quorum, execution status.
+- Live totals: `FOR`, `AGAINST`, quorum, execution status.
 - Fee dashboard: current global fees and wallet-specific overrides.
 - Treasury dashboard: vote treasury and fee treasury balances.
 

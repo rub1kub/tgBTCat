@@ -1151,8 +1151,7 @@ select:focus {
 }
 
 .field-row,
-.fee-grid,
-.duration-presets {
+.fee-grid {
   display: grid;
   gap: 12px;
 }
@@ -1163,25 +1162,6 @@ select:focus {
 
 .fee-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.duration-presets {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.duration-presets button {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  background: #ffffff;
-  color: #4d5868;
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.duration-presets .is-active {
-  border-color: var(--dark);
-  background: var(--dark);
-  color: #ffffff;
 }
 
 .label-row,
@@ -1720,8 +1700,6 @@ select,
 .mini-action,
 .proposal-kind-switch,
 .proposal-kind-switch button,
-.duration-presets,
-.duration-presets button,
 .connect-wallet-panel,
 .wallet-strip,
 .owner-strip,
@@ -1842,7 +1820,6 @@ select,
   .proposal-kind-switch,
   .create-scenarios,
   .impact-grid,
-  .duration-presets,
   .dex-preview-grid,
   .vote-flow {
     grid-template-columns: 1fr;

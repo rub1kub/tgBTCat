@@ -6,7 +6,7 @@ This document defines the full product target. It is not an MVP plan.
 
 TG BTC Cat is a TON jetton with irreversible on-chain treasury voting.
 
-Users vote by sending `tgBTCat` to governance. The sent amount becomes vote weight and is not returned. Governance controls global buy/sell fees, wallet-specific buy/sell fees, DEX classification, treasury actions, and community events.
+Users vote by sending `tgBTCat` to governance. The sent amount becomes vote weight and is not returned. Every proposal is open for exactly 30 minutes on-chain. Governance controls global buy/sell fees, wallet-specific buy/sell fees, DEX classification, treasury actions, and community events.
 
 ## Current Implementation Status
 
@@ -64,6 +64,7 @@ Responsibilities:
 
 - Proposal creation.
 - Proposal state machine.
+- Fixed 30-minute voting window set by the contract.
 - Vote accounting from `transfer_notification`.
 - Irreversible treasury-to-vote accounting.
 - Quorum and majority checks.
@@ -76,7 +77,7 @@ Responsibilities:
 Vote payload fields:
 
 - proposal id
-- vote side
+- vote side: `FOR` or `AGAINST`
 - optional comment hash
 
 ### 4. Treasury
@@ -104,7 +105,6 @@ Responsibilities:
 Responsibilities:
 
 - Stores wallet-specific buy and sell fee overrides.
-- No max duration by default.
 - Fee rules remain until changed or cleared by governance.
 - Protects core contracts, treasury addresses, and DEX registry addresses from accidental hostile overrides when configured as protected.
 
@@ -157,7 +157,7 @@ Required web app features:
 - Wallet-specific fee dashboard.
 - Treasury dashboard.
 - Contract addresses and metadata page.
-- Testnet/mainnet environment switch.
+- Mainnet TON Connect flow.
 
 ## Indexing/API
 

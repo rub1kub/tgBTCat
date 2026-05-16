@@ -128,7 +128,6 @@ fun parseGovernanceJettonPayload(forwardPayload: ForwardPayloadRemainder): Gover
 fun proposalFromCreateMessage(msg: CreateGovernanceProposal): Proposal {
     assertFeeBps(msg.buyFeeBps);
     assertFeeBps(msg.sellFeeBps);
-    assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
 
     return {
         actionType: msg.actionType,
@@ -138,7 +137,7 @@ fun proposalFromCreateMessage(msg: CreateGovernanceProposal): Proposal {
         buyFeeBps: msg.buyFeeBps,
         sellFeeBps: msg.sellFeeBps,
         reasonHash: msg.reasonHash,
-        votingEndsAt: msg.votingEndsAt,
+        votingEndsAt: (blockchain.now() + FIXED_VOTING_DURATION_SECONDS) as uint32,
         forVotes: 0,
         againstVotes: 0,
         abstainVotes: 0,
@@ -168,7 +167,6 @@ fun onInternalMessage(in: InMessage) {
         CreateRawExecutionProposal => {
             var storage = lazy GovernorStorage.load();
             assertGovernor(in.senderAddress, storage.admin);
-            assert (msg.votingEndsAt > blockchain.now()) throw GovErrors.VotingClosed;
 
             val proposalId = storage.nextProposalId;
             val rawQueryId = readGovernedExecutionQueryId(msg.body.beginParse());
@@ -187,7 +185,7 @@ fun onInternalMessage(in: InMessage) {
                         buyFeeBps: 0,
                         sellFeeBps: 0,
                         reasonHash: msg.reasonHash,
-                        votingEndsAt: msg.votingEndsAt,
+                        votingEndsAt: (blockchain.now() + FIXED_VOTING_DURATION_SECONDS) as uint32,
                         forVotes: 0,
                         againstVotes: 0,
                         abstainVotes: 0,

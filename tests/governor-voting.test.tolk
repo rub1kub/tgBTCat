@@ -177,7 +177,7 @@ get fun `test governor rejects small vote invalid side unknown proposal and late
         exitCode: GovErrors.UnknownProposal,
     });
 
-    testing.setNow(1200);
+    testing.setNow(2801);
     val late = sendDirectVoteNotification(
         governor,
         voteWallet,
@@ -302,7 +302,7 @@ get fun `test governor charges token proposal fee and rejects invalid proposal m
         exitCode: GovErrors.InvalidFee,
     });
 
-    val expired = governor.sendCreateGovernanceProposal(
+    val manualDuration = governor.sendCreateGovernanceProposal(
         governorAdmin.address,
         3,
         1,
@@ -315,13 +315,13 @@ get fun `test governor charges token proposal fee and rejects invalid proposal m
         1000,
         { value: ton("0.05") },
     );
-    expect(expired).toHaveFailedTx({
+    expect(manualDuration).toHaveSuccessfulTx<CreateGovernanceProposal>({
         from: governorAdmin.address,
         to: governor.address,
-        exitCode: GovErrors.VotingClosed,
     });
+    expect(governor.getProposal(1).votingEndsAt).toEqual(2800);
 
-    expect(governor.getNextProposalId()).toEqual(1);
+    expect(governor.getNextProposalId()).toEqual(2);
     expect(governor.getProposal(999).isSet).toEqual(false);
 
     val unknown = governor.sendAny(
@@ -514,7 +514,7 @@ get fun `test governor executes passed global fee proposal`() {
         exitCode: GovErrors.VotingOpen,
     });
 
-    testing.setNow(1200);
+    testing.setNow(2801);
     val execute = governor.sendExecuteProposal(
         executor.address,
         2,
@@ -574,7 +574,7 @@ get fun `test governor rejects execution without target quorum or majority`() {
         200,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1200);
+    testing.setNow(2801);
     val missingTarget = governor.sendExecuteProposal(
         executor.address,
         1,
@@ -600,7 +600,7 @@ get fun `test governor rejects execution without target quorum or majority`() {
         500,
     );
 
-    testing.setNow(1300);
+    testing.setNow(2802);
     val belowQuorumProposal = createProposal(
         governor,
         governorAdmin,
@@ -619,7 +619,7 @@ get fun `test governor rejects execution without target quorum or majority`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1500);
+    testing.setNow(4603);
     val belowQuorum = governor.sendExecuteProposal(
         executor.address,
         2,
@@ -640,7 +640,7 @@ get fun `test governor rejects execution without target quorum or majority`() {
         dexRegistry.address,
         0,
     );
-    testing.setNow(1600);
+    testing.setNow(4604);
     val rejectedProposal = createProposal(
         governor,
         governorAdmin,
@@ -667,7 +667,7 @@ get fun `test governor rejects execution without target quorum or majority`() {
         200,
         VOTE_SIDE_AGAINST,
     );
-    testing.setNow(1800);
+    testing.setNow(6405);
     val rejected = governor.sendExecuteProposal(
         executor.address,
         3,
@@ -721,7 +721,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1200);
+    testing.setNow(2801);
     val setWalletFees = governor.sendExecuteProposal(
         executor.address,
         1,
@@ -738,7 +738,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
     expect(rule.sellFeeBps).toEqual(222);
     expect(governor.getProposal(setWalletFeesProposal).executed).toEqual(true);
 
-    testing.setNow(1300);
+    testing.setNow(2802);
     val clearWalletFeesProposal = createProposal(
         governor,
         governorAdmin,
@@ -757,7 +757,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1500);
+    testing.setNow(4603);
     val clearWalletFees = governor.sendExecuteProposal(
         executor.address,
         2,
@@ -771,7 +771,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
     expect(walletFeeRegistry.getWalletFees(target.address).isSet).toEqual(false);
     expect(governor.getProposal(clearWalletFeesProposal).executed).toEqual(true);
 
-    testing.setNow(1600);
+    testing.setNow(4604);
     val addDexProposal = createProposal(
         governor,
         governorAdmin,
@@ -790,7 +790,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1800);
+    testing.setNow(6405);
     val addDex = governor.sendExecuteProposal(
         executor.address,
         3,
@@ -804,7 +804,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
     expect(dexRegistry.isDexWallet(dexWallet.address)).toEqual(true);
     expect(governor.getProposal(addDexProposal).executed).toEqual(true);
 
-    testing.setNow(1900);
+    testing.setNow(6406);
     val removeDexProposal = createProposal(
         governor,
         governorAdmin,
@@ -823,7 +823,7 @@ get fun `test governor executes wallet fee and dex registry proposals`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(2100);
+    testing.setNow(8207);
     val removeDex = governor.sendExecuteProposal(
         executor.address,
         4,
@@ -892,7 +892,6 @@ get fun `test governor claims minter admin and routes wallet runtime proposals`(
     });
     expect(sellerWallet.getFeeRuntime().globalSellFeeBps).toEqual(1000);
 
-    testing.setNow(1300);
     val addDexProposal = createExtendedProposal(
         governor,
         governorAdmin,
@@ -925,7 +924,6 @@ get fun `test governor claims minter admin and routes wallet runtime proposals`(
     });
     expect(sellerWallet.isDexWallet(dex.address)).toEqual(true);
 
-    testing.setNow(1600);
     val setSpecificProposal = createExtendedProposal(
         governor,
         governorAdmin,
@@ -970,7 +968,6 @@ get fun `test governor claims minter admin and routes wallet runtime proposals`(
     expect(userWallet(minter, dex.address).getJettonBalance()).toEqual(750);
     expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(250);
 
-    testing.setNow(1900);
     val clearSpecificProposal = createExtendedProposal(
         governor,
         governorAdmin,
@@ -1015,7 +1012,6 @@ get fun `test governor claims minter admin and routes wallet runtime proposals`(
     expect(userWallet(minter, dex.address).getJettonBalance()).toEqual(1650);
     expect(userWallet(minter, feeTreasury.address).getJettonBalance()).toEqual(350);
 
-    testing.setNow(2200);
     val removeDexProposal = createExtendedProposal(
         governor,
         governorAdmin,
@@ -1100,7 +1096,7 @@ get fun `test governor rolls back runtime route proposal when master rejects it`
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1200);
+    testing.setNow(2801);
 
     val execute = governor.sendExecuteProposal(
         executor.address,
@@ -1183,7 +1179,6 @@ get fun `test governor executes raw treasury and event controller proposals`() {
         to: recipient.address,
     });
 
-    testing.setNow(1300);
     val eventController = TgBtcCatEventController.fromStorage({
         governor: governor.address,
         nextEventId: 0,
@@ -1288,7 +1283,6 @@ get fun `test governor rolls back raw event proposals rejected by event controll
     });
     expect(eventController.getNextEventId()).toEqual(0);
 
-    testing.setNow(1300);
     val invalidTimeProposal = createRawProposal(
         governor,
         governorAdmin,
@@ -1321,7 +1315,6 @@ get fun `test governor rolls back raw event proposals rejected by event controll
     });
     expect(eventController.getNextEventId()).toEqual(0);
 
-    testing.setNow(1600);
     val validEventProposal = createRawProposal(
         governor,
         governorAdmin,
@@ -1353,7 +1346,6 @@ get fun `test governor rolls back raw event proposals rejected by event controll
     });
     expect(eventController.getEvent(0).status).toEqual(EVENT_STATUS_DRAFT);
 
-    testing.setNow(1900);
     val invalidStatusProposal = createRawProposal(
         governor,
         governorAdmin,
@@ -1404,7 +1396,7 @@ get fun `test governor validates raw execution proposal body`() {
     );
     expect(governor.getRawExecution(nonRawProposal).isSet).toEqual(false);
 
-    val expired = governor.sendCreateRawExecutionProposal(
+    val manualDuration = governor.sendCreateRawExecutionProposal(
         governorAdmin.address,
         1,
         target.address,
@@ -1419,11 +1411,11 @@ get fun `test governor validates raw execution proposal body`() {
         1000,
         { value: ton("0.05") },
     );
-    expect(expired).toHaveFailedTx({
+    expect(manualDuration).toHaveSuccessfulTx<CreateRawExecutionProposal>({
         from: governorAdmin.address,
         to: governor.address,
-        exitCode: GovErrors.VotingClosed,
     });
+    expect(governor.getProposal(1).votingEndsAt).toEqual(2800);
 
     val wrongQuery = governor.sendCreateRawExecutionProposal(
         governorAdmin.address,
@@ -1602,7 +1594,7 @@ get fun `test governor rejects invalid execution inputs`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1200);
+    testing.setNow(governor.getProposal(missingTargetProposal).votingEndsAt + 1);
     val missingTarget = governor.sendExecuteProposal(
         executor.address,
         3,
@@ -1615,7 +1607,6 @@ get fun `test governor rejects invalid execution inputs`() {
         exitCode: GovErrors.ExecutionTargetMissing,
     });
 
-    testing.setNow(1300);
     val missingAuxProposal = createExtendedProposal(
         governor,
         governorAdmin,
@@ -1636,7 +1627,7 @@ get fun `test governor rejects invalid execution inputs`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1500);
+    testing.setNow(governor.getProposal(missingAuxProposal).votingEndsAt + 1);
     val missingAux = governor.sendExecuteProposal(
         executor.address,
         4,
@@ -1649,7 +1640,6 @@ get fun `test governor rejects invalid execution inputs`() {
         exitCode: GovErrors.ExecutionTargetMissing,
     });
 
-    testing.setNow(1600);
     val invalidActionProposal = createProposal(
         governor,
         governorAdmin,
@@ -1668,7 +1658,7 @@ get fun `test governor rejects invalid execution inputs`() {
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1800);
+    testing.setNow(governor.getProposal(invalidActionProposal).votingEndsAt + 1);
     val invalidAction = governor.sendExecuteProposal(
         executor.address,
         5,
@@ -1729,7 +1719,7 @@ get fun `test governor rolls back executed flag when execution target bounces`()
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(1200);
+    testing.setNow(2801);
 
     val execute = governor.sendExecuteProposal(
         executor.address,
@@ -2025,7 +2015,12 @@ fun executePassedProposal(
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(executeAt);
+    val proposal = governor.getProposal(proposalId);
+    var executeNow = proposal.votingEndsAt + 1;
+    if (executeAt > executeNow) {
+        executeNow = executeAt;
+    }
+    testing.setNow(executeNow);
     val execute = governor.sendExecuteProposal(
         executor.address,
         queryId,
@@ -2057,7 +2052,12 @@ fun executePassedProposalWithTargetBounce(
         100,
         VOTE_SIDE_FOR,
     );
-    testing.setNow(executeAt);
+    val proposal = governor.getProposal(proposalId);
+    var executeNow = proposal.votingEndsAt + 1;
+    if (executeAt > executeNow) {
+        executeNow = executeAt;
+    }
+    testing.setNow(executeNow);
     val execute = governor.sendExecuteProposal(
         executor.address,
         queryId,

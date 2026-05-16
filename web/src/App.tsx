@@ -64,7 +64,6 @@ interface ProposalFormState {
   targetWallet: string;
   buyFeePercent: string;
   sellFeePercent: string;
-  votingDurationMinutes: string;
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
@@ -72,12 +71,7 @@ const ACTIVE_NETWORK: NetworkKey = 'mainnet';
 const DEFAULT_VOTE_GAS_TON = '0.7';
 const DEFAULT_VOTE_FORWARD_TON = '0.1';
 const PROPOSAL_CREATE_JETTONS = '1000';
-const VOTING_DURATION_PRESETS = [
-  { value: '10', label: { en: '10 min', ru: '10 мин' } },
-  { value: '30', label: { en: '30 min', ru: '30 мин' } },
-  { value: '60', label: { en: '60 min', ru: '60 мин' } },
-  { value: '1440', label: { en: '1 day', ru: '1 день' } },
-] as const;
+const FIXED_VOTING_DURATION_MINUTES = 30;
 
 const contractOrder: ContractKey[] = [
   'governor',
@@ -265,15 +259,14 @@ const copyByLanguage = {
       targetWallet: 'Wallet address',
       targetWalletPlaceholder: 'Paste TON wallet address',
       targetWalletInvalid: 'Paste a valid TON wallet address.',
-      votingDuration: 'Voting duration in minutes',
-      durationHint: 'For quick community decisions use 10, 30, or 60 minutes. For larger questions use one day.',
+      fixedDuration: 'voting lasts exactly 30 minutes',
+      fixedDurationDetail: 'the site cannot change it, and a manual transaction cannot make the vote shorter or longer.',
       proposalFee: 'Question fee: {amount} tgBTCat',
       proposalFeeDetail: 'This token payment is not returned. It makes spam expensive.',
       proposalFeeTooHigh: 'You need at least {amount} tgBTCat to create a question.',
       mainnetContractsMissing: 'The token and voting are not live on mainnet yet. After deployment this button will turn on.',
       tokenBalanceRequired: 'Token balance was not found yet. Connect a wallet that holds mainnet tgBTCat.',
       targetWalletRequired: 'Paste the wallet address that should receive the fee rule.',
-      durationInvalid: 'Enter voting duration in minutes.',
       feeInvalid: 'Fees must be from 0% to 100%.',
       buyFee: 'Buy fee %',
       sellFee: 'Sell fee %',
@@ -504,15 +497,14 @@ const copyByLanguage = {
       targetWallet: 'Адрес кошелька',
       targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
       targetWalletInvalid: 'Вставьте корректный TON-адрес кошелька.',
-      votingDuration: 'Сколько минут идет голосование',
-      durationHint: 'Для быстрых решений подойдут 10, 30 или 60 минут. Для больших вопросов лучше один день.',
+      fixedDuration: 'голосование длится ровно 30 минут',
+      fixedDurationDetail: 'сайт не может это изменить, и вручную собранная транзакция не сделает голосование короче или длиннее.',
       proposalFee: 'плата за вопрос: {amount} tgbtcat',
       proposalFeeDetail: 'эта оплата токенами не возвращается. так спамить вопросами становится дорого.',
       proposalFeeTooHigh: 'нужно минимум {amount} tgbtcat, чтобы создать вопрос.',
       mainnetContractsMissing: 'токен и голосование еще не запущены в mainnet. после деплоя кнопка включится.',
       tokenBalanceRequired: 'баланс токенов пока не найден. подключите кошелек, где есть mainnet tgBTCat.',
       targetWalletRequired: 'вставьте адрес кошелька, для которого создается правило комиссии.',
-      durationInvalid: 'укажите длительность голосования в минутах.',
       feeInvalid: 'комиссии должны быть от 0% до 100%.',
       buyFee: 'Комиссия покупки, %',
       sellFee: 'Комиссия продажи, %',
@@ -628,7 +620,6 @@ export default function App() {
     targetWallet: '',
     buyFeePercent: '1',
     sellFeePercent: '2',
-    votingDurationMinutes: '60',
   });
 
   const totalVotes = useMemo(
@@ -767,7 +758,7 @@ export default function App() {
       const responseAddress = requireAddress(connectedAddress, t.vote.connectRequired);
       const voterJettonWallet = requireAddress(voteForm.voterJettonWallet, t.vote.bindingIdle);
       const governorAddress = requireAddress(addressBook.addresses.governor, t.vote.governorRequired);
-      const votingEndsAt = unixMinutesFromNow(parseDurationMinutes(proposalForm.votingDurationMinutes));
+      const votingEndsAt = unixMinutesFromNow(FIXED_VOTING_DURATION_MINUTES);
       const baseInput = {
         voterJettonWallet,
         governorAddress,
@@ -1231,7 +1222,6 @@ function VotePage({
             <EmptyVotePanel copy={copy} onCreateQuestion={() => onModeChange('propose')} />
           ) : (
             <ProposalBuilder
-              language={language}
               copy={copy}
               form={proposalForm}
               connectedAddress={connectedAddress}
@@ -1595,7 +1585,6 @@ function VotePanel({
 }
 
 function ProposalBuilder({
-  language,
   copy,
   form,
   connectedAddress,
@@ -1607,7 +1596,6 @@ function ProposalBuilder({
   onChange,
   onSend,
 }: {
-  language: LanguageKey;
   copy: AppCopy;
   form: ProposalFormState;
   connectedAddress: string;
@@ -1626,7 +1614,6 @@ function ProposalBuilder({
   const targetWalletInvalid =
     form.kind === 'wallet' && form.targetWallet.trim() !== '' && !isValidTonAddress(form.targetWallet);
   const targetWalletMissing = form.kind === 'wallet' && !form.targetWallet.trim();
-  const durationInvalid = !isPositiveInteger(form.votingDurationMinutes);
   const buyFeeInvalid = !isFeePercentValid(form.buyFeePercent);
   const sellFeeInvalid = !isFeePercentValid(form.sellFeePercent);
   const createDisabled =
@@ -1636,7 +1623,6 @@ function ProposalBuilder({
     proposalFeeTooHigh ||
     targetWalletMissing ||
     targetWalletInvalid ||
-    durationInvalid ||
     buyFeeInvalid ||
     sellFeeInvalid;
   const createDisabledReason =
@@ -1654,11 +1640,9 @@ function ProposalBuilder({
                 ? copy.vote.targetWalletRequired
                 : targetWalletInvalid
                   ? copy.vote.targetWalletInvalid
-                  : durationInvalid
-                    ? copy.vote.durationInvalid
-                    : buyFeeInvalid || sellFeeInvalid
-                      ? copy.vote.feeInvalid
-                      : '';
+                  : buyFeeInvalid || sellFeeInvalid
+                    ? copy.vote.feeInvalid
+                    : '';
   const buyPreview = feePreviewAmount(form.buyFeePercent);
   const sellPreview = feePreviewAmount(form.sellFeePercent);
 
@@ -1695,31 +1679,11 @@ function ProposalBuilder({
           {targetWalletInvalid && <span className="field-error">{copy.vote.targetWalletInvalid}</span>}
         </label>
       )}
-      <div className="field-row">
-        <label>
-          {copy.vote.votingDuration}
-          <input
-            type="text"
-            pattern="[0-9]*"
-            inputMode="numeric"
-            value={form.votingDurationMinutes}
-            onChange={(event) => onChange({ votingDurationMinutes: event.target.value })}
-          />
-          <span className="field-hint">{copy.vote.durationHint}</span>
-        </label>
-        <div className="duration-presets">
-          {VOTING_DURATION_PRESETS.map((option) => (
-            <button
-              key={option.value}
-              className={form.votingDurationMinutes === option.value ? 'is-active' : ''}
-              type="button"
-              onClick={() => onChange({ votingDurationMinutes: option.value })}
-            >
-              {option.label[language]}
-            </button>
-          ))}
-        </div>
+      <div className="proposal-fee-note">
+        <Clock3 size={17} />
+        <span>{copy.vote.fixedDuration}</span>
       </div>
+      <p className="field-hint">{copy.vote.fixedDurationDetail}</p>
       <div className="proposal-fee-note">
         <Wallet size={17} />
         <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_JETTONS)}</span>
@@ -1941,11 +1905,6 @@ function parseDecimalUnits(value: string, requirePositive: boolean): bigint | nu
   return units;
 }
 
-function isPositiveInteger(value: string): boolean {
-  const normalized = value.trim();
-  return /^\d+$/.test(normalized) && Number(normalized) > 0;
-}
-
 function isFeePercentValid(value: string): boolean {
   const normalized = value.trim();
   if (!/^\d+(\.\d{0,2})?$/.test(normalized)) {
@@ -2032,14 +1991,6 @@ function walletBindingText(copy: AppCopy, state: WalletBindingState, details: st
     return details || copy.vote.bindingIdle;
   }
   return copy.vote.bindingIdle;
-}
-
-function parseDurationMinutes(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error('Voting duration is invalid');
-  }
-  return parsed;
 }
 
 function formatError(error: unknown): string {
