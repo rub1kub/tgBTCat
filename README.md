@@ -12,7 +12,7 @@
   <img alt="TON" src="https://img.shields.io/badge/TON-0098EA?style=for-the-badge&logo=ton&logoColor=white" />
   <img alt="Acton" src="https://img.shields.io/badge/Acton-1.0.0-111827?style=for-the-badge" />
   <img alt="Tolk" src="https://img.shields.io/badge/Tolk-smart%20contracts-0B1020?style=for-the-badge" />
-  <img alt="Tests" src="https://img.shields.io/badge/tests-99%20passing-16A34A?style=for-the-badge" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-101%20passing-16A34A?style=for-the-badge" />
 </p>
 
 ## Protocol
@@ -58,11 +58,47 @@ Latest local gate:
 acton wrapper --all
 acton wrapper --all --ts
 acton build
-acton test        # 99 passed
+acton test        # 101 passed
 acton check
 acton fmt --check
 acton script scripts/deploy.tolk
 ```
+
+## Mainnet Deployment
+
+The mainnet stack is live and wired into [tgbtcat.fun](https://tgbtcat.fun).
+
+| Contract | Address |
+| --- | --- |
+| Governor | `EQAuV-4s02xuBkSaF7rinSu8kIoNrG9MoP6NLlX4Gyp2mcYM` |
+| Jetton Master | `EQAtFLwK8HZD6KD1UF4h-S6BzYyTReSUJzQBLhHIycqfDpro` |
+| Vote Jetton Wallet | `EQAuBZTp6rMhCHXrC7bEc3DJYhMoaUqUDTs90Jz3VdE6Op7g` |
+| Fee Controller | `EQBAJ9rR-ZlVJZAgy7pHa3oIdORX6fzfGwdKknxFE43DLpRR` |
+| Wallet Fee Registry | `EQB9i0ArmUaBXhq7hVfV5Q1eANcdDchrqiCXnmlbG_Oabrmh` |
+| DEX Registry | `EQBwyv1dFFRujwrgzqHN15kTMwLTjhmXmMlJ7EXtdVp71rHs` |
+| DAO Treasury | `EQAyvxYqBLFBb0h--cV4393kP2SGxIxnQ4pjrT7uScvu6ROn` |
+| Event Controller | `EQADeVMRo8jqERaYghhnZsJNeQiAXy5Zun7a23x0r8nOIIpf` |
+| Fee Treasury | `EQBN-pLtOoax-vA7Ga3lbb1xE1yFc5h5NkSIcrA8DaPkjlWQ` |
+
+Mainnet state after deployment:
+
+| Check | Result |
+| --- | --- |
+| Jetton metadata | `https://tgbtcat.fun/metadata/jetton.json` |
+| Total supply | `1,010,000 tgBTCat` |
+| Minter admin | Governor |
+| Deployer balance | `1,007,800 tgBTCat` |
+| Next proposal id | `2` |
+| Global buy fee | `1.11%` |
+| Global sell fee | `2.22%` |
+
+Mainnet smoke:
+
+| Scenario | Result | Transaction |
+| --- | --- | --- |
+| Create global fee proposal | proposal `#1` created through irreversible jetton transfer | [`4c81890c237f79df36b3456a366b301a3207783be1c05a2719ef0fd3100e82c7`](https://tonviewer.com/transaction/4c81890c237f79df36b3456a366b301a3207783be1c05a2719ef0fd3100e82c7) |
+| Vote on proposal | `100 tgBTCat` counted for | [`bbba1e5f45acc1de6029f11438fb0ce125143dc1c39548e2eaa730c134731fbc`](https://tonviewer.com/transaction/bbba1e5f45acc1de6029f11438fb0ce125143dc1c39548e2eaa730c134731fbc) |
+| Execute proposal | buy `111` bps, sell `222` bps | [`1b6811049ce274d0b39a550d014e6a34530a8ce246fb0fbfde3b69fabb405155`](https://tonviewer.com/transaction/1b6811049ce274d0b39a550d014e6a34530a8ce246fb0fbfde3b69fabb405155) |
 
 ## Testnet Deployment
 
