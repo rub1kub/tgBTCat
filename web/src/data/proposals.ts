@@ -13,6 +13,7 @@ export interface ProposalRow {
   abstainVotes: number;
   endsIn: string;
   execution: string;
+  votingEndsAt?: number;
   buyFeePercent?: number;
   sellFeePercent?: number;
   walletRule?: string;

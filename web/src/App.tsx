@@ -20,7 +20,7 @@ import {
   Vote,
   Wallet,
 } from 'lucide-react';
-import { proposalRows, type ProposalRow, type ProposalStatus } from './data/proposals';
+import { proposalRows as staticProposalRows, type ProposalRow, type ProposalStatus } from './data/proposals';
 import {
   addressBooks,
   contractLabels,
@@ -42,6 +42,7 @@ import {
   type TonConnectTransaction,
   type VoteSide,
 } from './ton/transactions';
+import { fetchGovernanceProposals } from './ton/governance';
 
 type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
 type GovernanceMode = 'cast' | 'propose';
@@ -216,6 +217,8 @@ const copyByLanguage = {
       votesTitle: 'Questions',
       routes: 'questions',
       emptyCount: '0 questions',
+      loadingQuestions: 'Loading on-chain questions...',
+      questionsLoadError: 'Could not load on-chain questions. Try again in a minute.',
       emptyQuestionsTitle: 'No questions yet',
       emptyQuestionsText: 'Create the first question: general buy and sell fees, or fees for a specific wallet.',
       createFirstQuestion: 'Create first question',
@@ -446,6 +449,8 @@ const copyByLanguage = {
       votesTitle: 'Вопросы',
       routes: 'вопроса',
       emptyCount: '0 вопросов',
+      loadingQuestions: 'загружаю вопросы из блокчейна...',
+      questionsLoadError: 'не удалось загрузить вопросы из блокчейна. попробуйте через минуту.',
       emptyQuestionsTitle: 'вопросов пока нет',
       emptyQuestionsText: 'создайте первый вопрос: общие комиссии покупки и продажи или комиссия для конкретного кошелька.',
       createFirstQuestion: 'создать первый вопрос',
@@ -575,13 +580,16 @@ export default function App() {
   const [walletBinding, setWalletBinding] = useState<WalletBindingState>('idle');
   const [walletBindingMessage, setWalletBindingMessage] = useState('');
   const [tokenBalance, setTokenBalance] = useState('');
+  const [proposals, setProposals] = useState<ProposalRow[]>(staticProposalRows);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [proposalsError, setProposalsError] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const { open: openConnectModal } = useTonConnectModal();
   const connectedAddress = useTonAddress();
 
   const t = copyByLanguage[language];
   const addressBook = addressBooks[network];
-  const selectedProposal = proposalRows.find((proposal) => proposal.id === selectedProposalId);
+  const selectedProposal = proposals.find((proposal) => proposal.id === selectedProposalId);
   const navItems = useMemo(
     () => navItemIds.map((id) => ({ id, label: t.nav[id] })),
     [t.nav],
@@ -608,8 +616,8 @@ export default function App() {
   });
 
   const totalVotes = useMemo(
-    () => proposalRows.reduce((sum, proposal) => sum + proposal.forVotes + proposal.againstVotes + proposal.abstainVotes, 0),
-    [],
+    () => proposals.reduce((sum, proposal) => sum + proposal.forVotes + proposal.againstVotes + proposal.abstainVotes, 0),
+    [proposals],
   );
 
   useEffect(() => {
@@ -622,6 +630,47 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activePage]);
+
+  useEffect(() => {
+    const governorAddress = addressBook.addresses.governor;
+    if (!governorAddress) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProposals = async () => {
+      setProposalsLoading(true);
+      setProposalsError('');
+      try {
+        const rows = await fetchGovernanceProposals({
+          network,
+          governorAddress,
+        });
+        if (cancelled) {
+          return;
+        }
+        setProposals(rows);
+        setSelectedProposalId((current) => (rows.some((proposal) => proposal.id === current) ? current : rows[0]?.id ?? 0));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setProposals(staticProposalRows);
+        setProposalsError(formatError(error));
+      } finally {
+        if (!cancelled) {
+          setProposalsLoading(false);
+        }
+      }
+    };
+
+    void loadProposals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addressBook.addresses.governor, network]);
 
   useEffect(() => {
     const jettonMaster = addressBook.addresses.jettonMaster;
@@ -830,6 +879,9 @@ export default function App() {
               copy={t}
               governanceMode={governanceMode}
               onModeChange={setGovernanceMode}
+              proposals={proposals}
+              proposalsLoading={proposalsLoading}
+              proposalsError={proposalsError}
               selectedProposalId={selectedProposalId}
               onSelectProposal={(proposalId) => {
                 setSelectedProposalId(proposalId);
@@ -1044,6 +1096,9 @@ function VotePage({
   copy,
   governanceMode,
   onModeChange,
+  proposals,
+  proposalsLoading,
+  proposalsError,
   selectedProposalId,
   onSelectProposal,
   selectedProposal,
@@ -1066,6 +1121,9 @@ function VotePage({
   copy: AppCopy;
   governanceMode: GovernanceMode;
   onModeChange: (mode: GovernanceMode) => void;
+  proposals: ProposalRow[];
+  proposalsLoading: boolean;
+  proposalsError: string;
   selectedProposalId: number;
   onSelectProposal: (proposalId: number) => void;
   selectedProposal: ProposalRow | undefined;
@@ -1112,7 +1170,15 @@ function VotePage({
       <VoteRulesPanel copy={copy} />
 
       <div className="governance-grid">
-        <ProposalTable copy={copy} selectedProposalId={selectedProposalId} onSelect={onSelectProposal} />
+        <ProposalTable
+          language={language}
+          copy={copy}
+          proposals={proposals}
+          loading={proposalsLoading}
+          error={proposalsError}
+          selectedProposalId={selectedProposalId}
+          onSelect={onSelectProposal}
+        />
         <div className="governance-workspace">
           {governanceMode === 'cast' && selectedProposal ? (
             <VotePanel
@@ -1218,11 +1284,19 @@ function VoteRulesPanel({ copy }: { copy: AppCopy }) {
 }
 
 function ProposalTable({
+  language,
   copy,
+  proposals,
+  loading,
+  error,
   selectedProposalId,
   onSelect,
 }: {
+  language: LanguageKey;
   copy: AppCopy;
+  proposals: ProposalRow[];
+  loading: boolean;
+  error: string;
   selectedProposalId: number;
   onSelect: (proposalId: number) => void;
 }) {
@@ -1231,16 +1305,26 @@ function ProposalTable({
       <div className="section-header">
         <h2>{copy.vote.votesTitle}</h2>
         <span className="quiet-count">
-          {proposalRows.length > 0 ? `${proposalRows.length} ${copy.vote.routes}` : copy.vote.emptyCount}
+          {proposals.length > 0 ? `${proposals.length} ${copy.vote.routes}` : copy.vote.emptyCount}
         </span>
       </div>
       <div className="proposal-list">
-        {proposalRows.length === 0 ? (
+        {loading ? (
+          <div className="proposal-empty-state">
+            <strong>{copy.vote.loadingQuestions}</strong>
+            <p>{copy.vote.text}</p>
+          </div>
+        ) : error ? (
+          <div className="proposal-empty-state">
+            <strong>{copy.vote.questionsLoadError}</strong>
+            <p>{error}</p>
+          </div>
+        ) : proposals.length === 0 ? (
           <div className="proposal-empty-state">
             <strong>{copy.vote.emptyQuestionsTitle}</strong>
             <p>{copy.vote.emptyQuestionsText}</p>
           </div>
-        ) : proposalRows.map((proposal) => {
+        ) : proposals.map((proposal) => {
           const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
           return (
             <button
@@ -1258,7 +1342,7 @@ function ProposalTable({
               <VoteBars proposal={proposal} />
               <span className="proposal-meta">
                 <Clock3 size={15} />
-                {proposalCopy?.endsIn ?? proposal.endsIn}
+                {formatProposalTiming(proposal, language)}
               </span>
             </button>
           );
@@ -1352,6 +1436,7 @@ function VotePanel({
   const amountInvalid = amountUnits === null;
   const amountTooHigh =
     walletBinding === 'ready' && amountUnits !== null && balanceUnits !== null && amountUnits > balanceUnits;
+  const votingClosed = proposal.status !== 'open';
   const voteAmount = amountUnits === null ? 0 : Number(form.jettonAmount);
   const preview = buildVotePreview(proposal, form.side, Number.isFinite(voteAmount) ? voteAmount : 0);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
@@ -1456,7 +1541,7 @@ function VotePanel({
           className="primary-action wide-action"
           type="button"
           onClick={onSend}
-          disabled={!connectedAddress || !form.voterJettonWallet || amountInvalid || amountTooHigh}
+          disabled={!connectedAddress || !form.voterJettonWallet || amountInvalid || amountTooHigh || votingClosed}
         >
           <Send size={18} />
           {copy.common.send}
@@ -1839,6 +1924,24 @@ function formatPreviewAmount(value: number): string {
 
 function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
+}
+
+function formatProposalTiming(proposal: ProposalRow, language: LanguageKey): string {
+  if (proposal.status === 'executed') {
+    return language === 'ru' ? 'исполнено' : 'executed';
+  }
+  if (proposal.status !== 'open' || !proposal.votingEndsAt) {
+    return language === 'ru' ? 'закрыто' : 'closed';
+  }
+
+  const seconds = Math.max(0, proposal.votingEndsAt - Math.floor(Date.now() / 1000));
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) {
+    return language === 'ru' ? `${minutes} мин` : `${minutes} min`;
+  }
+
+  const hours = Math.ceil(minutes / 60);
+  return language === 'ru' ? `${hours} ч` : `${hours} h`;
 }
 
 function requireAddress(address: string | null, message: string): string {
