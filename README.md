@@ -102,7 +102,8 @@ Mainnet smoke:
 
 ## Testnet Deployment
 
-The current testnet deployment is live and wired into the web console.
+This historical testnet deployment was used for public validation before the
+mainnet launch. The web console now points to mainnet only.
 
 | Contract | Address |
 | --- | --- |
