@@ -42,7 +42,7 @@ import {
   type TonConnectTransaction,
   type VoteSide,
 } from './ton/transactions';
-import { fetchGovernanceProposals } from './ton/governance';
+import { fetchGlobalFees, fetchGovernanceProposals, fetchWalletFeeRule, type GlobalFeeState, type WalletFeeRuleState } from './ton/governance';
 
 type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
 type GovernanceMode = 'cast' | 'propose';
@@ -64,6 +64,16 @@ interface ProposalFormState {
   targetWallet: string;
   buyFeePercent: string;
   sellFeePercent: string;
+}
+
+interface CurrentFeesState {
+  globalFees: GlobalFeeState | null;
+  globalFeesLoading: boolean;
+  globalFeesError: string;
+  walletFeeTarget: string;
+  walletFee: WalletFeeRuleState | null;
+  walletFeeLoading: boolean;
+  walletFeeError: string;
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
@@ -213,6 +223,23 @@ const copyByLanguage = {
       emptyCount: '0 questions',
       loadingQuestions: 'Loading on-chain questions...',
       questionsLoadError: 'Could not load on-chain questions. Try again in a minute.',
+      currentFeesTitle: 'current fees',
+      currentFeesText: 'these values are read from the live contracts before you vote or create a question.',
+      currentFeesLive: 'live on-chain',
+      globalBuyFee: 'global buy fee',
+      globalSellFee: 'global sell fee',
+      feesLoading: 'loading...',
+      feesUnavailable: 'temporarily unavailable',
+      walletFeeTitle: 'specific wallet fee',
+      walletFeeText: 'paste a wallet to see whether dao has a separate fee rule for it.',
+      walletFeePlaceholder: 'paste ton wallet address',
+      walletFeeCheck: 'check wallet',
+      walletFeeConnected: 'check my wallet',
+      walletFeeInvalid: 'paste a valid ton wallet address.',
+      walletFeeNoRule: 'no separate rule. the wallet uses the general fee.',
+      walletFeeRuleFound: 'separate rule found',
+      walletFeeBuy: 'wallet buy fee',
+      walletFeeSell: 'wallet sell fee',
       emptyQuestionsTitle: 'No questions yet',
       emptyQuestionsText: 'Create the first question: general buy and sell fees, or fees for a specific wallet.',
       createFirstQuestion: 'Create first question',
@@ -451,6 +478,23 @@ const copyByLanguage = {
       emptyCount: '0 вопросов',
       loadingQuestions: 'загружаю вопросы из блокчейна...',
       questionsLoadError: 'не удалось загрузить вопросы из блокчейна. попробуйте через минуту.',
+      currentFeesTitle: 'актуальные комиссии',
+      currentFeesText: 'эти значения читаются из живых контрактов перед голосованием или созданием вопроса.',
+      currentFeesLive: 'онлайн из блокчейна',
+      globalBuyFee: 'общая комиссия покупки',
+      globalSellFee: 'общая комиссия продажи',
+      feesLoading: 'загружаю...',
+      feesUnavailable: 'временно недоступно',
+      walletFeeTitle: 'комиссия конкретного кошелька',
+      walletFeeText: 'вставьте кошелек, чтобы увидеть, есть ли для него отдельное правило комиссии.',
+      walletFeePlaceholder: 'вставьте ton-адрес кошелька',
+      walletFeeCheck: 'проверить кошелек',
+      walletFeeConnected: 'проверить мой кошелек',
+      walletFeeInvalid: 'вставьте корректный ton-адрес кошелька.',
+      walletFeeNoRule: 'отдельного правила нет. кошелек использует общую комиссию.',
+      walletFeeRuleFound: 'найдено отдельное правило',
+      walletFeeBuy: 'комиссия покупки кошелька',
+      walletFeeSell: 'комиссия продажи кошелька',
       emptyQuestionsTitle: 'вопросов пока нет',
       emptyQuestionsText: 'создайте первый вопрос: общие комиссии покупки и продажи или комиссия для конкретного кошелька.',
       createFirstQuestion: 'создать первый вопрос',
@@ -589,6 +633,13 @@ export default function App() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState('');
+  const [globalFees, setGlobalFees] = useState<GlobalFeeState | null>(null);
+  const [globalFeesLoading, setGlobalFeesLoading] = useState(false);
+  const [globalFeesError, setGlobalFeesError] = useState('');
+  const [walletFeeTarget, setWalletFeeTarget] = useState('');
+  const [walletFee, setWalletFee] = useState<WalletFeeRuleState | null>(null);
+  const [walletFeeLoading, setWalletFeeLoading] = useState(false);
+  const [walletFeeError, setWalletFeeError] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const { open: openConnectModal } = useTonConnectModal();
   const wallet = useTonWallet();
@@ -692,6 +743,41 @@ export default function App() {
   }, [addressBook.addresses.governor, network]);
 
   useEffect(() => {
+    const feeControllerAddress = addressBook.addresses.feeController;
+    if (!feeControllerAddress) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadGlobalFees = async () => {
+      setGlobalFeesLoading(true);
+      setGlobalFeesError('');
+      try {
+        const result = await fetchGlobalFees(network, feeControllerAddress);
+        if (!cancelled) {
+          setGlobalFees(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setGlobalFees(null);
+          setGlobalFeesError(formatError(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setGlobalFeesLoading(false);
+        }
+      }
+    };
+
+    void loadGlobalFees();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addressBook.addresses.feeController, network]);
+
+  useEffect(() => {
     const jettonMaster = addressBook.addresses.jettonMaster;
     if (!connectedAddress || !jettonMaster) {
       return;
@@ -781,6 +867,32 @@ export default function App() {
       await sendPreparedTransaction(transaction, t.vote.proposalSent);
     } catch (error) {
       setErrorMessage(formatError(error));
+    }
+  };
+
+  const lookupWalletFee = async (target = walletFeeTarget) => {
+    const walletFeeRegistryAddress = addressBook.addresses.walletFeeRegistry;
+    const normalized = target.trim();
+    setWalletFeeError('');
+    setWalletFee(null);
+
+    if (!walletFeeRegistryAddress) {
+      setWalletFeeError(t.vote.governorRequired);
+      return;
+    }
+    if (!isValidTonAddress(normalized)) {
+      setWalletFeeError(t.vote.walletFeeInvalid);
+      return;
+    }
+
+    setWalletFeeLoading(true);
+    try {
+      const result = await fetchWalletFeeRule(network, walletFeeRegistryAddress, normalized);
+      setWalletFee(result);
+    } catch (error) {
+      setWalletFeeError(formatError(error));
+    } finally {
+      setWalletFeeLoading(false);
     }
   };
 
@@ -903,6 +1015,15 @@ export default function App() {
               proposals={proposals}
               proposalsLoading={proposalsLoading}
               proposalsError={proposalsError}
+              currentFees={{
+                globalFees,
+                globalFeesLoading,
+                globalFeesError,
+                walletFeeTarget,
+                walletFee,
+                walletFeeLoading,
+                walletFeeError,
+              }}
               selectedProposalId={selectedProposalId}
               onSelectProposal={(proposalId) => {
                 setSelectedProposalId(proposalId);
@@ -922,6 +1043,11 @@ export default function App() {
               onConnectWallet={openConnectModal}
               onVoteChange={updateVoteForm}
               onProposalChange={(patch) => setProposalForm((current) => ({ ...current, ...patch }))}
+              onWalletFeeTargetChange={setWalletFeeTarget}
+              onLookupWalletFee={() => void lookupWalletFee()}
+              onLookupConnectedWalletFee={
+                connectedAddress ? () => void lookupWalletFee(connectedAddress) : undefined
+              }
               onSendVote={sendVote}
               onSendProposal={sendProposal}
             />
@@ -1121,6 +1247,7 @@ function VotePage({
   proposals,
   proposalsLoading,
   proposalsError,
+  currentFees,
   selectedProposalId,
   onSelectProposal,
   selectedProposal,
@@ -1137,6 +1264,9 @@ function VotePage({
   onConnectWallet,
   onVoteChange,
   onProposalChange,
+  onWalletFeeTargetChange,
+  onLookupWalletFee,
+  onLookupConnectedWalletFee,
   onSendVote,
   onSendProposal,
 }: {
@@ -1147,6 +1277,7 @@ function VotePage({
   proposals: ProposalRow[];
   proposalsLoading: boolean;
   proposalsError: string;
+  currentFees: CurrentFeesState;
   selectedProposalId: number;
   onSelectProposal: (proposalId: number) => void;
   selectedProposal: ProposalRow | undefined;
@@ -1163,6 +1294,9 @@ function VotePage({
   onConnectWallet: () => void;
   onVoteChange: (patch: Partial<VoteFormState>) => void;
   onProposalChange: (patch: Partial<ProposalFormState>) => void;
+  onWalletFeeTargetChange: (value: string) => void;
+  onLookupWalletFee: () => void;
+  onLookupConnectedWalletFee?: () => void;
   onSendVote: () => void;
   onSendProposal: () => void;
 }) {
@@ -1192,6 +1326,14 @@ function VotePage({
       </div>
 
       <VoteRulesPanel copy={copy} />
+      <CurrentFeesPanel
+        copy={copy}
+        fees={currentFees}
+        connectedAddress={connectedAddress}
+        onWalletFeeTargetChange={onWalletFeeTargetChange}
+        onLookupWalletFee={onLookupWalletFee}
+        onLookupConnectedWalletFee={onLookupConnectedWalletFee}
+      />
 
       <div className="governance-grid">
         <ProposalTable
@@ -1302,6 +1444,92 @@ function VoteRulesPanel({ copy }: { copy: AppCopy }) {
             <p>{detail}</p>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function CurrentFeesPanel({
+  copy,
+  fees,
+  connectedAddress,
+  onWalletFeeTargetChange,
+  onLookupWalletFee,
+  onLookupConnectedWalletFee,
+}: {
+  copy: AppCopy;
+  fees: CurrentFeesState;
+  connectedAddress: string;
+  onWalletFeeTargetChange: (value: string) => void;
+  onLookupWalletFee: () => void;
+  onLookupConnectedWalletFee?: () => void;
+}) {
+  const globalBuy = fees.globalFees ? `${formatPercentValue(fees.globalFees.buyFeePercent)}%` : copy.vote.feesUnavailable;
+  const globalSell = fees.globalFees ? `${formatPercentValue(fees.globalFees.sellFeePercent)}%` : copy.vote.feesUnavailable;
+
+  return (
+    <section className="panel current-fees-panel">
+      <div className="section-header">
+        <div>
+          <h2>{copy.vote.currentFeesTitle}</h2>
+          <p>{copy.vote.currentFeesText}</p>
+        </div>
+        <span className="status status-open">{copy.vote.currentFeesLive}</span>
+      </div>
+
+      <div className="current-fee-grid">
+        <article className="current-fee-card">
+          <span>{copy.vote.globalBuyFee}</span>
+          <strong>{fees.globalFeesLoading ? copy.vote.feesLoading : globalBuy}</strong>
+        </article>
+        <article className="current-fee-card">
+          <span>{copy.vote.globalSellFee}</span>
+          <strong>{fees.globalFeesLoading ? copy.vote.feesLoading : globalSell}</strong>
+        </article>
+      </div>
+      {fees.globalFeesError && <p className="field-error">{fees.globalFeesError}</p>}
+
+      <div className="wallet-fee-lookup">
+        <div>
+          <strong>{copy.vote.walletFeeTitle}</strong>
+          <p>{copy.vote.walletFeeText}</p>
+        </div>
+        <label>
+          {copy.vote.targetWallet}
+          <input
+            value={fees.walletFeeTarget}
+            placeholder={copy.vote.walletFeePlaceholder}
+            onChange={(event) => onWalletFeeTargetChange(event.target.value)}
+          />
+        </label>
+        <div className="button-row">
+          <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupWalletFee}>
+            {fees.walletFeeLoading ? copy.vote.feesLoading : copy.vote.walletFeeCheck}
+          </button>
+          {connectedAddress && onLookupConnectedWalletFee && (
+            <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupConnectedWalletFee}>
+              {copy.vote.walletFeeConnected}
+            </button>
+          )}
+        </div>
+        {fees.walletFeeError && <p className="field-error">{fees.walletFeeError}</p>}
+        {fees.walletFee && (
+          <div className={fees.walletFee.isSet ? 'wallet-fee-result is-set' : 'wallet-fee-result'}>
+            <strong>{fees.walletFee.isSet ? copy.vote.walletFeeRuleFound : copy.vote.walletFeeNoRule}</strong>
+            {fees.walletFee.isSet && (
+              <div className="current-fee-grid">
+                <article className="current-fee-card">
+                  <span>{copy.vote.walletFeeBuy}</span>
+                  <strong>{formatPercentValue(fees.walletFee.buyFeePercent)}%</strong>
+                </article>
+                <article className="current-fee-card">
+                  <span>{copy.vote.walletFeeSell}</span>
+                  <strong>{formatPercentValue(fees.walletFee.sellFeePercent)}%</strong>
+                </article>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1950,6 +2178,12 @@ function formatPreviewAmount(value: number): string {
 
 function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
+}
+
+function formatPercentValue(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function formatProposalTiming(proposal: ProposalRow, language: LanguageKey): string {

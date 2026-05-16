@@ -1,4 +1,4 @@
-import { Cell } from '@ton/core';
+import { Address, beginCell, Cell } from '@ton/core';
 import type { ProposalRow, ProposalStatus } from '../data/proposals';
 import { shortAddress, type ResolveJettonWalletInput } from './transactions';
 
@@ -34,6 +34,20 @@ export interface FetchGovernanceProposalsInput {
   maxProposals?: number;
 }
 
+export interface GlobalFeeState {
+  buyFeePercent: number;
+  sellFeePercent: number;
+  feeTreasury: string;
+  governor: string;
+}
+
+export interface WalletFeeRuleState {
+  isSet: boolean;
+  buyFeePercent: number;
+  sellFeePercent: number;
+  reasonHash: string;
+}
+
 const ACTION_SET_GLOBAL_FEES = 1n;
 const ACTION_SET_WALLET_FEES = 2n;
 const JETTON_SCALE = 1_000_000_000;
@@ -58,6 +72,41 @@ export async function fetchGovernanceProposals(
   }
 
   return proposals;
+}
+
+export async function fetchGlobalFees(
+  network: NetworkKey,
+  feeControllerAddress: string,
+): Promise<GlobalFeeState> {
+  const result = await runGetMethod(network, feeControllerAddress, 'get_global_fees', []);
+  const stack = result.stack ?? [];
+  return {
+    buyFeePercent: bpsToPercent(readStackInt(stack[0])),
+    sellFeePercent: bpsToPercent(readStackInt(stack[1])),
+    feeTreasury: requireStackAddress(stack[2]),
+    governor: requireStackAddress(stack[3]),
+  };
+}
+
+export async function fetchWalletFeeRule(
+  network: NetworkKey,
+  walletFeeRegistryAddress: string,
+  targetWalletAddress: string,
+): Promise<WalletFeeRuleState> {
+  const target = beginCell().storeAddress(Address.parse(targetWalletAddress)).endCell();
+  const result = await runGetMethod(network, walletFeeRegistryAddress, 'get_wallet_fees', [
+    {
+      type: 'slice',
+      value: cellToBase64(target, { idx: false }),
+    },
+  ]);
+  const stack = result.stack ?? [];
+  return {
+    isSet: readStackBool(stack[0]),
+    buyFeePercent: bpsToPercent(readStackInt(stack[1])),
+    sellFeePercent: bpsToPercent(readStackInt(stack[2])),
+    reasonHash: readStackInt(stack[3]).toString(),
+  };
 }
 
 async function getNextProposalId(network: NetworkKey, governorAddress: string): Promise<bigint> {
@@ -237,6 +286,14 @@ function readStackAddress(item: ToncenterStackItem | undefined): string | null {
   throw new Error(`unsupported address stack type: ${item.type}`);
 }
 
+function requireStackAddress(item: ToncenterStackItem | undefined): string {
+  const address = readStackAddress(item);
+  if (!address) {
+    throw new Error('on-chain read returned an empty address');
+  }
+  return address;
+}
+
 function parseStackNumber(value: unknown): bigint {
   if (typeof value === 'number' && Number.isSafeInteger(value)) {
     return BigInt(value);
@@ -254,6 +311,19 @@ function fromJettonUnits(value: bigint): number {
   return Number(value) / JETTON_SCALE;
 }
 
+function bpsToPercent(value: bigint): number {
+  return Number(value) / 100;
+}
+
 function waitForPublicRateLimit(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, PUBLIC_RATE_LIMIT_DELAY_MS));
+}
+
+function cellToBase64(cell: { toBoc(options?: { idx?: boolean }): Uint8Array }, options?: { idx?: boolean }): string {
+  const bytes = cell.toBoc(options);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
 }
