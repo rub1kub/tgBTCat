@@ -35,7 +35,8 @@ body {
 input,
 textarea,
 code,
-.address-line code {
+.address-line code,
+.wallet-address {
   text-transform: none;
 }
 
@@ -53,6 +54,13 @@ b,
 tc-root,
 tc-root * {
   text-transform: lowercase;
+}
+
+.wallet-button .wallet-address,
+.balance-card .wallet-address,
+.proposed-fees .wallet-address,
+.address-line code {
+  text-transform: none;
 }
 
 body::before {

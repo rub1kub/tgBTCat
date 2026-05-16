@@ -59,6 +59,8 @@ const CAST_VOTE_OPCODE = 0x766f7465;
 const ACTION_SET_GLOBAL_FEES = 1;
 const ACTION_SET_WALLET_FEES = 2;
 const JETTON_DECIMALS = 9;
+const MAX_RPC_ATTEMPTS = 4;
+const RPC_RETRY_DELAY_MS = 900;
 const TONCENTER_V3_ENDPOINTS: Record<ResolveJettonWalletInput['network'], string> = {
   mainnet: 'https://toncenter.com/api/v3/runGetMethod',
   testnet: 'https://testnet.toncenter.com/api/v3/runGetMethod',
@@ -167,32 +169,17 @@ function buildProposalTransferTransaction(
 export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput): Promise<string> {
   const testOnly = input.network === 'testnet';
   const ownerSlice = beginCell().storeAddress(Address.parse(input.ownerAddress)).endCell();
-  const response = await fetch(TONCENTER_V3_ENDPOINTS[input.network], {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      address: Address.parse(input.jettonMaster).toString({ testOnly }),
-      method: 'get_wallet_address',
-      stack: [
-        {
-          type: 'slice',
-          value: cellToBase64(ownerSlice, { idx: false }),
-        },
-      ],
-    }),
+  const result = await runToncenterGetMethod({
+    network: input.network,
+    address: Address.parse(input.jettonMaster).toString({ testOnly }),
+    method: 'get_wallet_address',
+    stack: [
+      {
+        type: 'slice',
+        value: cellToBase64(ownerSlice, { idx: false }),
+      },
+    ],
   });
-
-  if (!response.ok) {
-    throw new Error(`Jetton wallet lookup failed: ${response.status}`);
-  }
-
-  const result = (await response.json()) as {
-    exit_code?: number;
-    stack?: unknown[];
-    error?: string;
-  };
 
   if (result.exit_code !== 0) {
     throw new Error(result.error || `Jetton wallet lookup exited with code ${result.exit_code ?? 'unknown'}`);
@@ -204,11 +191,11 @@ export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput
 
 export async function resolveJettonWalletInfo(input: ResolveJettonWalletInput): Promise<JettonWalletInfo> {
   const address = await resolveJettonWalletAddress(input);
-  const balance = await resolveJettonWalletBalance(input.network, address);
+  const balance = await resolveJettonWalletBalance(input.network, address).catch(() => '');
   return {
     address,
     balance,
-    formattedBalance: formatJettonAmount(balance),
+    formattedBalance: balance ? formatJettonAmount(balance) : '',
   };
 }
 
@@ -310,33 +297,55 @@ function readStackCell(stackItem: unknown): string {
 
 async function resolveJettonWalletBalance(network: ResolveJettonWalletInput['network'], walletAddress: string): Promise<string> {
   const testOnly = network === 'testnet';
-  const response = await fetch(TONCENTER_V3_ENDPOINTS[network], {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      address: Address.parse(walletAddress).toString({ testOnly }),
-      method: 'get_wallet_data',
-      stack: [],
-    }),
+  const result = await runToncenterGetMethod({
+    network,
+    address: Address.parse(walletAddress).toString({ testOnly }),
+    method: 'get_wallet_data',
+    stack: [],
   });
-
-  if (!response.ok) {
-    throw new Error(`Token balance lookup failed: ${response.status}`);
-  }
-
-  const result = (await response.json()) as {
-    exit_code?: number;
-    stack?: unknown[];
-    error?: string;
-  };
 
   if (result.exit_code !== 0) {
     return '0';
   }
 
   return readStackInt(result.stack?.[0]).toString();
+}
+
+async function runToncenterGetMethod({
+  network,
+  address,
+  method,
+  stack,
+  attempt = 1,
+}: {
+  network: ResolveJettonWalletInput['network'];
+  address: string;
+  method: string;
+  stack: Array<Record<string, unknown>>;
+  attempt?: number;
+}): Promise<{
+  exit_code?: number;
+  stack?: unknown[];
+  error?: string;
+}> {
+  const response = await fetch(TONCENTER_V3_ENDPOINTS[network], {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ address, method, stack }),
+  });
+
+  if ((response.status === 429 || response.status >= 500) && attempt < MAX_RPC_ATTEMPTS) {
+    await delay(RPC_RETRY_DELAY_MS * attempt);
+    return runToncenterGetMethod({ network, address, method, stack, attempt: attempt + 1 });
+  }
+
+  if (!response.ok) {
+    throw new Error(`RPC request failed: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function readStackInt(stackItem: unknown): bigint {
@@ -389,6 +398,10 @@ function formatJettonAmount(value: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function cellToBase64(cell: { toBoc(options?: { idx?: boolean }): Uint8Array }, options?: { idx?: boolean }): string {

@@ -232,6 +232,7 @@ const copyByLanguage = {
       bindingIdle: 'Connect wallet and token balance will be found automatically.',
       bindingLoading: 'Finding your token balance...',
       bindingReady: 'Token balance found:',
+      bindingAddressReady: 'Token wallet found. Balance will refresh automatically.',
       bindingManual: 'Manual token balance route is used.',
       rulesTitle: 'How voting works',
       rules: [
@@ -242,6 +243,7 @@ const copyByLanguage = {
       ],
       balanceTitle: 'Your tgBTCat balance',
       balanceEmpty: 'Connect wallet to see available tokens.',
+      balanceUnavailable: 'Token wallet found. Balance is temporarily unavailable.',
       amountInvalid: 'Enter a positive tgBTCat amount.',
       amountTooHigh: 'This is higher than the token balance found for this wallet.',
       impactTitle: 'Vote preview',
@@ -464,6 +466,7 @@ const copyByLanguage = {
       bindingIdle: 'Подключите кошелек, и баланс токенов найдется автоматически.',
       bindingLoading: 'Ищу баланс токенов...',
       bindingReady: 'Баланс токенов:',
+      bindingAddressReady: 'кошелек токена найден. баланс обновится автоматически.',
       bindingManual: 'Используется ручной маршрут баланса токенов.',
       rulesTitle: 'Как работает голосование',
       rules: [
@@ -474,6 +477,7 @@ const copyByLanguage = {
       ],
       balanceTitle: 'Ваш баланс tgBTCat',
       balanceEmpty: 'Подключите кошелек, чтобы увидеть доступные токены.',
+      balanceUnavailable: 'кошелек токена найден. баланс временно недоступен.',
       amountInvalid: 'Введите положительное количество tgBTCat.',
       amountTooHigh: 'Это больше баланса токенов, найденного у кошелька.',
       impactTitle: 'Предпросмотр голоса',
@@ -847,7 +851,9 @@ export default function App() {
               }}
             >
               <Wallet size={17} />
-              {connectedAddress ? shortAddress(connectedAddress) : t.common.connect}
+              <span className={connectedAddress ? 'wallet-address' : undefined}>
+                {connectedAddress ? shortAddress(connectedAddress) : t.common.connect}
+              </span>
             </button>
           </div>
         </div>
@@ -1386,7 +1392,7 @@ function ProposedFees({
       {!compact && <strong>{copy.vote.proposedFees}</strong>}
       <span>{copy.vote.buyProposed}: {proposal.buyFeePercent}%</span>
       <span>{copy.vote.sellProposed}: {proposal.sellFeePercent}%</span>
-      {proposal.walletRule && <small>{proposal.walletRule}</small>}
+      {proposal.walletRule && <small className="wallet-address">{proposal.walletRule}</small>}
     </div>
   );
 }
@@ -1430,7 +1436,10 @@ function VotePanel({
   onSend: () => void;
 }) {
   const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
-  const bindingText = walletBindingText(copy, walletBinding, walletBindingMessage);
+  const bindingText =
+    walletBinding === 'ready' && !tokenBalance
+      ? copy.vote.bindingAddressReady
+      : walletBindingText(copy, walletBinding, walletBindingMessage);
   const amountUnits = parseDecimalUnits(form.jettonAmount, true);
   const balanceUnits = tokenBalance ? parseDecimalUnits(tokenBalance, false) : null;
   const amountInvalid = amountUnits === null;
@@ -1468,8 +1477,14 @@ function VotePanel({
             <Wallet size={17} />
             <span>{bindingText}</span>
           </div>
-          <strong>{walletBinding === 'ready' && tokenBalance ? `${tokenBalance} tgBTCat` : copy.vote.balanceEmpty}</strong>
-          <small>{shortAddress(connectedAddress)}</small>
+          <strong>
+            {walletBinding === 'ready' && tokenBalance
+              ? `${tokenBalance} tgBTCat`
+              : walletBinding === 'ready'
+                ? copy.vote.balanceUnavailable
+                : copy.vote.balanceEmpty}
+          </strong>
+          <small className="wallet-address">{shortAddress(connectedAddress)}</small>
         </div>
       ) : (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
@@ -1956,7 +1971,7 @@ function walletBindingText(copy: AppCopy, state: WalletBindingState, details: st
     return copy.vote.bindingLoading;
   }
   if (state === 'ready') {
-    return copy.vote.bindingReady;
+    return details || copy.vote.bindingReady;
   }
   if (state === 'manual') {
     return copy.vote.bindingManual;
