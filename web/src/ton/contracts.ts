@@ -1,4 +1,4 @@
-export type NetworkKey = 'testnet' | 'mainnet';
+export type NetworkKey = 'mainnet';
 
 export type ContractKey =
   | 'governor'
@@ -19,22 +19,6 @@ export interface ContractAddressBook {
 }
 
 export const addressBooks: Record<NetworkKey, ContractAddressBook> = {
-  testnet: {
-    network: 'testnet',
-    label: 'Testnet',
-    explorerBaseUrl: 'https://testnet.tonviewer.com',
-    addresses: {
-      governor: 'kQAX-NQHxBWiZb62iOMVwEJBsao9RNVMHH8iYRvto8peodzJ',
-      jettonMaster: 'kQA2_EY0dYE1AkLd4-Rddw-2pUuP4jMl7HFh1s4Q9uijXEkA',
-      governorVoteJettonWallet: 'kQAXMOBjyfgPfRS2p79cyTwP6x93I3cQXwO-1eY9Mtzlu75z',
-      feeController: 'kQCG_oVkCouKe4647Q-xzWSiAxPmDeD1ReokBnZlKxThxYmn',
-      walletFeeRegistry: 'kQBJkUeb-GoQ5FxF5ba8W-Tr9CTy3ESdjD_va3chfvLgwryc',
-      dexRegistry: 'kQCAUi43SNnVg2pA7vIQLP6YLUQVun9RVMt2Nt-nsyjjxSvb',
-      treasury: 'kQCcM4Z3oG8AnS989rOlD4iWsMvxvIC6Eq1KosWeQd9vG8mr',
-      eventController: 'kQDKksYh9AuX3aVqMuC4B91pW2XWGktsnF_nYzu9asJ7HsJZ',
-      feeTreasury: 'kQC2sHx4TKwlHSxCwH-CsZ0DFUzV9zZMdJIaWNTEvc1BLdp7',
-    },
-  },
   mainnet: {
     network: 'mainnet',
     label: 'Mainnet',

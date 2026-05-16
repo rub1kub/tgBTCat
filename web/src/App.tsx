@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useTonAddress, useTonConnectModal, useTonConnectUI } from '@tonconnect/ui-react';
+import { CHAIN, useTonAddress, useTonConnectModal, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Activity,
   AlertCircle,
@@ -20,7 +20,7 @@ import {
   Vote,
   Wallet,
 } from 'lucide-react';
-import { proposalRows as staticProposalRows, type ProposalRow, type ProposalStatus } from './data/proposals';
+import type { ProposalRow, ProposalStatus } from './data/proposals';
 import {
   addressBooks,
   contractLabels,
@@ -68,7 +68,7 @@ interface ProposalFormState {
 }
 
 const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
-const ACTIVE_NETWORK: NetworkKey = addressBooks.mainnet.addresses.governor ? 'mainnet' : 'testnet';
+const ACTIVE_NETWORK: NetworkKey = 'mainnet';
 const DEFAULT_VOTE_GAS_TON = '0.7';
 const DEFAULT_VOTE_FORWARD_TON = '0.1';
 const PROPOSAL_CREATE_JETTONS = '1000';
@@ -584,11 +584,12 @@ export default function App() {
   const [walletBinding, setWalletBinding] = useState<WalletBindingState>('idle');
   const [walletBindingMessage, setWalletBindingMessage] = useState('');
   const [tokenBalance, setTokenBalance] = useState('');
-  const [proposals, setProposals] = useState<ProposalRow[]>(staticProposalRows);
+  const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const { open: openConnectModal } = useTonConnectModal();
+  const wallet = useTonWallet();
   const connectedAddress = useTonAddress();
 
   const t = copyByLanguage[language];
@@ -623,6 +624,18 @@ export default function App() {
     () => proposals.reduce((sum, proposal) => sum + proposal.forVotes + proposal.againstVotes + proposal.abstainVotes, 0),
     [proposals],
   );
+
+  useEffect(() => {
+    tonConnectUI.setConnectionNetwork(CHAIN.MAINNET);
+  }, [tonConnectUI]);
+
+  useEffect(() => {
+    if (!wallet?.account.chain || wallet.account.chain === CHAIN.MAINNET) {
+      return;
+    }
+
+    void tonConnectUI.disconnect();
+  }, [tonConnectUI, wallet?.account.chain]);
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 24);
@@ -660,7 +673,7 @@ export default function App() {
         if (cancelled) {
           return;
         }
-        setProposals(staticProposalRows);
+        setProposals([]);
         setProposalsError(formatError(error));
       } finally {
         if (!cancelled) {

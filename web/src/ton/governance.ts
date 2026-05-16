@@ -40,10 +40,7 @@ const JETTON_SCALE = 1_000_000_000;
 const MAX_PROPOSALS = 20;
 const PUBLIC_RATE_LIMIT_DELAY_MS = 1100;
 const MAX_READ_ATTEMPTS = 4;
-const TONCENTER_V3_ENDPOINTS: Record<NetworkKey, string> = {
-  mainnet: 'https://toncenter.com/api/v3/runGetMethod',
-  testnet: 'https://testnet.toncenter.com/api/v3/runGetMethod',
-};
+const TONCENTER_V3_ENDPOINT = 'https://toncenter.com/api/v3/runGetMethod';
 
 export async function fetchGovernanceProposals(
   input: FetchGovernanceProposalsInput,
@@ -84,7 +81,7 @@ async function getProposal(
   return {
     isSet: readStackBool(stack[0]),
     actionType: readStackInt(stack[1]),
-    target: readStackAddress(stack[2], network),
+    target: readStackAddress(stack[2]),
     buyFeeBps: readStackInt(stack[5]),
     sellFeeBps: readStackInt(stack[6]),
     votingEndsAt: readStackInt(stack[8]),
@@ -102,7 +99,7 @@ async function runGetMethod(
   stack: ToncenterStackItem[],
   attempt = 1,
 ): Promise<RunGetMethodResponse> {
-  const response = await fetch(TONCENTER_V3_ENDPOINTS[network], {
+  const response = await fetch(TONCENTER_V3_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -224,7 +221,7 @@ function readStackInt(item: ToncenterStackItem | undefined): bigint {
   throw new Error(`unsupported integer stack type: ${item.type}`);
 }
 
-function readStackAddress(item: ToncenterStackItem | undefined, network: NetworkKey): string | null {
+function readStackAddress(item: ToncenterStackItem | undefined): string | null {
   if (!item || item.type === 'null') {
     return null;
   }
@@ -233,7 +230,7 @@ function readStackAddress(item: ToncenterStackItem | undefined, network: Network
   }
   if ((item.type === 'cell' || item.type === 'slice') && typeof item.value === 'string') {
     return Cell.fromBase64(item.value).beginParse().loadAddress().toString({
-      testOnly: network === 'testnet',
+      testOnly: false,
     });
   }
 

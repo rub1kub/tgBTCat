@@ -1,11 +1,13 @@
 import { Address, beginCell, Cell, toNano } from '@ton/core';
 import { TgBtcCatGovernor } from '../../../wrappers-ts/TgBtcCatGovernor.gen';
 import { TgBtcCatJettonWallet } from '../../../wrappers-ts/TgBtcCatJettonWallet.gen';
+import type { NetworkKey } from './contracts';
 
 export type VoteSide = 1 | 2;
 
 export interface TonConnectTransaction {
   validUntil: number;
+  network: string;
   messages: Array<{
     address: string;
     amount: string;
@@ -44,7 +46,7 @@ export interface WalletFeeProposalInput extends GlobalFeeProposalInput {
 }
 
 export interface ResolveJettonWalletInput {
-  network: 'mainnet' | 'testnet';
+  network: NetworkKey;
   jettonMaster: string;
   ownerAddress: string;
 }
@@ -61,10 +63,8 @@ const ACTION_SET_WALLET_FEES = 2;
 const JETTON_DECIMALS = 9;
 const MAX_RPC_ATTEMPTS = 4;
 const RPC_RETRY_DELAY_MS = 900;
-const TONCENTER_V3_ENDPOINTS: Record<ResolveJettonWalletInput['network'], string> = {
-  mainnet: 'https://toncenter.com/api/v3/runGetMethod',
-  testnet: 'https://testnet.toncenter.com/api/v3/runGetMethod',
-};
+const TON_CONNECT_MAINNET = '-239';
+const TONCENTER_V3_ENDPOINT = 'https://toncenter.com/api/v3/runGetMethod';
 
 export function buildVoteTransaction(input: VoteTransactionInput): TonConnectTransaction {
   const votePayload = beginCell()
@@ -91,9 +91,10 @@ export function buildVoteTransaction(input: VoteTransactionInput): TonConnectTra
 
   return {
     validUntil: validUntil(),
+    network: TON_CONNECT_MAINNET,
     messages: [
       {
-        address: Address.parse(input.voterJettonWallet).toString(),
+        address: Address.parse(input.voterJettonWallet).toString({ testOnly: false }),
         amount: toNano(input.gasTon).toString(),
         payload: cellToBase64(transferBody),
       },
@@ -156,9 +157,10 @@ function buildProposalTransferTransaction(
 
   return {
     validUntil: validUntil(),
+    network: TON_CONNECT_MAINNET,
     messages: [
       {
-        address: Address.parse(input.voterJettonWallet).toString(),
+        address: Address.parse(input.voterJettonWallet).toString({ testOnly: false }),
         amount: toNano(input.gasTon).toString(),
         payload: cellToBase64(transferBody),
       },
@@ -167,11 +169,10 @@ function buildProposalTransferTransaction(
 }
 
 export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput): Promise<string> {
-  const testOnly = input.network === 'testnet';
   const ownerSlice = beginCell().storeAddress(Address.parse(input.ownerAddress)).endCell();
   const result = await runToncenterGetMethod({
     network: input.network,
-    address: Address.parse(input.jettonMaster).toString({ testOnly }),
+    address: Address.parse(input.jettonMaster).toString({ testOnly: false }),
     method: 'get_wallet_address',
     stack: [
       {
@@ -186,7 +187,7 @@ export async function resolveJettonWalletAddress(input: ResolveJettonWalletInput
   }
 
   const walletCell = Cell.fromBase64(readStackCell(result.stack?.[0]));
-  return walletCell.beginParse().loadAddress().toString({ testOnly });
+  return walletCell.beginParse().loadAddress().toString({ testOnly: false });
 }
 
 export async function resolveJettonWalletInfo(input: ResolveJettonWalletInput): Promise<JettonWalletInfo> {
@@ -296,10 +297,9 @@ function readStackCell(stackItem: unknown): string {
 }
 
 async function resolveJettonWalletBalance(network: ResolveJettonWalletInput['network'], walletAddress: string): Promise<string> {
-  const testOnly = network === 'testnet';
   const result = await runToncenterGetMethod({
     network,
-    address: Address.parse(walletAddress).toString({ testOnly }),
+    address: Address.parse(walletAddress).toString({ testOnly: false }),
     method: 'get_wallet_data',
     stack: [],
   });
@@ -328,7 +328,7 @@ async function runToncenterGetMethod({
   stack?: unknown[];
   error?: string;
 }> {
-  const response = await fetch(TONCENTER_V3_ENDPOINTS[network], {
+  const response = await fetch(TONCENTER_V3_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
