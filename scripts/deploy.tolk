@@ -38,6 +38,8 @@ fun main() {
     val deployerWalletName = env<string>("TGBTCAT_DEPLOYER_WALLET") ?? "tgbtcat_ops_admin";
     val feeTreasuryWalletName = env<string>("TGBTCAT_FEE_TREASURY_WALLET") ??
     "tgbtcat_fee_treasury";
+    val opsAdminAddress = env<address>("TGBTCAT_OPS_ADMIN_ADDRESS");
+    val runtimeAdminAddress = env<address>("TGBTCAT_RUNTIME_ADMIN_ADDRESS");
     val metadataUri = env<string>("TGBTCAT_METADATA_URI") ??
     "https://tgbtcat.fun/metadata/jetton.json";
     val initialSupply = env<int>("TGBTCAT_INITIAL_SUPPLY") ?? 0;
@@ -60,11 +62,13 @@ fun main() {
 
     val deployer = scripts.wallet(deployerWalletName);
     val feeTreasury = scripts.wallet(feeTreasuryWalletName);
+    val opsAdmin = opsAdminAddress ?? deployer.address;
     val initialVoteJettonWallet = env<address>("TGBTCAT_INITIAL_VOTE_JETTON_WALLET") ??
     deployer.address;
 
     val governor = TgBtcCatGovernor.fromStorage({
         admin: deployer.address,
+        opsAdmin,
         voteJettonWallet: initialVoteJettonWallet,
         minVoteAmount,
         nextProposalId: 0,
@@ -74,6 +78,7 @@ fun main() {
         adminAddress: deployer.address,
         nextAdminAddress: null,
         metadata: buildMetadata(metadataUri),
+        runtimeAdminAddress: runtimeAdminAddress ?? governor.address,
     });
     val feeController = TgBtcCatFeeController.fromStorage({
         governor: governor.address,
@@ -100,6 +105,8 @@ fun main() {
     println("deployer wallet {}", deployerWalletName);
     println("fee treasury {}", feeTreasury.address);
     println("fee treasury wallet {}", feeTreasuryWalletName);
+    println("ops admin {}", opsAdmin);
+    println("runtime admin {}", runtimeAdminAddress ?? governor.address);
     println("metadata uri {}", metadataUri);
     println("initial supply {}", initialSupply);
     println("initial vote wallet {}", initialVoteJettonWallet);

@@ -1224,6 +1224,289 @@ get fun `test governor executes raw treasury and event controller proposals`() {
     expect(event.metadata!.load().uri).toEqual("ipfs://raw-event".prefixWith00());
 }
 
+get fun `test governor ops admin sweeps vote tokens and treasury funds`() {
+    testing.setNow(1000);
+    val (minter, minterAdmin, _) = setupTest();
+    val governorAdmin = testing.treasury("ops-sweep-admin");
+    val opsAdmin = testing.treasury("ops-sweep-ops");
+    val outsider = testing.treasury("ops-sweep-outsider");
+    val voter = testing.treasury("ops-sweep-voter");
+    val recipient = testing.treasury("ops-sweep-recipient");
+    val deployer = testing.treasury("ops-sweep-deployer");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+
+    expect(
+        governor.sendGovernanceTopUp(governorAdmin.address, { value: ton("2") }),
+    ).toHaveSuccessfulTx<GovernanceTopUp>({
+        from: governorAdmin.address,
+        to: governor.address,
+    });
+
+    val setOps = governor.sendSetOpsAdmin(
+        governorAdmin.address,
+        40,
+        opsAdmin.address,
+        { value: ton("0.05") },
+    );
+    expect(setOps).toHaveSuccessfulTx<SetOpsAdmin>({
+        from: governorAdmin.address,
+        to: governor.address,
+    });
+    expect(governor.getOpsConfig().opsAdmin).toEqual(opsAdmin.address);
+
+    val voterWallet = mintTo(minter, minterAdmin, voter.address, 2000);
+    createProposal(
+        governor,
+        governorAdmin,
+        ACTION_SET_GLOBAL_FEES,
+        null,
+        100,
+        200,
+        41,
+        1100,
+    );
+    val votePayload = CastVotePayload {
+        proposalId: 0,
+        side: VOTE_SIDE_FOR,
+        commentHash: 0,
+    }.toCell();
+    val vote = voterWallet.sendTransfer(
+        voter.address,
+        ton("0.3"),
+        1000,
+        governor.address,
+        voter.address,
+        null,
+        ton("0.05"),
+        votePayload,
+    );
+    expect(vote).toHaveSuccessfulTx<TransferNotificationForRecipient>({
+        from: minter.getWalletAddress(governor.address),
+        to: governor.address,
+    });
+    val governorVoteWallet = userWallet(minter, governor.address);
+    expect(governorVoteWallet.getJettonBalance()).toEqual(1000);
+
+    val blocked = governor.sendOpsSweepVoteJettons(
+        outsider.address,
+        41,
+        100,
+        recipient.address,
+        outsider.address,
+        ton("0.3"),
+        0,
+        { value: ton("0.05") },
+    );
+    expect(blocked).toHaveFailedTx<OpsSweepVoteJettons>({
+        from: outsider.address,
+        to: governor.address,
+        exitCode: GovErrors.NotOpsAdmin,
+    });
+
+    val sweep = governor.sendOpsSweepVoteJettons(
+        opsAdmin.address,
+        42,
+        400,
+        recipient.address,
+        opsAdmin.address,
+        ton("0.3"),
+        0,
+        { value: ton("0.05") },
+    );
+    expect(sweep).toHaveSuccessfulTx<OpsSweepVoteJettons>({
+        from: opsAdmin.address,
+        to: governor.address,
+    });
+    expect(sweep).toHaveSuccessfulTx<AskToTransfer>({
+        from: governor.address,
+        to: governorVoteWallet.address,
+    });
+    expect(governorVoteWallet.getJettonBalance()).toEqual(600);
+    expect(userWallet(minter, recipient.address).getJettonBalance()).toEqual(400);
+
+    val treasury = TgBtcCatTreasury.fromStorage({
+        governor: governor.address,
+        primaryJettonWallet: null,
+    });
+    expect(treasury.deploy(deployer.address, { value: ton("2") })).toHaveSuccessfulDeploy({
+        to: treasury.address,
+    });
+
+    val sendTon = governor.sendOpsSendTreasuryTon(
+        opsAdmin.address,
+        43,
+        treasury.address,
+        ton("0.05"),
+        recipient.address,
+        ton("0.2"),
+        false,
+        { value: ton("0.05") },
+    );
+    expect(sendTon).toHaveSuccessfulTx<OpsSendTreasuryTon>({
+        from: opsAdmin.address,
+        to: governor.address,
+    });
+    expect(sendTon).toHaveSuccessfulTx<SendTreasuryTon>({
+        from: governor.address,
+        to: treasury.address,
+    });
+    expect(sendTon).toHaveSuccessfulTx<TopUpTons>({
+        from: treasury.address,
+        to: recipient.address,
+    });
+
+    val treasuryWallet = mintTo(minter, minterAdmin, treasury.address, 1000);
+    val sendJettons = governor.sendOpsSendTreasuryJettons(
+        opsAdmin.address,
+        44,
+        treasury.address,
+        ton("0.05"),
+        treasuryWallet.address,
+        300,
+        {
+            transferRecipient: recipient.address,
+            sendExcessesTo: treasury.address,
+            walletTonAmount: ton("0.3"),
+            forwardTonAmount: 0,
+        },
+        { value: ton("0.05") },
+    );
+    expect(sendJettons).toHaveSuccessfulTx<OpsSendTreasuryJettons>({
+        from: opsAdmin.address,
+        to: governor.address,
+    });
+    expect(sendJettons).toHaveSuccessfulTx<SendTreasuryJettons>({
+        from: governor.address,
+        to: treasury.address,
+    });
+    expect(sendJettons).toHaveSuccessfulTx<AskToTransfer>({
+        from: treasury.address,
+        to: treasuryWallet.address,
+    });
+    expect(treasuryWallet.getJettonBalance()).toEqual(700);
+    expect(userWallet(minter, recipient.address).getJettonBalance()).toEqual(700);
+}
+
+get fun `test ops admin manages fees after mint admin is dropped`() {
+    testing.setNow(1000);
+    val (minter, minterAdmin, _) = setupTest();
+    val governorAdmin = testing.treasury("ops-fees-admin");
+    val opsAdmin = testing.treasury("ops-fees-ops");
+    val deployer = testing.treasury("ops-fees-deployer");
+    val walletOwner = testing.treasury("ops-fees-wallet-owner");
+    val feeTreasuryA = testing.treasury("ops-fees-treasury-a");
+    val feeTreasuryB = testing.treasury("ops-fees-treasury-b");
+    val governor = deployGovernor(minter, governorAdmin, 10);
+    val wallet = mintTo(minter, minterAdmin, walletOwner.address, 1000);
+
+    val setOps = governor.sendSetOpsAdmin(
+        governorAdmin.address,
+        50,
+        opsAdmin.address,
+        { value: ton("0.05") },
+    );
+    expect(setOps).toHaveSuccessfulTx<SetOpsAdmin>({
+        from: governorAdmin.address,
+        to: governor.address,
+    });
+
+    val setRuntimeAdmin = minter.sendSetMinterRuntimeAdmin(
+        minterAdmin.address,
+        51,
+        governor.address,
+        { value: ton("0.05") },
+    );
+    expect(setRuntimeAdmin).toHaveSuccessfulTx<SetMinterRuntimeAdmin>({
+        from: minterAdmin.address,
+        to: minter.address,
+    });
+    expect(minter.getRuntimeAdminAddress()).toEqual(governor.address);
+
+    val dropAdmin = minter.sendDropMinterAdmin(
+        minterAdmin.address,
+        52,
+        { value: ton("0.05") },
+    );
+    expect(dropAdmin).toHaveSuccessfulTx<DropMinterAdmin>({
+        from: minterAdmin.address,
+        to: minter.address,
+    });
+    expect(minter.getJettonData().adminAddress).toEqual(null);
+    expect(minter.getJettonData().mintable).toEqual(false);
+    expect(minter.getRuntimeAdminAddress()).toEqual(governor.address);
+
+    val feeController = TgBtcCatFeeController.fromStorage({
+        governor: governor.address,
+        feeTreasury: feeTreasuryA.address,
+        globalBuyFeeBps: 0,
+        globalSellFeeBps: 0,
+    });
+    expect(feeController.deploy(deployer.address, { value: ton("0.05") })).toHaveSuccessfulDeploy({
+        to: feeController.address,
+    });
+    configureExecutionTargets(
+        governor,
+        governorAdmin,
+        feeController.address,
+        null,
+        null,
+        0,
+    );
+    configureRuntimeExecution(governor, governorAdmin, minter, feeTreasuryA.address);
+
+    val setFeeTreasury = governor.sendOpsSetFeeTreasury(
+        opsAdmin.address,
+        53,
+        null,
+        feeTreasuryB.address,
+        ton("0.05"),
+        { value: ton("0.05") },
+    );
+    expect(setFeeTreasury).toHaveSuccessfulTx<OpsSetFeeTreasury>({
+        from: opsAdmin.address,
+        to: governor.address,
+    });
+    expect(setFeeTreasury).toHaveSuccessfulTx<SetFeeTreasury>({
+        from: governor.address,
+        to: feeController.address,
+    });
+    expect(feeController.getGlobalFees().feeTreasury).toEqual(feeTreasuryB.address);
+    val (_, runtimeFeeTreasury, _) = governor.getWalletRuntimeExecutionConfig();
+    expect(runtimeFeeTreasury).toEqual(feeTreasuryB.address);
+
+    val route = governor.sendOpsRouteWalletRuntime(
+        opsAdmin.address,
+        54,
+        null,
+        walletOwner.address,
+        ton("0.2"),
+        GOVERNOR_WALLET_ROUTE_VALUE,
+        {
+            feeTreasury: feeTreasuryB.address,
+            globalBuyFeeBps: 123,
+            globalSellFeeBps: 456,
+            isDexWallet: false,
+        },
+        { value: ton("0.1") },
+    );
+    expect(route).toHaveSuccessfulTx<OpsRouteWalletRuntime>({
+        from: opsAdmin.address,
+        to: governor.address,
+    });
+    expect(route).toHaveSuccessfulTx<RouteSetWalletFeeRuntime>({
+        from: governor.address,
+        to: minter.address,
+    });
+    expect(route).toHaveSuccessfulTx<SetWalletFeeRuntime>({
+        from: minter.address,
+        to: wallet.address,
+    });
+    val runtime = wallet.getFeeRuntime();
+    expect(runtime.feeTreasury).toEqual(feeTreasuryB.address);
+    expect(runtime.globalBuyFeeBps).toEqual(123);
+    expect(runtime.globalSellFeeBps).toEqual(456);
+}
+
 get fun `test governor rolls back raw event proposals rejected by event controller`() {
     testing.setNow(1000);
     val (minter, _, _) = setupTest();

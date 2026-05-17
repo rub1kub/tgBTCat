@@ -46,6 +46,53 @@ export interface WalletFeeProposalInput extends GlobalFeeProposalInput {
   targetWallet: string;
 }
 
+export interface OpsBaseInput {
+  governorAddress: string;
+  gasTon: string;
+}
+
+export interface OpsSweepVoteJettonsInput extends OpsBaseInput {
+  recipientAddress: string;
+  jettonAmount: string;
+  walletTonAmount: string;
+  forwardTonAmount: string;
+}
+
+export interface OpsSetFeeTreasuryInput extends OpsBaseInput {
+  feeControllerAddress: string | null;
+  feeTreasuryAddress: string;
+  controllerValueTon: string;
+}
+
+export interface OpsSendTreasuryTonInput extends OpsBaseInput {
+  treasuryAddress: string;
+  treasuryValueTon: string;
+  recipientAddress: string;
+  amountTon: string;
+  bounce?: boolean;
+}
+
+export interface OpsSendTreasuryJettonsInput extends OpsBaseInput {
+  treasuryAddress: string;
+  treasuryValueTon: string;
+  treasuryJettonWalletAddress: string;
+  recipientAddress: string;
+  jettonAmount: string;
+  walletTonAmount: string;
+  forwardTonAmount: string;
+}
+
+export interface OpsRouteWalletRuntimeInput extends OpsBaseInput {
+  jettonMasterAddress: string | null;
+  walletOwnerAddress: string;
+  feeTreasuryAddress: string | null;
+  masterValueTon: string;
+  walletTonAmount: string;
+  buyFeePercent: string;
+  sellFeePercent: string;
+  isDexWallet: boolean;
+}
+
 export interface ResolveJettonWalletInput {
   network: NetworkKey;
   jettonMaster: string;
@@ -136,6 +183,85 @@ export function buildWalletFeeProposalTransaction(input: WalletFeeProposalInput)
   return buildProposalTransferTransaction(input, proposalPayload);
 }
 
+export function buildOpsSweepVoteJettonsTransaction(input: OpsSweepVoteJettonsInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfOpsSweepVoteJettons({
+    queryId: BigInt(Date.now()),
+    jettonAmount: parseJettonAmount(input.jettonAmount),
+    transferRecipient: Address.parse(input.recipientAddress),
+    sendExcessesTo: Address.parse(input.recipientAddress),
+    walletTonAmount: toNano(input.walletTonAmount),
+    forwardTonAmount: toNano(input.forwardTonAmount),
+  });
+
+  return buildGovernorTransaction(input, body);
+}
+
+export function buildOpsSetFeeTreasuryTransaction(input: OpsSetFeeTreasuryInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfOpsSetFeeTreasury({
+    queryId: BigInt(Date.now()),
+    feeController: input.feeControllerAddress ? Address.parse(input.feeControllerAddress) : null,
+    feeTreasury: Address.parse(input.feeTreasuryAddress),
+    controllerValue: toNano(input.controllerValueTon),
+  });
+
+  return buildGovernorTransaction(input, body);
+}
+
+export function buildOpsSendTreasuryTonTransaction(input: OpsSendTreasuryTonInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfOpsSendTreasuryTon({
+    queryId: BigInt(Date.now()),
+    treasury: Address.parse(input.treasuryAddress),
+    treasuryValue: toNano(input.treasuryValueTon),
+    recipient: Address.parse(input.recipientAddress),
+    amount: toNano(input.amountTon),
+    bounce: input.bounce ?? false,
+  });
+
+  return buildGovernorTransaction(input, body);
+}
+
+export function buildOpsSendTreasuryJettonsTransaction(input: OpsSendTreasuryJettonsInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfOpsSendTreasuryJettons({
+    queryId: BigInt(Date.now()),
+    treasury: Address.parse(input.treasuryAddress),
+    treasuryValue: toNano(input.treasuryValueTon),
+    jettonWallet: Address.parse(input.treasuryJettonWalletAddress),
+    jettonAmount: parseJettonAmount(input.jettonAmount),
+    extra: {
+      ref: {
+        $: 'OpsSendTreasuryJettonsExtra',
+        transferRecipient: Address.parse(input.recipientAddress),
+        sendExcessesTo: Address.parse(input.recipientAddress),
+        walletTonAmount: toNano(input.walletTonAmount),
+        forwardTonAmount: toNano(input.forwardTonAmount),
+      },
+    },
+  });
+
+  return buildGovernorTransaction(input, body);
+}
+
+export function buildOpsRouteWalletRuntimeTransaction(input: OpsRouteWalletRuntimeInput): TonConnectTransaction {
+  const body = TgBtcCatGovernor.createCellOfOpsRouteWalletRuntime({
+    queryId: BigInt(Date.now()),
+    jettonMaster: input.jettonMasterAddress ? Address.parse(input.jettonMasterAddress) : null,
+    walletOwner: Address.parse(input.walletOwnerAddress),
+    masterValue: toNano(input.masterValueTon),
+    walletTonAmount: toNano(input.walletTonAmount),
+    extra: {
+      ref: {
+        $: 'OpsRouteWalletRuntimeExtra',
+        feeTreasury: input.feeTreasuryAddress ? Address.parse(input.feeTreasuryAddress) : null,
+        globalBuyFeeBps: BigInt(percentToBps(input.buyFeePercent)),
+        globalSellFeeBps: BigInt(percentToBps(input.sellFeePercent)),
+        isDexWallet: input.isDexWallet,
+      },
+    },
+  });
+
+  return buildGovernorTransaction(input, body);
+}
+
 function buildProposalTransferTransaction(
   input: GlobalFeeProposalInput,
   proposalPayload: Cell,
@@ -163,6 +289,20 @@ function buildProposalTransferTransaction(
         address: Address.parse(input.voterJettonWallet).toString({ testOnly: false }),
         amount: toNano(input.gasTon).toString(),
         payload: cellToBase64(transferBody),
+      },
+    ],
+  };
+}
+
+function buildGovernorTransaction(input: OpsBaseInput, payload: Cell): TonConnectTransaction {
+  return {
+    validUntil: validUntil(),
+    network: TON_CONNECT_MAINNET,
+    messages: [
+      {
+        address: Address.parse(input.governorAddress).toString({ testOnly: false }),
+        amount: toNano(input.gasTon).toString(),
+        payload: cellToBase64(payload),
       },
     ],
   };
@@ -213,6 +353,10 @@ export function shortAddress(address: string | null): string {
     return 'Not deployed';
   }
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
+}
+
+export function normalizeTonAddress(address: string): string {
+  return Address.parse(address).toString({ testOnly: false });
 }
 
 export function formatVotes(value: number, locale = 'en-US'): string {

@@ -13,12 +13,18 @@ type GovernorMessage =
     | CreateGovernanceProposal
     | CreateRawExecutionProposal
     | SetVoteJettonWallet
+    | SetOpsAdmin
     | SetMinimumVoteAmount
     | SetExecutionTargets
     | SetGovernanceQuorum
     | SetExecutionValue
     | SetWalletRuntimeExecution
     | ClaimJettonMasterAdmin
+    | OpsSweepVoteJettons
+    | OpsSetFeeTreasury
+    | OpsRouteWalletRuntime
+    | OpsSendTreasuryTon
+    | OpsSendTreasuryJettons
     | ExecuteProposal
     | TransferNotificationForRecipient
     | GovernanceTopUp
@@ -55,7 +61,9 @@ fun requireProposalAuxTarget(proposal: Proposal): address {
 }
 
 fun isGovernedExecutionOpcode(opcode: int): bool {
-    return opcode == 0x10010001 || opcode == 0x10020001 || opcode == 0x10020002 ||
+    return opcode == 0x10010001 || opcode == 0x10010002 || opcode == 0x10010003 ||
+    opcode == 0x10020001 ||
+    opcode == 0x10020002 ||
     opcode == 0x10030001 ||
     opcode == 0x10030002 ||
     opcode == 0x20020001 ||
@@ -88,6 +96,12 @@ fun assertProposalPassed(proposal: Proposal, minQuorumVotes: coins) {
     val totalVotes = proposal.forVotes + proposal.againstVotes + proposal.abstainVotes;
     assert (totalVotes >= minQuorumVotes) throw GovErrors.ProposalRejected;
     assert (proposal.forVotes > proposal.againstVotes) throw GovErrors.ProposalRejected;
+}
+
+fun assertOpsAdmin(sender: address, storage: GovernorStorage) {
+    assert (
+        sender == storage.admin || (storage.opsAdmin != null && sender == storage.opsAdmin!)
+    ) throw GovErrors.NotOpsAdmin;
 }
 
 fun parseGovernanceJettonPayloadCell(payload: cell): GovernanceJettonPayload {
@@ -248,6 +262,13 @@ fun onInternalMessage(in: InMessage) {
             storage.save();
         }
 
+        SetOpsAdmin => {
+            var storage = lazy GovernorStorage.load();
+            assertGovernor(in.senderAddress, storage.admin);
+            storage.opsAdmin = msg.opsAdmin;
+            storage.save();
+        }
+
         SetMinimumVoteAmount => {
             var storage = lazy GovernorStorage.load();
             assertGovernor(in.senderAddress, storage.admin);
@@ -291,6 +312,119 @@ fun onInternalMessage(in: InMessage) {
                 body: ClaimMinterAdmin { queryId: msg.queryId },
             });
             claimMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+        }
+
+        OpsSweepVoteJettons => {
+            val storage = lazy GovernorStorage.load();
+            assertOpsAdmin(in.senderAddress, storage);
+            val transferMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: storage.voteJettonWallet,
+                value: msg.walletTonAmount,
+                body: AskToTransfer {
+                    queryId: msg.queryId,
+                    jettonAmount: msg.jettonAmount,
+                    transferRecipient: msg.transferRecipient,
+                    sendExcessesTo: msg.sendExcessesTo,
+                    customPayload: null,
+                    forwardTonAmount: msg.forwardTonAmount,
+                    forwardPayload: beginCell().storeMaybeRef(null).endCell().beginParse(),
+                },
+            });
+            transferMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+        }
+
+        OpsSetFeeTreasury => {
+            var storage = lazy GovernorStorage.load();
+            assertOpsAdmin(in.senderAddress, storage);
+            var config = storage.loadExecutionConfig();
+            val targets = config.loadTargets();
+            val feeController = msg.feeController == null
+                ? requireExecutionTarget(targets.feeController)
+                : msg.feeController!;
+            var runtime = config.loadRuntime();
+            runtime.feeTreasury = msg.feeTreasury;
+            config.runtime = runtime.toCell();
+            storage.executionConfig = config.toCell();
+            storage.save();
+
+            val updateMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: feeController,
+                value: msg.controllerValue,
+                body: SetFeeTreasury {
+                    queryId: msg.queryId,
+                    feeTreasury: msg.feeTreasury,
+                },
+            });
+            updateMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+        }
+
+        OpsRouteWalletRuntime => {
+            val extra = msg.extra.load();
+            assertFeeBps(extra.globalBuyFeeBps);
+            assertFeeBps(extra.globalSellFeeBps);
+            val storage = lazy GovernorStorage.load();
+            assertOpsAdmin(in.senderAddress, storage);
+            val config = storage.loadExecutionConfig();
+            val runtime = config.loadRuntime();
+            val jettonMaster = msg.jettonMaster == null
+                ? requireExecutionTarget(runtime.jettonMaster)
+                : msg.jettonMaster!;
+            val routeMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: jettonMaster,
+                value: msg.masterValue,
+                body: RouteSetWalletFeeRuntime {
+                    queryId: msg.queryId,
+                    walletOwner: msg.walletOwner,
+                    walletTonAmount: msg.walletTonAmount,
+                    feeTreasury: extra.feeTreasury,
+                    globalBuyFeeBps: extra.globalBuyFeeBps,
+                    globalSellFeeBps: extra.globalSellFeeBps,
+                    isDexWallet: extra.isDexWallet,
+                },
+            });
+            routeMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+        }
+
+        OpsSendTreasuryTon => {
+            val storage = lazy GovernorStorage.load();
+            assertOpsAdmin(in.senderAddress, storage);
+            val treasuryMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: msg.treasury,
+                value: msg.treasuryValue,
+                body: SendTreasuryTon {
+                    queryId: msg.queryId,
+                    recipient: msg.recipient,
+                    amount: msg.amount,
+                    bounce: msg.bounce,
+                },
+            });
+            treasuryMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+        }
+
+        OpsSendTreasuryJettons => {
+            val extra = msg.extra.load();
+            val storage = lazy GovernorStorage.load();
+            assertOpsAdmin(in.senderAddress, storage);
+            val treasuryMsg = createMessage({
+                bounce: BounceMode.Only256BitsOfBody,
+                dest: msg.treasury,
+                value: msg.treasuryValue,
+                body: SendTreasuryJettons {
+                    queryId: msg.queryId,
+                    jettonWallet: msg.jettonWallet,
+                    jettonAmount: msg.jettonAmount,
+                    transferRecipient: extra.transferRecipient,
+                    sendExcessesTo: extra.sendExcessesTo,
+                    walletTonAmount: extra.walletTonAmount,
+                    forwardTonAmount: extra.forwardTonAmount,
+                    forwardPayload: beginCell().storeMaybeRef(null).endCell().beginParse(),
+                },
+            });
+            treasuryMsg.send(SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
         }
 
         SetGovernanceQuorum => {
@@ -629,6 +763,11 @@ get fun get_next_proposal_id(): uint64 {
 get fun get_vote_config(): (address, coins, address) {
     val storage = lazy GovernorStorage.load();
     return (storage.voteJettonWallet, storage.minVoteAmount, storage.admin);
+}
+
+get fun get_ops_config(): GovernorOpsConfigReply {
+    val storage = lazy GovernorStorage.load();
+    return { admin: storage.admin, opsAdmin: storage.opsAdmin };
 }
 
 get fun get_execution_config(): (address?, address?, address?, coins, coins) {

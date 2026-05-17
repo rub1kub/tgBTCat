@@ -82,6 +82,11 @@ struct (0x6501f354) ChangeMinterAdmin {
     newAdminAddress: address
 }
 
+struct (0x6501f355) SetMinterRuntimeAdmin {
+    queryId: uint64
+    runtimeAdminAddress: address?
+}
+
 struct (0xfb88e119) ClaimMinterAdmin {
     queryId: uint64
 }
@@ -181,6 +186,31 @@ struct (0x10050002) SendTreasuryJettons {
     forwardTonAmount: coins
     @abi.clientType(PayloadInline | PayloadInRef)
     forwardPayload: ForwardPayloadRemainder
+}
+
+struct (0x1004000c) OpsSweepVoteJettons {
+    queryId: uint64
+    jettonAmount: coins
+    transferRecipient: address
+    sendExcessesTo: address?
+    walletTonAmount: coins
+    forwardTonAmount: coins
+}
+
+struct OpsSendTreasuryJettonsExtra {
+    transferRecipient: address
+    sendExcessesTo: address?
+    walletTonAmount: coins
+    forwardTonAmount: coins
+}
+
+struct (0x10040010) OpsSendTreasuryJettons {
+    queryId: uint64
+    treasury: address
+    treasuryValue: coins
+    jettonWallet: address
+    jettonAmount: coins
+    extra: Cell<OpsSendTreasuryJettonsExtra>
 }
 
 struct (0xd372158c) TopUpTons {}

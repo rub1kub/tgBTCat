@@ -19,6 +19,7 @@ type AllowedMessageToMinter =
     | BurnNotificationForMinter
     | RequestWalletAddress
     | ChangeMinterAdmin
+    | SetMinterRuntimeAdmin
     | ClaimMinterAdmin
     | DropMinterAdmin
     | ChangeMinterMetadata
@@ -40,7 +41,15 @@ fun onBouncedMessage(in: InMessageBounced) {
 }
 
 fun assertSenderIsAdmin(senderAddress: address, adminAddress: address?) {
-    assert (senderAddress == adminAddress!) throw Errors.NotOwner;
+    assert (adminAddress != null && senderAddress == adminAddress!) throw Errors.NotOwner;
+}
+
+fun assertSenderIsRuntimeAdmin(senderAddress: address, storage: MinterStorage) {
+    if (storage.runtimeAdminAddress != null) {
+        assert (senderAddress == storage.runtimeAdminAddress!) throw Errors.NotOwner;
+    } else {
+        assertSenderIsAdmin(senderAddress, storage.adminAddress);
+    }
 }
 
 fun sendWalletAdminMessage<T>(walletOwner: address, tonAmount: coins, body: T) {
@@ -162,6 +171,13 @@ fun onInternalMessage(in: InMessage) {
             storage.save();
         }
 
+        SetMinterRuntimeAdmin => {
+            var storage = lazy MinterStorage.load();
+            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            storage.runtimeAdminAddress = msg.runtimeAdminAddress;
+            storage.save();
+        }
+
         ClaimMinterAdmin => {
             var storage = lazy MinterStorage.load();
             assertSenderIsAdmin(in.senderAddress, storage.nextAdminAddress);
@@ -194,7 +210,7 @@ fun onInternalMessage(in: InMessage) {
 
         RouteSetWalletFeeRuntime => {
             val storage = lazy MinterStorage.load();
-            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            assertSenderIsRuntimeAdmin(in.senderAddress, storage);
             sendWalletAdminMessage(
                 msg.walletOwner,
                 msg.walletTonAmount,
@@ -210,7 +226,7 @@ fun onInternalMessage(in: InMessage) {
 
         RouteAddWalletDexAddress => {
             val storage = lazy MinterStorage.load();
-            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            assertSenderIsRuntimeAdmin(in.senderAddress, storage);
             sendWalletAdminMessage(
                 msg.walletOwner,
                 msg.walletTonAmount,
@@ -223,7 +239,7 @@ fun onInternalMessage(in: InMessage) {
 
         RouteRemoveWalletDexAddress => {
             val storage = lazy MinterStorage.load();
-            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            assertSenderIsRuntimeAdmin(in.senderAddress, storage);
             sendWalletAdminMessage(
                 msg.walletOwner,
                 msg.walletTonAmount,
@@ -236,7 +252,7 @@ fun onInternalMessage(in: InMessage) {
 
         RouteSetWalletSpecificFee => {
             val storage = lazy MinterStorage.load();
-            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            assertSenderIsRuntimeAdmin(in.senderAddress, storage);
             sendWalletAdminMessage(
                 msg.walletOwner,
                 msg.walletTonAmount,
@@ -251,7 +267,7 @@ fun onInternalMessage(in: InMessage) {
 
         RouteClearWalletSpecificFee => {
             val storage = lazy MinterStorage.load();
-            assertSenderIsAdmin(in.senderAddress, storage.adminAddress);
+            assertSenderIsRuntimeAdmin(in.senderAddress, storage);
             sendWalletAdminMessage(
                 msg.walletOwner,
                 msg.walletTonAmount,
@@ -291,4 +307,9 @@ get fun get_wallet_address(ownerAddress: address): address {
 get fun get_next_admin_address(): address? {
     val storage = lazy MinterStorage.load();
     return storage.nextAdminAddress;
+}
+
+get fun get_runtime_admin_address(): address? {
+    val storage = lazy MinterStorage.load();
+    return storage.runtimeAdminAddress;
 }

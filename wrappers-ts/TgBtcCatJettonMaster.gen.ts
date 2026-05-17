@@ -624,6 +624,48 @@ export const ChangeMinterAdmin = {
 }
 
 /**
+ > struct (0x6501f355) SetMinterRuntimeAdmin {
+ >     queryId: uint64
+ >     runtimeAdminAddress: address?
+ > }
+ */
+export interface SetMinterRuntimeAdmin {
+    readonly $: 'SetMinterRuntimeAdmin'
+    queryId: uint64
+    runtimeAdminAddress: c.Address | null
+}
+
+export const SetMinterRuntimeAdmin = {
+    PREFIX: 0x6501f355,
+
+    create(args: {
+        queryId: uint64
+        runtimeAdminAddress: c.Address | null
+    }): SetMinterRuntimeAdmin {
+        return {
+            $: 'SetMinterRuntimeAdmin',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetMinterRuntimeAdmin {
+        loadAndCheckPrefix32(s, 0x6501f355, 'SetMinterRuntimeAdmin');
+        return {
+            $: 'SetMinterRuntimeAdmin',
+            queryId: s.loadUintBig(64),
+            runtimeAdminAddress: s.loadMaybeAddress(),
+        }
+    },
+    store(self: SetMinterRuntimeAdmin, b: c.Builder): void {
+        b.storeUint(0x6501f355, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.runtimeAdminAddress);
+    },
+    toCell(self: SetMinterRuntimeAdmin): c.Cell {
+        return makeCellFrom<SetMinterRuntimeAdmin>(self, SetMinterRuntimeAdmin.store);
+    }
+}
+
+/**
  > struct (0xfb88e119) ClaimMinterAdmin {
  >     queryId: uint64
  > }
@@ -1438,6 +1480,7 @@ export const WalletFeeRuntime = {
  >     adminAddress: address?
  >     nextAdminAddress: address?
  >     metadata: cell
+ >     runtimeAdminAddress: address?
  > }
  */
 export interface MinterStorage {
@@ -1446,6 +1489,7 @@ export interface MinterStorage {
     adminAddress: c.Address | null
     nextAdminAddress: c.Address | null
     metadata: c.Cell
+    runtimeAdminAddress: c.Address | null /* = null */
 }
 
 export const MinterStorage = {
@@ -1454,9 +1498,11 @@ export const MinterStorage = {
         adminAddress: c.Address | null
         nextAdminAddress: c.Address | null
         metadata: c.Cell
+        runtimeAdminAddress?: c.Address | null /* = null */
     }): MinterStorage {
         return {
             $: 'MinterStorage',
+            runtimeAdminAddress: null,
             ...args
         }
     },
@@ -1467,6 +1513,7 @@ export const MinterStorage = {
             adminAddress: s.loadMaybeAddress(),
             nextAdminAddress: s.loadMaybeAddress(),
             metadata: s.loadRef(),
+            runtimeAdminAddress: s.loadMaybeAddress(),
         }
     },
     store(self: MinterStorage, b: c.Builder): void {
@@ -1474,6 +1521,7 @@ export const MinterStorage = {
         b.storeAddress(self.adminAddress);
         b.storeAddress(self.nextAdminAddress);
         b.storeRef(self.metadata);
+        b.storeAddress(self.runtimeAdminAddress);
     },
     toCell(self: MinterStorage): c.Cell {
         return makeCellFrom<MinterStorage>(self, MinterStorage.store);
@@ -1615,7 +1663,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatJettonMaster implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'Errors.NotEnoughGas': 48,
@@ -1642,6 +1690,7 @@ export class TgBtcCatJettonMaster implements c.Contract {
         adminAddress: c.Address | null
         nextAdminAddress: c.Address | null
         metadata: c.Cell
+        runtimeAdminAddress?: c.Address | null /* = null */
     }, deployedOptions?: DeployedAddrOptions) {
         const initialState = {
             code: deployedOptions?.overrideContractCode ?? TgBtcCatJettonMaster.CodeCell,
@@ -1682,6 +1731,13 @@ export class TgBtcCatJettonMaster implements c.Contract {
         newAdminAddress: c.Address
     }) {
         return ChangeMinterAdmin.toCell(ChangeMinterAdmin.create(body));
+    }
+
+    static createCellOfSetMinterRuntimeAdmin(body: {
+        queryId: uint64
+        runtimeAdminAddress: c.Address | null
+    }) {
+        return SetMinterRuntimeAdmin.toCell(SetMinterRuntimeAdmin.create(body));
     }
 
     static createCellOfClaimMinterAdmin(body: {
@@ -1819,6 +1875,17 @@ export class TgBtcCatJettonMaster implements c.Contract {
         return provider.internal(via, {
             value: msgValue,
             body: ChangeMinterAdmin.toCell(ChangeMinterAdmin.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendSetMinterRuntimeAdmin(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        runtimeAdminAddress: c.Address | null
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetMinterRuntimeAdmin.toCell(SetMinterRuntimeAdmin.create(body)),
             ...extraOptions
         });
     }
@@ -1970,6 +2037,13 @@ export class TgBtcCatJettonMaster implements c.Contract {
 
     async getNextAdminAddress(provider: ContractProvider): Promise<c.Address | null> {
         const r = StackReader.fromGetMethod(1, await provider.get('get_next_admin_address', []));
+        return r.readNullable<c.Address>(
+            (r) => r.readSlice().loadAddress()
+        );
+    }
+
+    async getRuntimeAdminAddress(provider: ContractProvider): Promise<c.Address | null> {
+        const r = StackReader.fromGetMethod(1, await provider.get('get_runtime_admin_address', []));
         return r.readNullable<c.Address>(
             (r) => r.readSlice().loadAddress()
         );

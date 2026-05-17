@@ -31,11 +31,17 @@ import {
 } from './ton/contracts';
 import {
   buildGlobalFeeProposalTransaction,
+  buildOpsRouteWalletRuntimeTransaction,
+  buildOpsSendTreasuryJettonsTransaction,
+  buildOpsSendTreasuryTonTransaction,
+  buildOpsSetFeeTreasuryTransaction,
+  buildOpsSweepVoteJettonsTransaction,
   buildVoteTransaction,
   buildWalletFeeProposalTransaction,
   createQueryId,
   formatVotes,
   isValidTonAddress,
+  normalizeTonAddress,
   resolveJettonWalletInfo,
   shortAddress,
   signedBocHashHex,
@@ -46,14 +52,16 @@ import {
 import {
   fetchGlobalFees,
   fetchGovernanceProposals,
+  fetchGovernorOpsConfig,
   fetchProposalVoteReceipts,
   fetchWalletFeeRule,
+  type GovernorOpsConfigState,
   type GlobalFeeState,
   type VoteReceipt,
   type WalletFeeRuleState,
 } from './ton/governance';
 
-type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
+type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'manage' | 'contracts';
 type GovernanceMode = 'cast' | 'propose';
 type LanguageKey = 'en' | 'ru';
 type WalletBindingState = 'idle' | 'loading' | 'ready' | 'manual' | 'error';
@@ -75,6 +83,18 @@ interface ProposalFormState {
   sellFeePercent: string;
 }
 
+interface ManageFormState {
+  recipientAddress: string;
+  jettonAmount: string;
+  tonAmount: string;
+  feeTreasuryAddress: string;
+  treasuryJettonWalletAddress: string;
+  walletOwnerAddress: string;
+  runtimeBuyFeePercent: string;
+  runtimeSellFeePercent: string;
+  runtimeIsDexWallet: boolean;
+}
+
 interface CurrentFeesState {
   globalFees: GlobalFeeState | null;
   globalFeesLoading: boolean;
@@ -85,10 +105,15 @@ interface CurrentFeesState {
   walletFeeError: string;
 }
 
-const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'contracts'];
+const navItemIds: PageKey[] = ['home', 'tokenomics', 'roadmap', 'vote', 'manage', 'contracts'];
 const ACTIVE_NETWORK: NetworkKey = 'mainnet';
 const DEFAULT_VOTE_GAS_TON = '0.7';
 const DEFAULT_VOTE_FORWARD_TON = '0.1';
+const DEFAULT_OPS_GAS_TON = '0.8';
+const DEFAULT_OPS_CONTROLLER_VALUE_TON = '0.08';
+const DEFAULT_OPS_TREASURY_VALUE_TON = '0.08';
+const DEFAULT_OPS_MASTER_VALUE_TON = '0.25';
+const DEFAULT_OPS_WALLET_VALUE_TON = '0.3';
 const PROPOSAL_CREATE_JETTONS = '1000';
 const FIXED_VOTING_DURATION_MINUTES = 30;
 
@@ -111,6 +136,7 @@ const copyByLanguage = {
       tokenomics: 'Tokenomics',
       roadmap: 'Roadmap',
       vote: 'Vote',
+      manage: 'Manage',
       contracts: 'Addresses',
     },
     common: {
@@ -330,6 +356,39 @@ const copyByLanguage = {
       connectRequired: 'Connect wallet before voting',
       governorRequired: 'Voting is not available right now',
     },
+    manage: {
+      title: 'Admin management',
+      text: 'Operational controls for the project wallet. Mint rights can be revoked while treasury and fee operations stay available through the governor.',
+      accessTitle: 'Access',
+      accessAllowed: 'Connected wallet can manage operations.',
+      accessDenied: 'Connect the ops wallet or admin wallet.',
+      admin: 'Admin',
+      opsAdmin: 'Ops admin',
+      sweepTitle: 'Move vote tokens',
+      sweepText: 'Move tgBTCat collected from votes to a wallet you control.',
+      feesTitle: 'Fee treasury',
+      feesText: 'Change where buy and sell fees are collected.',
+      treasuryTonTitle: 'Send TON from treasury',
+      treasuryJettonTitle: 'Send jettons from treasury',
+      runtimeTitle: 'Update wallet fee runtime',
+      runtimeText: 'Refresh one wallet so it uses the current fee treasury and fee values.',
+      recipient: 'Recipient wallet',
+      amountJetton: 'tgBTCat amount',
+      amountTon: 'TON amount',
+      feeTreasury: 'Fee treasury wallet',
+      treasuryJettonWallet: 'Treasury jetton wallet',
+      walletOwner: 'Wallet owner',
+      isDexWallet: 'This is a DEX wallet',
+      sendSweep: 'Move vote tokens',
+      sendFeeTreasury: 'Change fee treasury',
+      sendTon: 'Send TON',
+      sendJettons: 'Send jettons',
+      sendRuntime: 'Update wallet',
+      invalidAddress: 'Paste a valid TON address.',
+      invalidAmount: 'Enter a positive amount.',
+      sent: 'Operation sent to wallet.',
+      unavailable: 'Management is not available for this deployment.',
+    },
     contracts: {
       title: 'Project addresses',
       text: 'Public addresses for users who want to verify the project in a TON explorer.',
@@ -378,6 +437,7 @@ const copyByLanguage = {
       tokenomics: 'Токеномика',
       roadmap: 'Роадмапа',
       vote: 'Голосование',
+      manage: 'Управление',
       contracts: 'Адреса',
     },
     common: {
@@ -597,6 +657,39 @@ const copyByLanguage = {
       connectRequired: 'Сначала подключите кошелек',
       governorRequired: 'Голосование сейчас недоступно',
     },
+    manage: {
+      title: 'Управление',
+      text: 'Операционные действия для кошелька проекта. Права на минт можно убрать, а управление казной и комиссиями оставить через governor.',
+      accessTitle: 'Доступ',
+      accessAllowed: 'Подключенный кошелек может выполнять операции.',
+      accessDenied: 'Подключите ops-кошелек или admin-кошелек.',
+      admin: 'Admin',
+      opsAdmin: 'Ops admin',
+      sweepTitle: 'Вывести токены голосований',
+      sweepText: 'Перевести tgBTCat, которые пришли за голоса, на нужный кошелек.',
+      feesTitle: 'Кошелек комиссий',
+      feesText: 'Сменить кошелек, куда собираются комиссии покупки и продажи.',
+      treasuryTonTitle: 'Вывести TON из казны',
+      treasuryJettonTitle: 'Вывести jetton из казны',
+      runtimeTitle: 'Обновить комиссии кошелька',
+      runtimeText: 'Обновить один кошелек, чтобы он использовал актуальную казну комиссий и значения комиссий.',
+      recipient: 'Кошелек получателя',
+      amountJetton: 'Количество tgBTCat',
+      amountTon: 'Количество TON',
+      feeTreasury: 'Кошелек комиссий',
+      treasuryJettonWallet: 'Jetton wallet казны',
+      walletOwner: 'Владелец кошелька',
+      isDexWallet: 'Это кошелек DEX',
+      sendSweep: 'Вывести токены голосований',
+      sendFeeTreasury: 'Сменить кошелек комиссий',
+      sendTon: 'Вывести TON',
+      sendJettons: 'Вывести jetton',
+      sendRuntime: 'Обновить кошелек',
+      invalidAddress: 'Вставьте корректный TON-адрес.',
+      invalidAmount: 'Введите положительное количество.',
+      sent: 'Операция отправлена в кошелек.',
+      unavailable: 'Управление недоступно для этого деплоя.',
+    },
     contracts: {
       title: 'Адреса проекта',
       text: 'Публичные адреса для тех, кто хочет проверить проект в обозревателе TON.',
@@ -679,6 +772,9 @@ export default function App() {
   const [walletFee, setWalletFee] = useState<WalletFeeRuleState | null>(null);
   const [walletFeeLoading, setWalletFeeLoading] = useState(false);
   const [walletFeeError, setWalletFeeError] = useState('');
+  const [opsConfig, setOpsConfig] = useState<GovernorOpsConfigState | null>(null);
+  const [opsConfigLoading, setOpsConfigLoading] = useState(false);
+  const [opsConfigError, setOpsConfigError] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
   const connectedAddress = useTonAddress();
@@ -694,6 +790,10 @@ export default function App() {
   const activeNavIndex = Math.max(0, navItemIds.indexOf(activePage));
   const effectiveWalletBinding = connectedAddress && addressBook.addresses.jettonMaster ? walletBinding : 'idle';
   const effectiveWalletBindingMessage = effectiveWalletBinding === 'idle' ? '' : walletBindingMessage;
+  const canManage = useMemo(
+    () => walletCanManage(connectedAddress, opsConfig),
+    [connectedAddress, opsConfig],
+  );
 
   const [voteForm, setVoteForm] = useState<VoteFormState>({
     voterJettonWallet: '',
@@ -709,6 +809,18 @@ export default function App() {
     targetWallet: '',
     buyFeePercent: '1',
     sellFeePercent: '2',
+  });
+
+  const [manageForm, setManageForm] = useState<ManageFormState>({
+    recipientAddress: '',
+    jettonAmount: '1000',
+    tonAmount: '0.1',
+    feeTreasuryAddress: addressBook.addresses.feeTreasury ?? '',
+    treasuryJettonWalletAddress: '',
+    walletOwnerAddress: '',
+    runtimeBuyFeePercent: '0',
+    runtimeSellFeePercent: '0',
+    runtimeIsDexWallet: false,
   });
 
   const totalVotes = useMemo(
@@ -833,6 +945,41 @@ export default function App() {
       cancelled = true;
     };
   }, [addressBook.addresses.feeController, network]);
+
+  useEffect(() => {
+    const governorAddress = addressBook.addresses.governor;
+    if (!governorAddress) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadOpsConfig = async () => {
+      setOpsConfigLoading(true);
+      setOpsConfigError('');
+      try {
+        const result = await fetchGovernorOpsConfig(network, governorAddress);
+        if (!cancelled) {
+          setOpsConfig(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setOpsConfig(null);
+          setOpsConfigError(formatError(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setOpsConfigLoading(false);
+        }
+      }
+    };
+
+    void loadOpsConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addressBook.addresses.governor, network]);
 
   useEffect(() => {
     const governorAddress = addressBook.addresses.governor;
@@ -971,6 +1118,120 @@ export default function App() {
           requestProposalRefresh({ selectNewest: true });
         }, 2500);
       }
+    } catch (error) {
+      setErrorMessage(formatError(error));
+    }
+  };
+
+  const sendManageTransaction = async (transaction: TonConnectTransaction) => {
+    if (!canManage) {
+      setErrorMessage(t.manage.accessDenied);
+      return;
+    }
+    const sent = await sendPreparedTransaction(transaction, t.manage.sent);
+    if (sent) {
+      setProposalReloadNonce((current) => current + 1);
+    }
+  };
+
+  const sendSweepVoteTokens = async () => {
+    clearFeedback();
+    try {
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.manage.unavailable);
+      validateManageAddress(manageForm.recipientAddress, t.manage.invalidAddress);
+      validatePositiveAmount(manageForm.jettonAmount, t.manage.invalidAmount);
+      await sendManageTransaction(buildOpsSweepVoteJettonsTransaction({
+        governorAddress,
+        recipientAddress: manageForm.recipientAddress,
+        jettonAmount: manageForm.jettonAmount,
+        walletTonAmount: DEFAULT_OPS_WALLET_VALUE_TON,
+        forwardTonAmount: '0',
+        gasTon: DEFAULT_OPS_GAS_TON,
+      }));
+    } catch (error) {
+      setErrorMessage(formatError(error));
+    }
+  };
+
+  const sendSetFeeTreasury = async () => {
+    clearFeedback();
+    try {
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.manage.unavailable);
+      validateManageAddress(manageForm.feeTreasuryAddress, t.manage.invalidAddress);
+      await sendManageTransaction(buildOpsSetFeeTreasuryTransaction({
+        governorAddress,
+        feeControllerAddress: addressBook.addresses.feeController,
+        feeTreasuryAddress: manageForm.feeTreasuryAddress,
+        controllerValueTon: DEFAULT_OPS_CONTROLLER_VALUE_TON,
+        gasTon: DEFAULT_OPS_GAS_TON,
+      }));
+    } catch (error) {
+      setErrorMessage(formatError(error));
+    }
+  };
+
+  const sendTreasuryTon = async () => {
+    clearFeedback();
+    try {
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.manage.unavailable);
+      const treasuryAddress = requireAddress(addressBook.addresses.treasury, t.manage.unavailable);
+      validateManageAddress(manageForm.recipientAddress, t.manage.invalidAddress);
+      validatePositiveAmount(manageForm.tonAmount, t.manage.invalidAmount);
+      await sendManageTransaction(buildOpsSendTreasuryTonTransaction({
+        governorAddress,
+        treasuryAddress,
+        treasuryValueTon: DEFAULT_OPS_TREASURY_VALUE_TON,
+        recipientAddress: manageForm.recipientAddress,
+        amountTon: manageForm.tonAmount,
+        gasTon: DEFAULT_OPS_GAS_TON,
+      }));
+    } catch (error) {
+      setErrorMessage(formatError(error));
+    }
+  };
+
+  const sendTreasuryJettons = async () => {
+    clearFeedback();
+    try {
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.manage.unavailable);
+      const treasuryAddress = requireAddress(addressBook.addresses.treasury, t.manage.unavailable);
+      validateManageAddress(manageForm.recipientAddress, t.manage.invalidAddress);
+      validateManageAddress(manageForm.treasuryJettonWalletAddress, t.manage.invalidAddress);
+      validatePositiveAmount(manageForm.jettonAmount, t.manage.invalidAmount);
+      await sendManageTransaction(buildOpsSendTreasuryJettonsTransaction({
+        governorAddress,
+        treasuryAddress,
+        treasuryValueTon: DEFAULT_OPS_TREASURY_VALUE_TON,
+        treasuryJettonWalletAddress: manageForm.treasuryJettonWalletAddress,
+        recipientAddress: manageForm.recipientAddress,
+        jettonAmount: manageForm.jettonAmount,
+        walletTonAmount: DEFAULT_OPS_WALLET_VALUE_TON,
+        forwardTonAmount: '0',
+        gasTon: DEFAULT_OPS_GAS_TON,
+      }));
+    } catch (error) {
+      setErrorMessage(formatError(error));
+    }
+  };
+
+  const sendWalletRuntime = async () => {
+    clearFeedback();
+    try {
+      const governorAddress = requireAddress(addressBook.addresses.governor, t.manage.unavailable);
+      validateManageAddress(manageForm.walletOwnerAddress, t.manage.invalidAddress);
+      validateManageAddress(manageForm.feeTreasuryAddress, t.manage.invalidAddress);
+      await sendManageTransaction(buildOpsRouteWalletRuntimeTransaction({
+        governorAddress,
+        jettonMasterAddress: addressBook.addresses.jettonMaster,
+        walletOwnerAddress: manageForm.walletOwnerAddress,
+        feeTreasuryAddress: manageForm.feeTreasuryAddress,
+        masterValueTon: DEFAULT_OPS_MASTER_VALUE_TON,
+        walletTonAmount: DEFAULT_OPS_WALLET_VALUE_TON,
+        buyFeePercent: manageForm.runtimeBuyFeePercent,
+        sellFeePercent: manageForm.runtimeSellFeePercent,
+        isDexWallet: manageForm.runtimeIsDexWallet,
+        gasTon: DEFAULT_OPS_GAS_TON,
+      }));
     } catch (error) {
       setErrorMessage(formatError(error));
     }
@@ -1184,6 +1445,28 @@ export default function App() {
               onRefreshProposals={() => requestProposalRefresh()}
               onSendVote={sendVote}
               onSendProposal={sendProposal}
+            />
+          )}
+
+          {activePage === 'manage' && (
+            <ManagePage
+              copy={t}
+              connectedAddress={connectedAddress}
+              canManage={canManage}
+              opsConfig={opsConfig}
+              opsConfigLoading={opsConfigLoading}
+              opsConfigError={opsConfigError}
+              form={manageForm}
+              statusMessage={statusMessage}
+              errorMessage={errorMessage}
+              explorerHref={lastExplorerHref}
+              onConnectWallet={openConnectModal}
+              onChange={(patch) => setManageForm((current) => ({ ...current, ...patch }))}
+              onSweepVoteTokens={sendSweepVoteTokens}
+              onSetFeeTreasury={sendSetFeeTreasury}
+              onSendTreasuryTon={sendTreasuryTon}
+              onSendTreasuryJettons={sendTreasuryJettons}
+              onRouteWalletRuntime={sendWalletRuntime}
             />
           )}
 
@@ -1549,6 +1832,203 @@ function ContractsPage({ copy, network }: { copy: AppCopy; network: NetworkKey }
         ))}
       </div>
     </section>
+  );
+}
+
+function ManagePage({
+  copy,
+  connectedAddress,
+  canManage,
+  opsConfig,
+  opsConfigLoading,
+  opsConfigError,
+  form,
+  statusMessage,
+  errorMessage,
+  explorerHref,
+  onConnectWallet,
+  onChange,
+  onSweepVoteTokens,
+  onSetFeeTreasury,
+  onSendTreasuryTon,
+  onSendTreasuryJettons,
+  onRouteWalletRuntime,
+}: {
+  copy: AppCopy;
+  connectedAddress: string;
+  canManage: boolean;
+  opsConfig: GovernorOpsConfigState | null;
+  opsConfigLoading: boolean;
+  opsConfigError: string;
+  form: ManageFormState;
+  statusMessage: string;
+  errorMessage: string;
+  explorerHref: string;
+  onConnectWallet: () => void;
+  onChange: (patch: Partial<ManageFormState>) => void;
+  onSweepVoteTokens: () => void;
+  onSetFeeTreasury: () => void;
+  onSendTreasuryTon: () => void;
+  onSendTreasuryJettons: () => void;
+  onRouteWalletRuntime: () => void;
+}) {
+  const disabled = !connectedAddress || !canManage;
+
+  return (
+    <section className="page-section manage-section">
+      <div className="section-copy">
+        <h1>{copy.manage.title}</h1>
+        <p>{copy.manage.text}</p>
+      </div>
+
+      <section className="panel manage-access-panel">
+        <div className="section-header">
+          <h2>{copy.manage.accessTitle}</h2>
+          <span className={canManage ? 'status status-executed' : 'status status-rejected'}>
+            {canManage ? copy.manage.accessAllowed : copy.manage.accessDenied}
+          </span>
+        </div>
+        {!connectedAddress && (
+          <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
+            <Wallet size={18} />
+            {copy.common.connect}
+          </button>
+        )}
+        {opsConfigLoading ? (
+          <p>{copy.vote.feesLoading}</p>
+        ) : opsConfigError ? (
+          <p className="field-error">{opsConfigError}</p>
+        ) : opsConfig ? (
+          <div className="manage-role-grid">
+            <div>
+              <span>{copy.manage.admin}</span>
+              <strong>{shortAddress(opsConfig.admin)}</strong>
+            </div>
+            <div>
+              <span>{copy.manage.opsAdmin}</span>
+              <strong>{opsConfig.opsAdmin ? shortAddress(opsConfig.opsAdmin) : shortAddress(opsConfig.admin)}</strong>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <div className="manage-grid">
+        <ManageActionCard
+          title={copy.manage.sweepTitle}
+          text={copy.manage.sweepText}
+          action={copy.manage.sendSweep}
+          disabled={disabled}
+          onSubmit={onSweepVoteTokens}
+        >
+          <ManageInput label={copy.manage.recipient} value={form.recipientAddress} onChange={(recipientAddress) => onChange({ recipientAddress })} />
+          <ManageInput label={copy.manage.amountJetton} value={form.jettonAmount} onChange={(jettonAmount) => onChange({ jettonAmount })} />
+        </ManageActionCard>
+
+        <ManageActionCard
+          title={copy.manage.feesTitle}
+          text={copy.manage.feesText}
+          action={copy.manage.sendFeeTreasury}
+          disabled={disabled}
+          onSubmit={onSetFeeTreasury}
+        >
+          <ManageInput label={copy.manage.feeTreasury} value={form.feeTreasuryAddress} onChange={(feeTreasuryAddress) => onChange({ feeTreasuryAddress })} />
+        </ManageActionCard>
+
+        <ManageActionCard
+          title={copy.manage.treasuryTonTitle}
+          text={copy.manage.text}
+          action={copy.manage.sendTon}
+          disabled={disabled}
+          onSubmit={onSendTreasuryTon}
+        >
+          <ManageInput label={copy.manage.recipient} value={form.recipientAddress} onChange={(recipientAddress) => onChange({ recipientAddress })} />
+          <ManageInput label={copy.manage.amountTon} value={form.tonAmount} onChange={(tonAmount) => onChange({ tonAmount })} />
+        </ManageActionCard>
+
+        <ManageActionCard
+          title={copy.manage.treasuryJettonTitle}
+          text={copy.manage.sweepText}
+          action={copy.manage.sendJettons}
+          disabled={disabled}
+          onSubmit={onSendTreasuryJettons}
+        >
+          <ManageInput label={copy.manage.treasuryJettonWallet} value={form.treasuryJettonWalletAddress} onChange={(treasuryJettonWalletAddress) => onChange({ treasuryJettonWalletAddress })} />
+          <ManageInput label={copy.manage.recipient} value={form.recipientAddress} onChange={(recipientAddress) => onChange({ recipientAddress })} />
+          <ManageInput label={copy.manage.amountJetton} value={form.jettonAmount} onChange={(jettonAmount) => onChange({ jettonAmount })} />
+        </ManageActionCard>
+
+        <ManageActionCard
+          title={copy.manage.runtimeTitle}
+          text={copy.manage.runtimeText}
+          action={copy.manage.sendRuntime}
+          disabled={disabled}
+          onSubmit={onRouteWalletRuntime}
+        >
+          <ManageInput label={copy.manage.walletOwner} value={form.walletOwnerAddress} onChange={(walletOwnerAddress) => onChange({ walletOwnerAddress })} />
+          <ManageInput label={copy.vote.buyFee} value={form.runtimeBuyFeePercent} onChange={(runtimeBuyFeePercent) => onChange({ runtimeBuyFeePercent })} />
+          <ManageInput label={copy.vote.sellFee} value={form.runtimeSellFeePercent} onChange={(runtimeSellFeePercent) => onChange({ runtimeSellFeePercent })} />
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={form.runtimeIsDexWallet}
+              onChange={(event) => onChange({ runtimeIsDexWallet: event.target.checked })}
+            />
+            {copy.manage.isDexWallet}
+          </label>
+        </ManageActionCard>
+      </div>
+
+      <FeedbackPanel copy={copy} status={statusMessage} error={errorMessage} explorerHref={explorerHref} />
+    </section>
+  );
+}
+
+function ManageActionCard({
+  title,
+  text,
+  action,
+  disabled,
+  children,
+  onSubmit,
+}: {
+  title: string;
+  text: string;
+  action: string;
+  disabled: boolean;
+  children: ReactNode;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="panel form-panel manage-card">
+      <div className="section-header">
+        <div>
+          <h2>{title}</h2>
+          <p>{text}</p>
+        </div>
+      </div>
+      {children}
+      <button className="primary-action wide-action" type="button" disabled={disabled} onClick={onSubmit}>
+        <Send size={18} />
+        {action}
+      </button>
+    </section>
+  );
+}
+
+function ManageInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      {label}
+      <input value={value} onChange={(event) => onChange(event.target.value)} spellCheck={false} />
+    </label>
   );
 }
 
@@ -2501,6 +2981,33 @@ function requireAddress(address: string | null, message: string): string {
     throw new Error(message);
   }
   return address;
+}
+
+function walletCanManage(connectedAddress: string, opsConfig: GovernorOpsConfigState | null): boolean {
+  if (!connectedAddress || !opsConfig) {
+    return false;
+  }
+
+  try {
+    const connected = normalizeTonAddress(connectedAddress);
+    const admin = normalizeTonAddress(opsConfig.admin);
+    const opsAdmin = opsConfig.opsAdmin ? normalizeTonAddress(opsConfig.opsAdmin) : admin;
+    return connected === admin || connected === opsAdmin;
+  } catch {
+    return false;
+  }
+}
+
+function validateManageAddress(address: string, message: string) {
+  if (!isValidTonAddress(address)) {
+    throw new Error(message);
+  }
+}
+
+function validatePositiveAmount(amount: string, message: string) {
+  if (parseDecimalUnits(amount, true) === null) {
+    throw new Error(message);
+  }
 }
 
 function walletBindingText(copy: AppCopy, state: WalletBindingState, details: string): string {

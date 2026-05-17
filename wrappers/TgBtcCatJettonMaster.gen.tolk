@@ -120,6 +120,22 @@ fun TgBtcCatJettonMaster.sendChangeMinterAdmin(
     return net.send(from, genericMsg);
 }
 
+fun TgBtcCatJettonMaster.sendSetMinterRuntimeAdmin(
+    self,
+    from: address,
+    queryId: uint64,
+    runtimeAdminAddress: address?,
+    config: SendParams = {},
+): SendResultList {
+    val genericMsg = createMessage({
+        bounce: config.bounce,
+        value: config.value,
+        dest: self.address,
+        body: SetMinterRuntimeAdmin { queryId, runtimeAdminAddress },
+    });
+    return net.send(from, genericMsg);
+}
+
 fun TgBtcCatJettonMaster.sendClaimMinterAdmin(
     self,
     from: address,
@@ -333,4 +349,8 @@ fun TgBtcCatJettonMaster.getWalletAddress(self, ownerAddress: address): address 
 
 fun TgBtcCatJettonMaster.getNextAdminAddress(self): address? {
     return net.runGetMethod(self.address, "get_next_admin_address");
+}
+
+fun TgBtcCatJettonMaster.getRuntimeAdminAddress(self): address? {
+    return net.runGetMethod(self.address, "get_runtime_admin_address");
 }

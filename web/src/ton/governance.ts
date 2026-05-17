@@ -64,6 +64,11 @@ export interface WalletFeeRuleState {
   reasonHash: string;
 }
 
+export interface GovernorOpsConfigState {
+  admin: string;
+  opsAdmin: string | null;
+}
+
 export interface VoteReceipt {
   voter: string;
   side: 1 | 2;
@@ -132,6 +137,18 @@ export async function fetchWalletFeeRule(
     buyFeePercent: bpsToPercent(readStackInt(stack[1])),
     sellFeePercent: bpsToPercent(readStackInt(stack[2])),
     reasonHash: readStackInt(stack[3]).toString(),
+  };
+}
+
+export async function fetchGovernorOpsConfig(
+  network: NetworkKey,
+  governorAddress: string,
+): Promise<GovernorOpsConfigState> {
+  const result = await runGetMethod(network, governorAddress, 'get_ops_config', []);
+  const stack = result.stack ?? [];
+  return {
+    admin: requireStackAddress(stack[0]),
+    opsAdmin: readStackAddress(stack[1]),
   };
 }
 

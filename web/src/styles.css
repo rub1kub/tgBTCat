@@ -210,7 +210,7 @@ p {
 .main-nav {
   --active-offset: 0%;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -218,7 +218,7 @@ p {
   position: absolute;
   inset: 4px auto 4px 4px;
   z-index: 0;
-  width: calc((100% - 8px) / 5);
+  width: calc((100% - 8px) / 6);
   content: "";
   background: var(--dark);
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
@@ -925,6 +925,63 @@ main {
 .governance-grid {
   grid-template-columns: minmax(300px, 0.46fr) minmax(0, 1fr);
   align-items: start;
+}
+
+.manage-section {
+  display: grid;
+  gap: 22px;
+}
+
+.manage-access-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.manage-role-grid,
+.manage-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.manage-role-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manage-role-grid > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--soft-line);
+  background: var(--surface-soft);
+}
+
+.manage-role-grid span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.manage-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.manage-card {
+  min-height: 0;
+}
+
+.checkbox-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 780;
+}
+
+.checkbox-line input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--blue);
 }
 
 .governance-workspace {
@@ -2018,6 +2075,7 @@ select,
   .landing-grid,
   .tokenomics-layout,
   .governance-grid,
+  .manage-grid,
   .governance-workspace {
     grid-template-columns: 1fr;
   }
@@ -2060,7 +2118,7 @@ select,
 
   .main-nav {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .nav-item {
@@ -2100,6 +2158,8 @@ select,
   .event-grid,
   .field-row,
   .fee-grid,
+  .manage-grid,
+  .manage-role-grid,
   .side-selector,
   .proposal-kind-switch,
   .create-scenarios,

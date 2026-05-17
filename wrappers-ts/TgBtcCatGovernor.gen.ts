@@ -169,6 +169,44 @@ type uint64 = bigint
 type uint256 = bigint
 
 /**
+ > struct GovernorOpsConfigReply {
+ >     admin: address
+ >     opsAdmin: address?
+ > }
+ */
+export interface GovernorOpsConfigReply {
+    readonly $: 'GovernorOpsConfigReply'
+    admin: c.Address
+    opsAdmin: c.Address | null
+}
+
+export const GovernorOpsConfigReply = {
+    create(args: {
+        admin: c.Address
+        opsAdmin: c.Address | null
+    }): GovernorOpsConfigReply {
+        return {
+            $: 'GovernorOpsConfigReply',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): GovernorOpsConfigReply {
+        return {
+            $: 'GovernorOpsConfigReply',
+            admin: s.loadAddress(),
+            opsAdmin: s.loadMaybeAddress(),
+        }
+    },
+    store(self: GovernorOpsConfigReply, b: c.Builder): void {
+        b.storeAddress(self.admin);
+        b.storeAddress(self.opsAdmin);
+    },
+    toCell(self: GovernorOpsConfigReply): c.Cell {
+        return makeCellFrom<GovernorOpsConfigReply>(self, GovernorOpsConfigReply.store);
+    }
+}
+
+/**
  > struct Proposal {
  >     actionType: uint8
  >     target: address?
@@ -458,6 +496,7 @@ export const GovernorRuntimeExecutionConfig = {
 /**
  > struct GovernorStorage {
  >     admin: address
+ >     opsAdmin: address?
  >     voteJettonWallet: address
  >     minVoteAmount: coins
  >     nextProposalId: uint64
@@ -468,6 +507,7 @@ export const GovernorRuntimeExecutionConfig = {
 export interface GovernorStorage {
     readonly $: 'GovernorStorage'
     admin: c.Address
+    opsAdmin: c.Address | null /* = null */
     voteJettonWallet: c.Address
     minVoteAmount: coins
     nextProposalId: uint64
@@ -478,6 +518,7 @@ export interface GovernorStorage {
 export const GovernorStorage = {
     create(args: {
         admin: c.Address
+        opsAdmin?: c.Address | null /* = null */
         voteJettonWallet: c.Address
         minVoteAmount: coins
         nextProposalId: uint64
@@ -486,6 +527,7 @@ export const GovernorStorage = {
     }): GovernorStorage {
         return {
             $: 'GovernorStorage',
+            opsAdmin: null,
             executionConfig: null,
             ...args
         }
@@ -494,6 +536,7 @@ export const GovernorStorage = {
         return {
             $: 'GovernorStorage',
             admin: s.loadAddress(),
+            opsAdmin: s.loadMaybeAddress(),
             voteJettonWallet: s.loadAddress(),
             minVoteAmount: s.loadCoins(),
             nextProposalId: s.loadUintBig(64),
@@ -503,6 +546,7 @@ export const GovernorStorage = {
     },
     store(self: GovernorStorage, b: c.Builder): void {
         b.storeAddress(self.admin);
+        b.storeAddress(self.opsAdmin);
         b.storeAddress(self.voteJettonWallet);
         b.storeCoins(self.minVoteAmount);
         b.storeUint(self.nextProposalId, 64);
@@ -712,6 +756,48 @@ export const SetGlobalFees = {
 }
 
 /**
+ > struct (0x10010002) SetFeeTreasury {
+ >     queryId: uint64
+ >     feeTreasury: address
+ > }
+ */
+export interface SetFeeTreasury {
+    readonly $: 'SetFeeTreasury'
+    queryId: uint64
+    feeTreasury: c.Address
+}
+
+export const SetFeeTreasury = {
+    PREFIX: 0x10010002,
+
+    create(args: {
+        queryId: uint64
+        feeTreasury: c.Address
+    }): SetFeeTreasury {
+        return {
+            $: 'SetFeeTreasury',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetFeeTreasury {
+        loadAndCheckPrefix32(s, 0x10010002, 'SetFeeTreasury');
+        return {
+            $: 'SetFeeTreasury',
+            queryId: s.loadUintBig(64),
+            feeTreasury: s.loadAddress(),
+        }
+    },
+    store(self: SetFeeTreasury, b: c.Builder): void {
+        b.storeUint(0x10010002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.feeTreasury);
+    },
+    toCell(self: SetFeeTreasury): c.Cell {
+        return makeCellFrom<SetFeeTreasury>(self, SetFeeTreasury.store);
+    }
+}
+
+/**
  > struct (0x10020001) SetWalletFees {
  >     queryId: uint64
  >     target: address
@@ -891,6 +977,58 @@ export const RemoveDexWallet = {
     },
     toCell(self: RemoveDexWallet): c.Cell {
         return makeCellFrom<RemoveDexWallet>(self, RemoveDexWallet.store);
+    }
+}
+
+/**
+ > struct (0x10050001) SendTreasuryTon {
+ >     queryId: uint64
+ >     recipient: address
+ >     amount: coins
+ >     bounce: bool
+ > }
+ */
+export interface SendTreasuryTon {
+    readonly $: 'SendTreasuryTon'
+    queryId: uint64
+    recipient: c.Address
+    amount: coins
+    bounce: boolean
+}
+
+export const SendTreasuryTon = {
+    PREFIX: 0x10050001,
+
+    create(args: {
+        queryId: uint64
+        recipient: c.Address
+        amount: coins
+        bounce: boolean
+    }): SendTreasuryTon {
+        return {
+            $: 'SendTreasuryTon',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SendTreasuryTon {
+        loadAndCheckPrefix32(s, 0x10050001, 'SendTreasuryTon');
+        return {
+            $: 'SendTreasuryTon',
+            queryId: s.loadUintBig(64),
+            recipient: s.loadAddress(),
+            amount: s.loadCoins(),
+            bounce: s.loadBoolean(),
+        }
+    },
+    store(self: SendTreasuryTon, b: c.Builder): void {
+        b.storeUint(0x10050001, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.recipient);
+        b.storeCoins(self.amount);
+        b.storeBit(self.bounce);
+    },
+    toCell(self: SendTreasuryTon): c.Cell {
+        return makeCellFrom<SendTreasuryTon>(self, SendTreasuryTon.store);
     }
 }
 
@@ -1395,6 +1533,272 @@ export const CreateRawExecutionProposal = {
 }
 
 /**
+ > struct (0x1004000b) SetOpsAdmin {
+ >     queryId: uint64
+ >     opsAdmin: address?
+ > }
+ */
+export interface SetOpsAdmin {
+    readonly $: 'SetOpsAdmin'
+    queryId: uint64
+    opsAdmin: c.Address | null
+}
+
+export const SetOpsAdmin = {
+    PREFIX: 0x1004000b,
+
+    create(args: {
+        queryId: uint64
+        opsAdmin: c.Address | null
+    }): SetOpsAdmin {
+        return {
+            $: 'SetOpsAdmin',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SetOpsAdmin {
+        loadAndCheckPrefix32(s, 0x1004000b, 'SetOpsAdmin');
+        return {
+            $: 'SetOpsAdmin',
+            queryId: s.loadUintBig(64),
+            opsAdmin: s.loadMaybeAddress(),
+        }
+    },
+    store(self: SetOpsAdmin, b: c.Builder): void {
+        b.storeUint(0x1004000b, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.opsAdmin);
+    },
+    toCell(self: SetOpsAdmin): c.Cell {
+        return makeCellFrom<SetOpsAdmin>(self, SetOpsAdmin.store);
+    }
+}
+
+/**
+ > struct (0x1004000d) OpsSetFeeTreasury {
+ >     queryId: uint64
+ >     feeController: address?
+ >     feeTreasury: address
+ >     controllerValue: coins
+ > }
+ */
+export interface OpsSetFeeTreasury {
+    readonly $: 'OpsSetFeeTreasury'
+    queryId: uint64
+    feeController: c.Address | null
+    feeTreasury: c.Address
+    controllerValue: coins
+}
+
+export const OpsSetFeeTreasury = {
+    PREFIX: 0x1004000d,
+
+    create(args: {
+        queryId: uint64
+        feeController: c.Address | null
+        feeTreasury: c.Address
+        controllerValue: coins
+    }): OpsSetFeeTreasury {
+        return {
+            $: 'OpsSetFeeTreasury',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsSetFeeTreasury {
+        loadAndCheckPrefix32(s, 0x1004000d, 'OpsSetFeeTreasury');
+        return {
+            $: 'OpsSetFeeTreasury',
+            queryId: s.loadUintBig(64),
+            feeController: s.loadMaybeAddress(),
+            feeTreasury: s.loadAddress(),
+            controllerValue: s.loadCoins(),
+        }
+    },
+    store(self: OpsSetFeeTreasury, b: c.Builder): void {
+        b.storeUint(0x1004000d, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.feeController);
+        b.storeAddress(self.feeTreasury);
+        b.storeCoins(self.controllerValue);
+    },
+    toCell(self: OpsSetFeeTreasury): c.Cell {
+        return makeCellFrom<OpsSetFeeTreasury>(self, OpsSetFeeTreasury.store);
+    }
+}
+
+/**
+ > struct OpsRouteWalletRuntimeExtra {
+ >     feeTreasury: address?
+ >     globalBuyFeeBps: uint16
+ >     globalSellFeeBps: uint16
+ >     isDexWallet: bool
+ > }
+ */
+export interface OpsRouteWalletRuntimeExtra {
+    readonly $: 'OpsRouteWalletRuntimeExtra'
+    feeTreasury: c.Address | null
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: boolean
+}
+
+export const OpsRouteWalletRuntimeExtra = {
+    create(args: {
+        feeTreasury: c.Address | null
+        globalBuyFeeBps: uint16
+        globalSellFeeBps: uint16
+        isDexWallet: boolean
+    }): OpsRouteWalletRuntimeExtra {
+        return {
+            $: 'OpsRouteWalletRuntimeExtra',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsRouteWalletRuntimeExtra {
+        return {
+            $: 'OpsRouteWalletRuntimeExtra',
+            feeTreasury: s.loadMaybeAddress(),
+            globalBuyFeeBps: s.loadUintBig(16),
+            globalSellFeeBps: s.loadUintBig(16),
+            isDexWallet: s.loadBoolean(),
+        }
+    },
+    store(self: OpsRouteWalletRuntimeExtra, b: c.Builder): void {
+        b.storeAddress(self.feeTreasury);
+        b.storeUint(self.globalBuyFeeBps, 16);
+        b.storeUint(self.globalSellFeeBps, 16);
+        b.storeBit(self.isDexWallet);
+    },
+    toCell(self: OpsRouteWalletRuntimeExtra): c.Cell {
+        return makeCellFrom<OpsRouteWalletRuntimeExtra>(self, OpsRouteWalletRuntimeExtra.store);
+    }
+}
+
+/**
+ > struct (0x1004000e) OpsRouteWalletRuntime {
+ >     queryId: uint64
+ >     jettonMaster: address?
+ >     walletOwner: address
+ >     masterValue: coins
+ >     walletTonAmount: coins
+ >     extra: Cell<OpsRouteWalletRuntimeExtra>
+ > }
+ */
+export interface OpsRouteWalletRuntime {
+    readonly $: 'OpsRouteWalletRuntime'
+    queryId: uint64
+    jettonMaster: c.Address | null
+    walletOwner: c.Address
+    masterValue: coins
+    walletTonAmount: coins
+    extra: CellRef<OpsRouteWalletRuntimeExtra>
+}
+
+export const OpsRouteWalletRuntime = {
+    PREFIX: 0x1004000e,
+
+    create(args: {
+        queryId: uint64
+        jettonMaster: c.Address | null
+        walletOwner: c.Address
+        masterValue: coins
+        walletTonAmount: coins
+        extra: CellRef<OpsRouteWalletRuntimeExtra>
+    }): OpsRouteWalletRuntime {
+        return {
+            $: 'OpsRouteWalletRuntime',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsRouteWalletRuntime {
+        loadAndCheckPrefix32(s, 0x1004000e, 'OpsRouteWalletRuntime');
+        return {
+            $: 'OpsRouteWalletRuntime',
+            queryId: s.loadUintBig(64),
+            jettonMaster: s.loadMaybeAddress(),
+            walletOwner: s.loadAddress(),
+            masterValue: s.loadCoins(),
+            walletTonAmount: s.loadCoins(),
+            extra: loadCellRef<OpsRouteWalletRuntimeExtra>(s, OpsRouteWalletRuntimeExtra.fromSlice),
+        }
+    },
+    store(self: OpsRouteWalletRuntime, b: c.Builder): void {
+        b.storeUint(0x1004000e, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.jettonMaster);
+        b.storeAddress(self.walletOwner);
+        b.storeCoins(self.masterValue);
+        b.storeCoins(self.walletTonAmount);
+        storeCellRef<OpsRouteWalletRuntimeExtra>(self.extra, b, OpsRouteWalletRuntimeExtra.store);
+    },
+    toCell(self: OpsRouteWalletRuntime): c.Cell {
+        return makeCellFrom<OpsRouteWalletRuntime>(self, OpsRouteWalletRuntime.store);
+    }
+}
+
+/**
+ > struct (0x1004000f) OpsSendTreasuryTon {
+ >     queryId: uint64
+ >     treasury: address
+ >     treasuryValue: coins
+ >     recipient: address
+ >     amount: coins
+ >     bounce: bool
+ > }
+ */
+export interface OpsSendTreasuryTon {
+    readonly $: 'OpsSendTreasuryTon'
+    queryId: uint64
+    treasury: c.Address
+    treasuryValue: coins
+    recipient: c.Address
+    amount: coins
+    bounce: boolean
+}
+
+export const OpsSendTreasuryTon = {
+    PREFIX: 0x1004000f,
+
+    create(args: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        recipient: c.Address
+        amount: coins
+        bounce: boolean
+    }): OpsSendTreasuryTon {
+        return {
+            $: 'OpsSendTreasuryTon',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsSendTreasuryTon {
+        loadAndCheckPrefix32(s, 0x1004000f, 'OpsSendTreasuryTon');
+        return {
+            $: 'OpsSendTreasuryTon',
+            queryId: s.loadUintBig(64),
+            treasury: s.loadAddress(),
+            treasuryValue: s.loadCoins(),
+            recipient: s.loadAddress(),
+            amount: s.loadCoins(),
+            bounce: s.loadBoolean(),
+        }
+    },
+    store(self: OpsSendTreasuryTon, b: c.Builder): void {
+        b.storeUint(0x1004000f, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.treasury);
+        b.storeCoins(self.treasuryValue);
+        b.storeAddress(self.recipient);
+        b.storeCoins(self.amount);
+        b.storeBit(self.bounce);
+    },
+    toCell(self: OpsSendTreasuryTon): c.Cell {
+        return makeCellFrom<OpsSendTreasuryTon>(self, OpsSendTreasuryTon.store);
+    }
+}
+
+/**
  > struct (0xd372158c) GovernanceTopUp {
  > }
  */
@@ -1512,6 +1916,84 @@ export const PayloadInRef = {
     },
     toCell(self: PayloadInRef): c.Cell {
         return makeCellFrom<PayloadInRef>(self, PayloadInRef.store);
+    }
+}
+
+/**
+ > struct (0x0f8a7ea5) AskToTransfer {
+ >     queryId: uint64
+ >     jettonAmount: coins
+ >     transferRecipient: address
+ >     sendExcessesTo: address?
+ >     customPayload: cell?
+ >     forwardTonAmount: coins
+ >     forwardPayload: ForwardPayloadRemainder
+ > }
+ */
+export interface AskToTransfer {
+    readonly $: 'AskToTransfer'
+    queryId: uint64
+    jettonAmount: coins
+    transferRecipient: c.Address
+    sendExcessesTo: c.Address | null
+    customPayload: c.Cell | null
+    forwardTonAmount: coins
+    forwardPayload: PayloadInline | PayloadInRef
+}
+
+export const AskToTransfer = {
+    PREFIX: 0x0f8a7ea5,
+
+    create(args: {
+        queryId: uint64
+        jettonAmount: coins
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        customPayload: c.Cell | null
+        forwardTonAmount: coins
+        forwardPayload: PayloadInline | PayloadInRef
+    }): AskToTransfer {
+        return {
+            $: 'AskToTransfer',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): AskToTransfer {
+        loadAndCheckPrefix32(s, 0x0f8a7ea5, 'AskToTransfer');
+        return {
+            $: 'AskToTransfer',
+            queryId: s.loadUintBig(64),
+            jettonAmount: s.loadCoins(),
+            transferRecipient: s.loadAddress(),
+            sendExcessesTo: s.loadMaybeAddress(),
+            customPayload: s.loadBoolean() ? s.loadRef() : null,
+            forwardTonAmount: s.loadCoins(),
+            forwardPayload: lookupPrefix(s, 0b0, 1) ? PayloadInline.fromSlice(s) :
+                lookupPrefix(s, 0b1, 1) ? PayloadInRef.fromSlice(s) :
+                throwNonePrefixMatch('AskToTransfer.forwardPayload'),
+        }
+    },
+    store(self: AskToTransfer, b: c.Builder): void {
+        b.storeUint(0x0f8a7ea5, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeCoins(self.jettonAmount);
+        b.storeAddress(self.transferRecipient);
+        b.storeAddress(self.sendExcessesTo);
+        storeTolkNullable<c.Cell>(self.customPayload, b,
+            (v,b) => b.storeRef(v)
+        );
+        b.storeCoins(self.forwardTonAmount);
+        switch (self.forwardPayload.$) {
+            case 'PayloadInline':
+                PayloadInline.store(self.forwardPayload, b);
+                break;
+            case 'PayloadInRef':
+                PayloadInRef.store(self.forwardPayload, b);
+                break;
+        }
+    },
+    toCell(self: AskToTransfer): c.Cell {
+        return makeCellFrom<AskToTransfer>(self, AskToTransfer.store);
     }
 }
 
@@ -1898,6 +2380,259 @@ export const RouteClearWalletSpecificFee = {
     }
 }
 
+/**
+ > struct (0x10050002) SendTreasuryJettons {
+ >     queryId: uint64
+ >     jettonWallet: address
+ >     jettonAmount: coins
+ >     transferRecipient: address
+ >     sendExcessesTo: address?
+ >     walletTonAmount: coins
+ >     forwardTonAmount: coins
+ >     forwardPayload: ForwardPayloadRemainder
+ > }
+ */
+export interface SendTreasuryJettons {
+    readonly $: 'SendTreasuryJettons'
+    queryId: uint64
+    jettonWallet: c.Address
+    jettonAmount: coins
+    transferRecipient: c.Address
+    sendExcessesTo: c.Address | null
+    walletTonAmount: coins
+    forwardTonAmount: coins
+    forwardPayload: PayloadInline | PayloadInRef
+}
+
+export const SendTreasuryJettons = {
+    PREFIX: 0x10050002,
+
+    create(args: {
+        queryId: uint64
+        jettonWallet: c.Address
+        jettonAmount: coins
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        walletTonAmount: coins
+        forwardTonAmount: coins
+        forwardPayload: PayloadInline | PayloadInRef
+    }): SendTreasuryJettons {
+        return {
+            $: 'SendTreasuryJettons',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): SendTreasuryJettons {
+        loadAndCheckPrefix32(s, 0x10050002, 'SendTreasuryJettons');
+        return {
+            $: 'SendTreasuryJettons',
+            queryId: s.loadUintBig(64),
+            jettonWallet: s.loadAddress(),
+            jettonAmount: s.loadCoins(),
+            transferRecipient: s.loadAddress(),
+            sendExcessesTo: s.loadMaybeAddress(),
+            walletTonAmount: s.loadCoins(),
+            forwardTonAmount: s.loadCoins(),
+            forwardPayload: lookupPrefix(s, 0b0, 1) ? PayloadInline.fromSlice(s) :
+                lookupPrefix(s, 0b1, 1) ? PayloadInRef.fromSlice(s) :
+                throwNonePrefixMatch('SendTreasuryJettons.forwardPayload'),
+        }
+    },
+    store(self: SendTreasuryJettons, b: c.Builder): void {
+        b.storeUint(0x10050002, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.jettonWallet);
+        b.storeCoins(self.jettonAmount);
+        b.storeAddress(self.transferRecipient);
+        b.storeAddress(self.sendExcessesTo);
+        b.storeCoins(self.walletTonAmount);
+        b.storeCoins(self.forwardTonAmount);
+        switch (self.forwardPayload.$) {
+            case 'PayloadInline':
+                PayloadInline.store(self.forwardPayload, b);
+                break;
+            case 'PayloadInRef':
+                PayloadInRef.store(self.forwardPayload, b);
+                break;
+        }
+    },
+    toCell(self: SendTreasuryJettons): c.Cell {
+        return makeCellFrom<SendTreasuryJettons>(self, SendTreasuryJettons.store);
+    }
+}
+
+/**
+ > struct (0x1004000c) OpsSweepVoteJettons {
+ >     queryId: uint64
+ >     jettonAmount: coins
+ >     transferRecipient: address
+ >     sendExcessesTo: address?
+ >     walletTonAmount: coins
+ >     forwardTonAmount: coins
+ > }
+ */
+export interface OpsSweepVoteJettons {
+    readonly $: 'OpsSweepVoteJettons'
+    queryId: uint64
+    jettonAmount: coins
+    transferRecipient: c.Address
+    sendExcessesTo: c.Address | null
+    walletTonAmount: coins
+    forwardTonAmount: coins
+}
+
+export const OpsSweepVoteJettons = {
+    PREFIX: 0x1004000c,
+
+    create(args: {
+        queryId: uint64
+        jettonAmount: coins
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        walletTonAmount: coins
+        forwardTonAmount: coins
+    }): OpsSweepVoteJettons {
+        return {
+            $: 'OpsSweepVoteJettons',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsSweepVoteJettons {
+        loadAndCheckPrefix32(s, 0x1004000c, 'OpsSweepVoteJettons');
+        return {
+            $: 'OpsSweepVoteJettons',
+            queryId: s.loadUintBig(64),
+            jettonAmount: s.loadCoins(),
+            transferRecipient: s.loadAddress(),
+            sendExcessesTo: s.loadMaybeAddress(),
+            walletTonAmount: s.loadCoins(),
+            forwardTonAmount: s.loadCoins(),
+        }
+    },
+    store(self: OpsSweepVoteJettons, b: c.Builder): void {
+        b.storeUint(0x1004000c, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeCoins(self.jettonAmount);
+        b.storeAddress(self.transferRecipient);
+        b.storeAddress(self.sendExcessesTo);
+        b.storeCoins(self.walletTonAmount);
+        b.storeCoins(self.forwardTonAmount);
+    },
+    toCell(self: OpsSweepVoteJettons): c.Cell {
+        return makeCellFrom<OpsSweepVoteJettons>(self, OpsSweepVoteJettons.store);
+    }
+}
+
+/**
+ > struct OpsSendTreasuryJettonsExtra {
+ >     transferRecipient: address
+ >     sendExcessesTo: address?
+ >     walletTonAmount: coins
+ >     forwardTonAmount: coins
+ > }
+ */
+export interface OpsSendTreasuryJettonsExtra {
+    readonly $: 'OpsSendTreasuryJettonsExtra'
+    transferRecipient: c.Address
+    sendExcessesTo: c.Address | null
+    walletTonAmount: coins
+    forwardTonAmount: coins
+}
+
+export const OpsSendTreasuryJettonsExtra = {
+    create(args: {
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        walletTonAmount: coins
+        forwardTonAmount: coins
+    }): OpsSendTreasuryJettonsExtra {
+        return {
+            $: 'OpsSendTreasuryJettonsExtra',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsSendTreasuryJettonsExtra {
+        return {
+            $: 'OpsSendTreasuryJettonsExtra',
+            transferRecipient: s.loadAddress(),
+            sendExcessesTo: s.loadMaybeAddress(),
+            walletTonAmount: s.loadCoins(),
+            forwardTonAmount: s.loadCoins(),
+        }
+    },
+    store(self: OpsSendTreasuryJettonsExtra, b: c.Builder): void {
+        b.storeAddress(self.transferRecipient);
+        b.storeAddress(self.sendExcessesTo);
+        b.storeCoins(self.walletTonAmount);
+        b.storeCoins(self.forwardTonAmount);
+    },
+    toCell(self: OpsSendTreasuryJettonsExtra): c.Cell {
+        return makeCellFrom<OpsSendTreasuryJettonsExtra>(self, OpsSendTreasuryJettonsExtra.store);
+    }
+}
+
+/**
+ > struct (0x10040010) OpsSendTreasuryJettons {
+ >     queryId: uint64
+ >     treasury: address
+ >     treasuryValue: coins
+ >     jettonWallet: address
+ >     jettonAmount: coins
+ >     extra: Cell<OpsSendTreasuryJettonsExtra>
+ > }
+ */
+export interface OpsSendTreasuryJettons {
+    readonly $: 'OpsSendTreasuryJettons'
+    queryId: uint64
+    treasury: c.Address
+    treasuryValue: coins
+    jettonWallet: c.Address
+    jettonAmount: coins
+    extra: CellRef<OpsSendTreasuryJettonsExtra>
+}
+
+export const OpsSendTreasuryJettons = {
+    PREFIX: 0x10040010,
+
+    create(args: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        jettonWallet: c.Address
+        jettonAmount: coins
+        extra: CellRef<OpsSendTreasuryJettonsExtra>
+    }): OpsSendTreasuryJettons {
+        return {
+            $: 'OpsSendTreasuryJettons',
+            ...args
+        }
+    },
+    fromSlice(s: c.Slice): OpsSendTreasuryJettons {
+        loadAndCheckPrefix32(s, 0x10040010, 'OpsSendTreasuryJettons');
+        return {
+            $: 'OpsSendTreasuryJettons',
+            queryId: s.loadUintBig(64),
+            treasury: s.loadAddress(),
+            treasuryValue: s.loadCoins(),
+            jettonWallet: s.loadAddress(),
+            jettonAmount: s.loadCoins(),
+            extra: loadCellRef<OpsSendTreasuryJettonsExtra>(s, OpsSendTreasuryJettonsExtra.fromSlice),
+        }
+    },
+    store(self: OpsSendTreasuryJettons, b: c.Builder): void {
+        b.storeUint(0x10040010, 32);
+        b.storeUint(self.queryId, 64);
+        b.storeAddress(self.treasury);
+        b.storeCoins(self.treasuryValue);
+        b.storeAddress(self.jettonWallet);
+        b.storeCoins(self.jettonAmount);
+        storeCellRef<OpsSendTreasuryJettonsExtra>(self.extra, b, OpsSendTreasuryJettonsExtra.store);
+    },
+    toCell(self: OpsSendTreasuryJettons): c.Cell {
+        return makeCellFrom<OpsSendTreasuryJettons>(self, OpsSendTreasuryJettons.store);
+    }
+}
+
 // ————————————————————————————————————————————
 //    class TgBtcCatGovernor
 //
@@ -1937,7 +2672,7 @@ function calculateDeployedAddress(code: c.Cell, data: c.Cell, options: DeployedA
 }
 
 export class TgBtcCatGovernor implements c.Contract {
-    static CodeCell = c.Cell.fromBase64('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');
+    static CodeCell = c.Cell.fromBase64('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');
 
     static Errors = {
         'GovErrors.NotGovernor': 401,
@@ -1954,6 +2689,7 @@ export class TgBtcCatGovernor implements c.Contract {
         'GovErrors.VotingOpen': 413,
         'GovErrors.InvalidActionType': 414,
         'GovErrors.ProposalFeeTooSmall': 419,
+        'GovErrors.NotOpsAdmin': 420,
         'GovErrors.InvalidMessage': 65535,
     }
 
@@ -1971,6 +2707,7 @@ export class TgBtcCatGovernor implements c.Contract {
 
     static fromStorage(emptyStorage: {
         admin: c.Address
+        opsAdmin?: c.Address | null /* = null */
         voteJettonWallet: c.Address
         minVoteAmount: coins
         nextProposalId: uint64
@@ -2015,6 +2752,13 @@ export class TgBtcCatGovernor implements c.Contract {
         voteJettonWallet: c.Address
     }) {
         return SetVoteJettonWallet.toCell(SetVoteJettonWallet.create(body));
+    }
+
+    static createCellOfSetOpsAdmin(body: {
+        queryId: uint64
+        opsAdmin: c.Address | null
+    }) {
+        return SetOpsAdmin.toCell(SetOpsAdmin.create(body));
     }
 
     static createCellOfSetMinimumVoteAmount(body: {
@@ -2062,6 +2806,59 @@ export class TgBtcCatGovernor implements c.Contract {
         claimValue: coins
     }) {
         return ClaimJettonMasterAdmin.toCell(ClaimJettonMasterAdmin.create(body));
+    }
+
+    static createCellOfOpsSweepVoteJettons(body: {
+        queryId: uint64
+        jettonAmount: coins
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        walletTonAmount: coins
+        forwardTonAmount: coins
+    }) {
+        return OpsSweepVoteJettons.toCell(OpsSweepVoteJettons.create(body));
+    }
+
+    static createCellOfOpsSetFeeTreasury(body: {
+        queryId: uint64
+        feeController: c.Address | null
+        feeTreasury: c.Address
+        controllerValue: coins
+    }) {
+        return OpsSetFeeTreasury.toCell(OpsSetFeeTreasury.create(body));
+    }
+
+    static createCellOfOpsRouteWalletRuntime(body: {
+        queryId: uint64
+        jettonMaster: c.Address | null
+        walletOwner: c.Address
+        masterValue: coins
+        walletTonAmount: coins
+        extra: CellRef<OpsRouteWalletRuntimeExtra>
+    }) {
+        return OpsRouteWalletRuntime.toCell(OpsRouteWalletRuntime.create(body));
+    }
+
+    static createCellOfOpsSendTreasuryTon(body: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        recipient: c.Address
+        amount: coins
+        bounce: boolean
+    }) {
+        return OpsSendTreasuryTon.toCell(OpsSendTreasuryTon.create(body));
+    }
+
+    static createCellOfOpsSendTreasuryJettons(body: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        jettonWallet: c.Address
+        jettonAmount: coins
+        extra: CellRef<OpsSendTreasuryJettonsExtra>
+    }) {
+        return OpsSendTreasuryJettons.toCell(OpsSendTreasuryJettons.create(body));
     }
 
     static createCellOfExecuteProposal(body: {
@@ -2137,6 +2934,17 @@ export class TgBtcCatGovernor implements c.Contract {
         });
     }
 
+    async sendSetOpsAdmin(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        opsAdmin: c.Address | null
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: SetOpsAdmin.toCell(SetOpsAdmin.create(body)),
+            ...extraOptions
+        });
+    }
+
     async sendSetMinimumVoteAmount(provider: ContractProvider, via: Sender, msgValue: coins, body: {
         queryId: uint64
         minVoteAmount: coins
@@ -2204,6 +3012,79 @@ export class TgBtcCatGovernor implements c.Contract {
         return provider.internal(via, {
             value: msgValue,
             body: ClaimJettonMasterAdmin.toCell(ClaimJettonMasterAdmin.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendOpsSweepVoteJettons(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        jettonAmount: coins
+        transferRecipient: c.Address
+        sendExcessesTo: c.Address | null
+        walletTonAmount: coins
+        forwardTonAmount: coins
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: OpsSweepVoteJettons.toCell(OpsSweepVoteJettons.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendOpsSetFeeTreasury(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        feeController: c.Address | null
+        feeTreasury: c.Address
+        controllerValue: coins
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: OpsSetFeeTreasury.toCell(OpsSetFeeTreasury.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendOpsRouteWalletRuntime(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        jettonMaster: c.Address | null
+        walletOwner: c.Address
+        masterValue: coins
+        walletTonAmount: coins
+        extra: CellRef<OpsRouteWalletRuntimeExtra>
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: OpsRouteWalletRuntime.toCell(OpsRouteWalletRuntime.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendOpsSendTreasuryTon(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        recipient: c.Address
+        amount: coins
+        bounce: boolean
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: OpsSendTreasuryTon.toCell(OpsSendTreasuryTon.create(body)),
+            ...extraOptions
+        });
+    }
+
+    async sendOpsSendTreasuryJettons(provider: ContractProvider, via: Sender, msgValue: coins, body: {
+        queryId: uint64
+        treasury: c.Address
+        treasuryValue: coins
+        jettonWallet: c.Address
+        jettonAmount: coins
+        extra: CellRef<OpsSendTreasuryJettonsExtra>
+    }, extraOptions?: ExtraSendOptions) {
+        return provider.internal(via, {
+            value: msgValue,
+            body: OpsSendTreasuryJettons.toCell(OpsSendTreasuryJettons.create(body)),
             ...extraOptions
         });
     }
@@ -2301,6 +3182,17 @@ export class TgBtcCatGovernor implements c.Contract {
             r.readBigInt(),
             r.readSlice().loadAddress(),
         ];
+    }
+
+    async getOpsConfig(provider: ContractProvider): Promise<GovernorOpsConfigReply> {
+        const r = StackReader.fromGetMethod(2, await provider.get('get_ops_config', []));
+        return ({
+            $: 'GovernorOpsConfigReply',
+            admin: r.readSlice().loadAddress(),
+            opsAdmin: r.readNullable<c.Address>(
+                (r) => r.readSlice().loadAddress()
+            ),
+        });
     }
 
     async getExecutionConfig(provider: ContractProvider): Promise<[

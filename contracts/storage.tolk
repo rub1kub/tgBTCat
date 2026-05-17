@@ -31,6 +31,7 @@ struct MinterStorage {
     adminAddress: address?
     nextAdminAddress: address?
     metadata: cell
+    runtimeAdminAddress: address? = null
 }
 
 fun MinterStorage.load(): MinterStorage {

@@ -20,6 +20,7 @@ enum GovErrors {
     InvalidEventTime = 417
     InvalidEventKind = 418
     ProposalFeeTooSmall = 419
+    NotOpsAdmin = 420
     InvalidMessage = 0xFFFF
 }
 
@@ -149,6 +150,11 @@ struct TreasuryConfigReply {
     primaryJettonWallet: address?
 }
 
+struct GovernorOpsConfigReply {
+    admin: address
+    opsAdmin: address?
+}
+
 struct CommunityEventReply {
     isSet: bool
     eventId: uint64
@@ -213,6 +219,7 @@ struct GovernorRuntimeExecutionConfig {
 
 struct GovernorStorage {
     admin: address
+    opsAdmin: address? = null
     voteJettonWallet: address
     minVoteAmount: coins
     nextProposalId: uint64
@@ -467,6 +474,43 @@ struct (0x1004000a) CreateRawExecutionProposal {
     body: cell
     reasonHash: uint256
     votingEndsAt: uint32
+}
+
+struct (0x1004000b) SetOpsAdmin {
+    queryId: uint64
+    opsAdmin: address?
+}
+
+struct (0x1004000d) OpsSetFeeTreasury {
+    queryId: uint64
+    feeController: address?
+    feeTreasury: address
+    controllerValue: coins
+}
+
+struct OpsRouteWalletRuntimeExtra {
+    feeTreasury: address?
+    globalBuyFeeBps: uint16
+    globalSellFeeBps: uint16
+    isDexWallet: bool
+}
+
+struct (0x1004000e) OpsRouteWalletRuntime {
+    queryId: uint64
+    jettonMaster: address?
+    walletOwner: address
+    masterValue: coins
+    walletTonAmount: coins
+    extra: Cell<OpsRouteWalletRuntimeExtra>
+}
+
+struct (0x1004000f) OpsSendTreasuryTon {
+    queryId: uint64
+    treasury: address
+    treasuryValue: coins
+    recipient: address
+    amount: coins
+    bounce: bool
 }
 
 struct (0x766f7465) CastVotePayload {
