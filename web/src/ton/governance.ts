@@ -1,6 +1,6 @@
-import { Address, beginCell, Cell } from '@ton/core';
+import { Address, beginCell, Cell, type Slice } from '@ton/core';
 import type { ProposalRow, ProposalStatus } from '../data/proposals';
-import { getToncenterRunGetMethodEndpoint } from './rpc';
+import { getToncenterRunGetMethodEndpoint, getToncenterTransactionsEndpoint } from './rpc';
 import { shortAddress, type ResolveJettonWalletInput } from './transactions';
 
 type NetworkKey = ResolveJettonWalletInput['network'];
@@ -14,6 +14,21 @@ interface RunGetMethodResponse {
   exit_code?: number;
   stack?: ToncenterStackItem[];
   error?: string;
+}
+
+interface ToncenterTransactionResponse {
+  transactions?: ToncenterTransaction[];
+  error?: string;
+}
+
+interface ToncenterTransaction {
+  hash?: string;
+  now?: number;
+  in_msg?: {
+    message_content?: {
+      body?: string;
+    };
+  };
 }
 
 interface ProposalGetterResult {
@@ -49,10 +64,21 @@ export interface WalletFeeRuleState {
   reasonHash: string;
 }
 
+export interface VoteReceipt {
+  voter: string;
+  side: 1 | 2;
+  amount: number;
+  timestamp: number;
+  txHash: string;
+}
+
 const ACTION_SET_GLOBAL_FEES = 1n;
 const ACTION_SET_WALLET_FEES = 2n;
+const TRANSFER_NOTIFICATION_OPCODE = 0x7362d09c;
+const CAST_VOTE_OPCODE = 0x766f7465;
 const JETTON_SCALE = 1_000_000_000;
 const MAX_PROPOSALS = 20;
+const MAX_VOTE_HISTORY_TRANSACTIONS = 1000;
 const PUBLIC_RATE_LIMIT_DELAY_MS = 1100;
 const MAX_READ_ATTEMPTS = 4;
 
@@ -107,6 +133,38 @@ export async function fetchWalletFeeRule(
     sellFeePercent: bpsToPercent(readStackInt(stack[2])),
     reasonHash: readStackInt(stack[3]).toString(),
   };
+}
+
+export async function fetchProposalVoteReceipts(input: {
+  network: NetworkKey;
+  governorAddress: string;
+  proposalId: number;
+}): Promise<VoteReceipt[]> {
+  const url = new URL(getToncenterTransactionsEndpoint(), window.location.origin);
+  url.searchParams.set('account', input.governorAddress);
+  url.searchParams.set('limit', String(MAX_VOTE_HISTORY_TRANSACTIONS));
+  url.searchParams.set('sort', 'desc');
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`vote history read failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as ToncenterTransactionResponse;
+  if (!Array.isArray(result.transactions)) {
+    throw new Error(result.error || 'vote history read returned no transactions');
+  }
+
+  return result.transactions
+    .map((transaction) => parseVoteReceipt(transaction, input.proposalId))
+    .filter((receipt): receipt is VoteReceipt => receipt !== null)
+    .sort((left, right) => right.timestamp - left.timestamp);
 }
 
 async function getNextProposalId(network: NetworkKey, governorAddress: string): Promise<bigint> {
@@ -205,7 +263,7 @@ function getProposalStatus(proposal: ProposalGetterResult): ProposalStatus {
   if (proposal.forVotes > proposal.againstVotes) {
     return 'passed';
   }
-  return 'queued';
+  return 'rejected';
 }
 
 function getProposalTitle(actionType: bigint): string {
@@ -317,6 +375,75 @@ function bpsToPercent(value: bigint): number {
 
 function waitForPublicRateLimit(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, PUBLIC_RATE_LIMIT_DELAY_MS));
+}
+
+function parseVoteReceipt(transaction: ToncenterTransaction, proposalId: number): VoteReceipt | null {
+  const body = transaction.in_msg?.message_content?.body;
+  if (!body) {
+    return null;
+  }
+
+  try {
+    const slice = Cell.fromBase64(body).beginParse();
+    if (slice.loadUint(32) !== TRANSFER_NOTIFICATION_OPCODE) {
+      return null;
+    }
+
+    slice.loadUintBig(64);
+    const amount = slice.loadCoins();
+    const voter = slice.loadMaybeAddress();
+    const payloadCell = readForwardPayloadCell(slice);
+    if (!voter || !payloadCell) {
+      return null;
+    }
+
+    const payload = payloadCell.beginParse();
+    if (payload.loadUint(32) !== CAST_VOTE_OPCODE) {
+      return null;
+    }
+
+    const parsedProposalId = Number(payload.loadUintBig(64));
+    const side = payload.loadUint(8);
+    if (parsedProposalId !== proposalId || (side !== 1 && side !== 2)) {
+      return null;
+    }
+
+    return {
+      voter: voter.toString({ testOnly: false }),
+      side,
+      amount: fromJettonUnits(amount),
+      timestamp: transaction.now ?? 0,
+      txHash: transaction.hash ?? '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readForwardPayloadCell(slice: Slice): Cell | null {
+  if (slice.remainingBits <= 0) {
+    return null;
+  }
+
+  const isRef = slice.loadBit();
+  const payload = isRef ? slice.loadRef() : slice.asCell();
+  return unwrapPayloadCell(payload);
+}
+
+function unwrapPayloadCell(cell: Cell): Cell {
+  let current = cell;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (current.bits.length !== 1 || current.refs.length !== 1) {
+      return current;
+    }
+
+    const slice = current.beginParse();
+    if (!slice.loadBit()) {
+      return slice.asCell();
+    }
+    current = slice.loadRef();
+  }
+  return current;
 }
 
 function cellToBase64(cell: { toBoc(options?: { idx?: boolean }): Uint8Array }, options?: { idx?: boolean }): string {

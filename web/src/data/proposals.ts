@@ -1,6 +1,6 @@
 import type { ContractKey } from '../ton/contracts';
 
-export type ProposalStatus = 'open' | 'passed' | 'queued' | 'executed';
+export type ProposalStatus = 'open' | 'passed' | 'queued' | 'executed' | 'rejected';
 
 export interface ProposalRow {
   id: number;

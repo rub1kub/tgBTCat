@@ -3,13 +3,16 @@ import json
 import os
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
-TONCENTER_ENDPOINT = "https://toncenter.com/api/v3/runGetMethod"
+TONCENTER_RUN_GET_ENDPOINT = "https://toncenter.com/api/v3/runGetMethod"
+TONCENTER_TRANSACTIONS_ENDPOINT = "https://toncenter.com/api/v3/transactions"
 MAX_BODY_BYTES = 32 * 1024
 RATE_WINDOW_SECONDS = 10
 RATE_MAX_REQUESTS = 120
+MAX_TRANSACTION_LIMIT = 1000
 
 ALLOWED_METHODS = {
     "get_global_fees",
@@ -25,6 +28,10 @@ KNOWN_ADDRESS_METHODS = {
     "EQB9i0ArmUaBXhq7hVfV5Q1eANcdDchrqiCXnmlbG_Oabrmh": {"get_wallet_fees"},
     "EQAuV-4s02xuBkSaF7rinSu8kIoNrG9MoP6NLlX4Gyp2mcYM": {"get_next_proposal_id", "get_proposal"},
     "EQAtFLwK8HZD6KD1UF4h-S6BzYyTReSUJzQBLhHIycqfDpro": {"get_wallet_address"},
+}
+
+ALLOWED_TRANSACTION_ACCOUNTS = {
+    "EQAuV-4s02xuBkSaF7rinSu8kIoNrG9MoP6NLlX4Gyp2mcYM",
 }
 
 rate_state: dict[str, list[float]] = {}
@@ -62,9 +69,48 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         try:
             upstream = requests.post(
-                TONCENTER_ENDPOINT,
+                TONCENTER_RUN_GET_ENDPOINT,
                 json=body,
                 headers={"Content-Type": "application/json", "X-API-Key": api_key},
+                timeout=12,
+            )
+        except requests.RequestException:
+            self.send_json(502, {"error": "toncenter upstream is unavailable"})
+            return
+
+        self.send_response(upstream.status_code)
+        self.send_common_headers()
+        self.send_header("Content-Type", upstream.headers.get("Content-Type", "application/json"))
+        self.end_headers()
+        self.wfile.write(upstream.content)
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path != "/transactions":
+            self.send_json(404, {"error": "not found"})
+            return
+
+        client_ip = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+        if not allow_rate(client_ip):
+            self.send_json(429, {"error": "rate limit exceeded"})
+            return
+
+        try:
+            params = self.validate_transactions_query(parse_qs(parsed.query))
+        except ValueError as exc:
+            self.send_json(400, {"error": str(exc)})
+            return
+
+        api_key = os.environ.get("TONCENTER_API_KEY")
+        if not api_key:
+            self.send_json(500, {"error": "toncenter api key is not configured"})
+            return
+
+        try:
+            upstream = requests.get(
+                TONCENTER_TRANSACTIONS_ENDPOINT,
+                params=params,
+                headers={"X-API-Key": api_key},
                 timeout=12,
             )
         except requests.RequestException:
@@ -121,6 +167,48 @@ class ProxyHandler(BaseHTTPRequestHandler):
             if isinstance(value, str) and len(value) > 8192:
                 raise ValueError("stack item value is too large")
 
+    def validate_transactions_query(self, query):
+        account = self.single_query_value(query, "account", required=True)
+        if account not in ALLOWED_TRANSACTION_ACCOUNTS:
+            raise ValueError("account is not allowed")
+
+        limit_raw = self.single_query_value(query, "limit", required=False) or "100"
+        sort = self.single_query_value(query, "sort", required=False) or "desc"
+        offset_raw = self.single_query_value(query, "offset", required=False) or "0"
+
+        try:
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except ValueError:
+            raise ValueError("limit and offset must be numbers")
+
+        if limit < 1 or limit > MAX_TRANSACTION_LIMIT:
+            raise ValueError("limit is out of range")
+        if offset < 0:
+            raise ValueError("offset is out of range")
+        if sort not in {"asc", "desc"}:
+            raise ValueError("sort is not allowed")
+
+        return {
+            "account": account,
+            "limit": str(limit),
+            "offset": str(offset),
+            "sort": sort,
+        }
+
+    def single_query_value(self, query, name, required):
+        values = query.get(name)
+        if not values:
+            if required:
+                raise ValueError(f"{name} is required")
+            return None
+        if len(values) != 1:
+            raise ValueError(f"{name} must be provided once")
+        value = values[0]
+        if not isinstance(value, str) or len(value) > 128:
+            raise ValueError(f"{name} is invalid")
+        return value
+
     def send_json(self, status, payload):
         data = json.dumps(payload, separators=(",", ":")).encode()
         self.send_response(status)
@@ -132,7 +220,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def send_common_headers(self):
         self.send_header("Access-Control-Allow-Origin", "https://tgbtcat.fun")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("X-Content-Type-Options", "nosniff")
 

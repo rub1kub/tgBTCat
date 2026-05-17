@@ -43,7 +43,15 @@ import {
   type TonConnectTransaction,
   type VoteSide,
 } from './ton/transactions';
-import { fetchGlobalFees, fetchGovernanceProposals, fetchWalletFeeRule, type GlobalFeeState, type WalletFeeRuleState } from './ton/governance';
+import {
+  fetchGlobalFees,
+  fetchGovernanceProposals,
+  fetchProposalVoteReceipts,
+  fetchWalletFeeRule,
+  type GlobalFeeState,
+  type VoteReceipt,
+  type WalletFeeRuleState,
+} from './ton/governance';
 
 type PageKey = 'home' | 'tokenomics' | 'roadmap' | 'vote' | 'contracts';
 type GovernanceMode = 'cast' | 'propose';
@@ -276,8 +284,20 @@ const copyByLanguage = {
       impactTitle: 'Vote preview',
       currentWeight: 'Current result',
       afterVote: 'After your vote',
-      outcomeFor: 'If FOR wins, the question can be executed on-chain.',
-      outcomeAgainst: 'If AGAINST wins, nothing changes.',
+      outcomeFor: 'If FOR wins, the decision becomes ready to apply.',
+      outcomeAgainst: 'If AGAINST wins, fees do not change.',
+      resultTitle: 'Question result',
+      resultAccepted: 'Accepted. Waiting to be applied.',
+      resultApplied: 'Decision applied.',
+      resultRejected: 'Not accepted. Fees did not change.',
+      resultClosed: 'Voting is closed.',
+      voteHistoryTitle: 'who voted',
+      voteHistoryLoading: 'loading votes...',
+      voteHistoryEmpty: 'No indexed votes for this question yet.',
+      voteHistoryError: 'Could not load vote details.',
+      voteHistoryCount: 'votes',
+      voteHistoryWallet: 'wallet',
+      voteHistoryAmount: 'amount',
       proposedFees: 'Proposed fees',
       buyProposed: 'Buy',
       sellProposed: 'Sell',
@@ -319,6 +339,7 @@ const copyByLanguage = {
       passed: 'Ready',
       queued: 'Ready',
       executed: 'Applied',
+      rejected: 'Rejected',
     } satisfies Record<ProposalStatus, string>,
     sides: {
       1: 'FOR',
@@ -530,8 +551,20 @@ const copyByLanguage = {
       impactTitle: 'Предпросмотр голоса',
       currentWeight: 'Текущий результат',
       afterVote: 'После вашего голоса',
-      outcomeFor: 'если победит за, вопрос можно будет исполнить ончейн.',
-      outcomeAgainst: 'если победит против, ничего не изменится.',
+      outcomeFor: 'если победит за, решение будет готово к применению.',
+      outcomeAgainst: 'если победит против, комиссии не изменятся.',
+      resultTitle: 'итог вопроса',
+      resultAccepted: 'принято. ждет применения.',
+      resultApplied: 'решение применено.',
+      resultRejected: 'не принято. комиссии не изменились.',
+      resultClosed: 'голосование закрыто.',
+      voteHistoryTitle: 'кто голосовал',
+      voteHistoryLoading: 'загружаю голоса...',
+      voteHistoryEmpty: 'по этому вопросу пока нет голосов в индексе.',
+      voteHistoryError: 'не удалось загрузить детали голосов.',
+      voteHistoryCount: 'голосов',
+      voteHistoryWallet: 'кошелек',
+      voteHistoryAmount: 'количество',
       proposedFees: 'предложенные комиссии',
       buyProposed: 'покупка',
       sellProposed: 'продажа',
@@ -573,6 +606,7 @@ const copyByLanguage = {
       passed: 'готово',
       queued: 'готово',
       executed: 'исполнено',
+      rejected: 'не принято',
     } satisfies Record<ProposalStatus, string>,
     sides: {
       1: 'за',
@@ -633,6 +667,9 @@ export default function App() {
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState('');
   const [proposalReloadNonce, setProposalReloadNonce] = useState(0);
+  const [voteReceipts, setVoteReceipts] = useState<VoteReceipt[]>([]);
+  const [voteReceiptsLoading, setVoteReceiptsLoading] = useState(false);
+  const [voteReceiptsError, setVoteReceiptsError] = useState('');
   const selectedProposalIdRef = useRef(selectedProposalId);
   const selectNewestProposalOnRefresh = useRef(false);
   const [globalFees, setGlobalFees] = useState<GlobalFeeState | null>(null);
@@ -798,6 +835,45 @@ export default function App() {
   }, [addressBook.addresses.feeController, network]);
 
   useEffect(() => {
+    const governorAddress = addressBook.addresses.governor;
+    if (!governorAddress || selectedProposalId < 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadVoteReceipts = async () => {
+      setVoteReceiptsLoading(true);
+      setVoteReceiptsError('');
+      try {
+        const receipts = await fetchProposalVoteReceipts({
+          network,
+          governorAddress,
+          proposalId: selectedProposalId,
+        });
+        if (!cancelled) {
+          setVoteReceipts(receipts);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setVoteReceipts([]);
+          setVoteReceiptsError(formatError(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setVoteReceiptsLoading(false);
+        }
+      }
+    };
+
+    void loadVoteReceipts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addressBook.addresses.governor, network, selectedProposalId, proposalReloadNonce]);
+
+  useEffect(() => {
     const jettonMaster = addressBook.addresses.jettonMaster;
     if (!connectedAddress || !jettonMaster) {
       return;
@@ -889,7 +965,11 @@ export default function App() {
           : buildGlobalFeeProposalTransaction(baseInput);
       const sent = await sendPreparedTransaction(transaction, t.vote.proposalSent);
       if (sent) {
-        requestProposalRefresh({ selectNewest: true });
+        window.setTimeout(() => {
+          setActivePage('vote');
+          setGovernanceMode('cast');
+          requestProposalRefresh({ selectNewest: true });
+        }, 2500);
       }
     } catch (error) {
       setErrorMessage(formatError(error));
@@ -946,12 +1026,16 @@ export default function App() {
   };
 
   const requestProposalRefresh = (options: { selectNewest?: boolean } = {}) => {
-    if (options.selectNewest) {
-      selectNewestProposalOnRefresh.current = true;
-    }
-    setProposalReloadNonce((current) => current + 1);
+    const refresh = () => {
+      if (options.selectNewest) {
+        selectNewestProposalOnRefresh.current = true;
+      }
+      setProposalReloadNonce((current) => current + 1);
+    };
+
+    refresh();
     [5_000, 12_000, 22_000].forEach((delay) => {
-      window.setTimeout(() => setProposalReloadNonce((current) => current + 1), delay);
+      window.setTimeout(refresh, delay);
     });
   };
 
@@ -1024,7 +1108,7 @@ export default function App() {
             >
               <Wallet size={17} />
               <span className={connectedAddress ? 'wallet-address' : undefined}>
-                {connectedAddress ? t.common.connected : t.common.connect}
+                {connectedAddress ? shortAddress(connectedAddress) : t.common.connect}
               </span>
             </button>
           </div>
@@ -1083,6 +1167,9 @@ export default function App() {
               walletBinding={effectiveWalletBinding}
               walletBindingMessage={effectiveWalletBindingMessage}
               tokenBalance={tokenBalance}
+              voteReceipts={voteReceipts}
+              voteReceiptsLoading={voteReceiptsLoading}
+              voteReceiptsError={voteReceiptsError}
               statusMessage={statusMessage}
               errorMessage={errorMessage}
               explorerHref={lastExplorerHref}
@@ -1305,6 +1392,9 @@ function VotePage({
   walletBinding,
   walletBindingMessage,
   tokenBalance,
+  voteReceipts,
+  voteReceiptsLoading,
+  voteReceiptsError,
   statusMessage,
   errorMessage,
   explorerHref,
@@ -1336,6 +1426,9 @@ function VotePage({
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
   tokenBalance: string;
+  voteReceipts: VoteReceipt[];
+  voteReceiptsLoading: boolean;
+  voteReceiptsError: string;
   statusMessage: string;
   errorMessage: string;
   explorerHref: string;
@@ -1406,6 +1499,9 @@ function VotePage({
               walletBinding={walletBinding}
               walletBindingMessage={walletBindingMessage}
               tokenBalance={tokenBalance}
+              voteReceipts={voteReceipts}
+              voteReceiptsLoading={voteReceiptsLoading}
+              voteReceiptsError={voteReceiptsError}
               onConnectWallet={onConnectWallet}
               onChange={onVoteChange}
               onSend={onSendVote}
@@ -1753,6 +1849,9 @@ function VotePanel({
   walletBinding,
   walletBindingMessage,
   tokenBalance,
+  voteReceipts,
+  voteReceiptsLoading,
+  voteReceiptsError,
   onConnectWallet,
   onChange,
   onSend,
@@ -1765,6 +1864,9 @@ function VotePanel({
   walletBinding: WalletBindingState;
   walletBindingMessage: string;
   tokenBalance: string;
+  voteReceipts: VoteReceipt[];
+  voteReceiptsLoading: boolean;
+  voteReceiptsError: string;
   onConnectWallet: () => void;
   onChange: (patch: Partial<VoteFormState>) => void;
   onSend: () => void;
@@ -1784,6 +1886,34 @@ function VotePanel({
   const preview = buildVotePreview(proposal, form.side, Number.isFinite(voteAmount) ? voteAmount : 0);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const canUseMax = walletBinding === 'ready' && balanceUnits !== null && balanceUnits > 0n;
+
+  if (votingClosed) {
+    return (
+      <section className="panel form-panel result-panel">
+        <div className="section-header">
+          <h2>{copy.vote.resultTitle}</h2>
+          <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
+        </div>
+        <div className="vote-context-card">
+          <div className="selected-proposal">
+            <strong>
+              #{proposal.id} {proposalDisplay.title}
+            </strong>
+            <small>{proposalDisplay.execution}</small>
+          </div>
+          <ProposedFees copy={copy} proposal={proposal} compact />
+        </div>
+        <ProposalResultSummary copy={copy} proposal={proposal} language={language} />
+        <VoteHistoryPanel
+          copy={copy}
+          language={language}
+          receipts={voteReceipts}
+          loading={voteReceiptsLoading}
+          error={voteReceiptsError}
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="panel form-panel">
@@ -1884,18 +2014,122 @@ function VotePanel({
         </div>
         <p>{form.side === 1 ? copy.vote.outcomeFor : copy.vote.outcomeAgainst}</p>
       </div>
+      <VoteHistoryPanel
+        copy={copy}
+        language={language}
+        receipts={voteReceipts}
+        loading={voteReceiptsLoading}
+        error={voteReceiptsError}
+      />
       <div className="button-row">
         <button
           className="primary-action wide-action"
           type="button"
           onClick={onSend}
-          disabled={!connectedAddress || !form.voterJettonWallet || amountInvalid || amountTooHigh || votingClosed}
+          disabled={!connectedAddress || !form.voterJettonWallet || amountInvalid || amountTooHigh}
         >
           <Send size={18} />
           {copy.common.send}
         </button>
       </div>
     </section>
+  );
+}
+
+function ProposalResultSummary({
+  copy,
+  proposal,
+  language,
+}: {
+  copy: AppCopy;
+  proposal: ProposalRow;
+  language: LanguageKey;
+}) {
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+  const total = proposal.forVotes + proposal.againstVotes || 1;
+  const forPercent = (proposal.forVotes / total) * 100;
+  const againstPercent = (proposal.againstVotes / total) * 100;
+  const resultText =
+    proposal.status === 'executed'
+      ? copy.vote.resultApplied
+      : proposal.status === 'rejected'
+        ? copy.vote.resultRejected
+        : proposal.status === 'passed' || proposal.status === 'queued'
+          ? copy.vote.resultAccepted
+          : copy.vote.resultClosed;
+
+  return (
+    <div className="impact-panel result-summary">
+      <div className="impact-heading">
+        <span>
+          <Trophy size={17} />
+          {copy.vote.resultTitle}
+        </span>
+        <strong>{copy.status[proposal.status]}</strong>
+      </div>
+      <div className="impact-grid">
+        <div>
+          <span>{copy.sides[1]}</span>
+          <strong>{formatPercent(forPercent)}</strong>
+          <small>{formatVotes(proposal.forVotes, locale)}</small>
+        </div>
+        <div>
+          <span>{copy.sides[2]}</span>
+          <strong>{formatPercent(againstPercent)}</strong>
+          <small>{formatVotes(proposal.againstVotes, locale)}</small>
+        </div>
+      </div>
+      <VoteBars proposal={proposal} />
+      <p>{resultText}</p>
+    </div>
+  );
+}
+
+function VoteHistoryPanel({
+  copy,
+  language,
+  receipts,
+  loading,
+  error,
+}: {
+  copy: AppCopy;
+  language: LanguageKey;
+  receipts: VoteReceipt[];
+  loading: boolean;
+  error: string;
+}) {
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+
+  return (
+    <details className="vote-history-panel">
+      <summary>
+        <span>
+          <Wallet size={17} />
+          {copy.vote.voteHistoryTitle}
+        </span>
+        <strong>{loading ? copy.vote.voteHistoryLoading : `${receipts.length} ${copy.vote.voteHistoryCount}`}</strong>
+      </summary>
+      <div className="vote-history-body">
+        {error ? (
+          <p className="field-error">{copy.vote.voteHistoryError} {error}</p>
+        ) : loading ? (
+          <p>{copy.vote.voteHistoryLoading}</p>
+        ) : receipts.length === 0 ? (
+          <p>{copy.vote.voteHistoryEmpty}</p>
+        ) : (
+          <div className="vote-history-list">
+            {receipts.map((receipt) => (
+              <div key={`${receipt.txHash}-${receipt.voter}-${receipt.side}-${receipt.amount}`} className="vote-history-row">
+                <span className="vote-history-wallet">{shortAddress(receipt.voter)}</span>
+                <span className={`vote-history-side vote-history-side-${receipt.side}`}>{copy.sides[receipt.side]}</span>
+                <strong>{formatVotes(receipt.amount, locale)} tgBTCat</strong>
+                <time>{formatVoteReceiptTime(receipt.timestamp, language)}</time>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -2246,6 +2480,19 @@ function formatProposalTiming(proposal: ProposalRow, language: LanguageKey): str
 
   const hours = Math.ceil(minutes / 60);
   return language === 'ru' ? `${hours} ч` : `${hours} h`;
+}
+
+function formatVoteReceiptTime(timestamp: number, language: LanguageKey): string {
+  if (!timestamp) {
+    return language === 'ru' ? 'скоро' : 'soon';
+  }
+
+  return new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestamp * 1000));
 }
 
 function requireAddress(address: string | null, message: string): string {

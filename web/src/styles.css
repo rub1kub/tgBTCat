@@ -1176,6 +1176,11 @@ main {
   color: var(--blue);
 }
 
+.status-rejected {
+  background: #fff0f0;
+  color: var(--red);
+}
+
 .status-against {
   background: #fff0f0;
   color: var(--red);
@@ -1539,6 +1544,111 @@ select:focus {
   line-height: 1.42;
 }
 
+.result-panel {
+  align-content: start;
+}
+
+.result-summary .vote-bars {
+  height: 8px;
+}
+
+.vote-history-panel {
+  border: 1px solid var(--soft-line);
+  background: rgba(247, 249, 252, 0.88);
+}
+
+.vote-history-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.vote-history-panel summary span,
+.vote-history-panel summary strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vote-history-panel summary strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vote-history-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.vote-history-body p {
+  margin: 0;
+}
+
+.vote-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.vote-history-row {
+  display: grid;
+  grid-template-columns: minmax(116px, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.vote-history-wallet {
+  color: var(--ink);
+  font-weight: 850;
+  text-transform: none;
+}
+
+.vote-history-side {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.vote-history-side-1 {
+  background: #eef7ff;
+  color: #075985;
+}
+
+.vote-history-side-2 {
+  background: #fff0f0;
+  color: var(--red);
+}
+
+.vote-history-row strong {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.vote-history-row time {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .side-selector,
 .proposal-kind-switch {
   display: grid;
@@ -1857,6 +1967,9 @@ select,
 .impact-panel,
 .impact-heading strong,
 .impact-grid div,
+.vote-history-panel,
+.vote-history-row,
+.vote-history-side,
 .fee-control,
 .fee-preview,
 .create-scenarios button,
@@ -2021,6 +2134,12 @@ select,
   .proposal-row-meta {
     flex-wrap: wrap;
     white-space: normal;
+  }
+
+  .vote-history-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    padding: 10px;
   }
 
   .wallet-fee-lookup summary span {
