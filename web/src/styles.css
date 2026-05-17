@@ -1112,6 +1112,13 @@ main {
   line-height: 1.5;
 }
 
+.proposal-refresh-error {
+  margin: 12px 0 0;
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 820;
+}
+
 .proposal-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

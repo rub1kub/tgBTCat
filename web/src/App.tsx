@@ -1717,12 +1717,12 @@ function ProposalTable({
         </div>
       </div>
       <div className="proposal-list">
-        {loading ? (
+        {loading && proposals.length === 0 ? (
           <div className="proposal-empty-state">
             <strong>{copy.vote.loadingQuestions}</strong>
             <p>{copy.vote.text}</p>
           </div>
-        ) : error ? (
+        ) : error && proposals.length === 0 ? (
           <div className="proposal-empty-state">
             <strong>{copy.vote.questionsLoadError}</strong>
             <p>{error}</p>
@@ -1760,6 +1760,7 @@ function ProposalTable({
           );
         })}
       </div>
+      {error && proposals.length > 0 && <p className="proposal-refresh-error">{copy.vote.questionsLoadError}</p>}
     </section>
   );
 }

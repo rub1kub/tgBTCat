@@ -13,6 +13,9 @@ MAX_BODY_BYTES = 32 * 1024
 RATE_WINDOW_SECONDS = 10
 RATE_MAX_REQUESTS = 120
 MAX_TRANSACTION_LIMIT = 1000
+DEFAULT_CACHE_TTL_SECONDS = 3
+TRANSACTIONS_CACHE_TTL_SECONDS = 8
+STALE_IF_ERROR_SECONDS = 30
 
 ALLOWED_METHODS = {
     "get_global_fees",
@@ -35,6 +38,7 @@ ALLOWED_TRANSACTION_ACCOUNTS = {
 }
 
 rate_state: dict[str, list[float]] = {}
+response_cache: dict[str, dict[str, object]] = {}
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -67,6 +71,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.send_json(500, {"error": "toncenter api key is not configured"})
             return
 
+        cache_key = build_run_get_cache_key(body)
+        cached = get_cached_response(cache_key)
+        if cached is not None:
+            self.send_cached_response(cached, "HIT")
+            return
+
         try:
             upstream = requests.post(
                 TONCENTER_RUN_GET_ENDPOINT,
@@ -75,14 +85,17 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 timeout=12,
             )
         except requests.RequestException:
+            stale = get_cached_response(cache_key, allow_stale=True)
+            if stale is not None:
+                self.send_cached_response(stale, "STALE")
+                return
             self.send_json(502, {"error": "toncenter upstream is unavailable"})
             return
 
-        self.send_response(upstream.status_code)
-        self.send_common_headers()
-        self.send_header("Content-Type", upstream.headers.get("Content-Type", "application/json"))
-        self.end_headers()
-        self.wfile.write(upstream.content)
+        if should_cache_run_get(body, upstream.status_code):
+            store_cached_response(cache_key, upstream, DEFAULT_CACHE_TTL_SECONDS)
+
+        self.send_upstream_response(upstream, "MISS")
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -106,6 +119,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.send_json(500, {"error": "toncenter api key is not configured"})
             return
 
+        cache_key = build_transactions_cache_key(params)
+        cached = get_cached_response(cache_key)
+        if cached is not None:
+            self.send_cached_response(cached, "HIT")
+            return
+
         try:
             upstream = requests.get(
                 TONCENTER_TRANSACTIONS_ENDPOINT,
@@ -114,14 +133,35 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 timeout=12,
             )
         except requests.RequestException:
+            stale = get_cached_response(cache_key, allow_stale=True)
+            if stale is not None:
+                self.send_cached_response(stale, "STALE")
+                return
             self.send_json(502, {"error": "toncenter upstream is unavailable"})
             return
 
+        if upstream.status_code == 200:
+            store_cached_response(cache_key, upstream, TRANSACTIONS_CACHE_TTL_SECONDS)
+
+        self.send_upstream_response(upstream, "MISS")
+
+    def send_upstream_response(self, upstream, cache_status):
         self.send_response(upstream.status_code)
         self.send_common_headers()
+        self.send_header("X-Proxy-Cache", cache_status)
         self.send_header("Content-Type", upstream.headers.get("Content-Type", "application/json"))
         self.end_headers()
         self.wfile.write(upstream.content)
+
+    def send_cached_response(self, cached, cache_status):
+        content = cached["content"]
+        self.send_response(cached["status_code"])
+        self.send_common_headers()
+        self.send_header("X-Proxy-Cache", cache_status)
+        self.send_header("Content-Type", cached["content_type"])
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
 
     def read_json_body(self):
         length = int(self.headers.get("Content-Length", "0"))
@@ -238,6 +278,48 @@ def allow_rate(client_ip: str) -> bool:
     hits.append(now)
     rate_state[client_ip] = hits
     return True
+
+
+def build_run_get_cache_key(body) -> str:
+    normalized = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    return f"runGetMethod:{normalized}"
+
+
+def build_transactions_cache_key(params) -> str:
+    normalized = json.dumps(params, sort_keys=True, separators=(",", ":"))
+    return f"transactions:{normalized}"
+
+
+def should_cache_run_get(body, status_code: int) -> bool:
+    if status_code != 200:
+        return False
+    return body.get("method") != "get_wallet_data"
+
+
+def get_cached_response(key: str, allow_stale: bool = False):
+    cached = response_cache.get(key)
+    if cached is None:
+        return None
+
+    now = time.time()
+    if now <= cached["expires_at"]:
+        return cached
+    if allow_stale and now <= cached["stale_until"]:
+        return cached
+
+    response_cache.pop(key, None)
+    return None
+
+
+def store_cached_response(key: str, upstream, ttl_seconds: int):
+    now = time.time()
+    response_cache[key] = {
+        "status_code": upstream.status_code,
+        "content_type": upstream.headers.get("Content-Type", "application/json"),
+        "content": upstream.content,
+        "expires_at": now + ttl_seconds,
+        "stale_until": now + ttl_seconds + STALE_IF_ERROR_SECONDS,
+    }
 
 
 if __name__ == "__main__":
