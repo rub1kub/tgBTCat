@@ -109,6 +109,7 @@ const copyByLanguage = {
       connect: 'Connect',
       language: 'Language',
       ready: 'Ready',
+      connected: 'Connected',
       pending: 'Pending',
       address: 'Address',
       walletNotConnected: 'Wallet not connected',
@@ -231,6 +232,8 @@ const copyByLanguage = {
       currentFeesLive: 'live on-chain',
       globalBuyFee: 'global buy fee',
       globalSellFee: 'global sell fee',
+      globalFeesShort: 'global fees',
+      walletFeesShort: 'wallet fee',
       feesLoading: 'loading...',
       feesUnavailable: 'temporarily unavailable',
       walletFeeTitle: 'specific wallet fee',
@@ -366,6 +369,7 @@ const copyByLanguage = {
       connect: 'Подключить',
       language: 'Язык',
       ready: 'Готово',
+      connected: 'Подключен',
       pending: 'Скоро',
       address: 'Адрес',
       walletNotConnected: 'Кошелек не подключен',
@@ -488,6 +492,8 @@ const copyByLanguage = {
       currentFeesLive: 'онлайн из блокчейна',
       globalBuyFee: 'общая комиссия покупки',
       globalSellFee: 'общая комиссия продажи',
+      globalFeesShort: 'общие комиссии',
+      walletFeesShort: 'комиссия кошелька',
       feesLoading: 'загружаю...',
       feesUnavailable: 'временно недоступно',
       walletFeeTitle: 'комиссия конкретного кошелька',
@@ -1024,7 +1030,7 @@ export default function App() {
             >
               <Wallet size={17} />
               <span className={connectedAddress ? 'wallet-address' : undefined}>
-                {connectedAddress ? shortAddress(connectedAddress) : t.common.connect}
+                {connectedAddress ? t.common.connected : t.common.connect}
               </span>
             </button>
           </div>
@@ -1539,48 +1545,50 @@ function CurrentFeesPanel({
       </div>
       {fees.globalFeesError && <p className="field-error">{fees.globalFeesError}</p>}
 
-      <div className="wallet-fee-lookup">
-        <div>
+      <details className="wallet-fee-lookup">
+        <summary>
           <strong>{copy.vote.walletFeeTitle}</strong>
-          <p>{copy.vote.walletFeeText}</p>
-        </div>
-        <label>
-          {copy.vote.targetWallet}
-          <input
-            value={fees.walletFeeTarget}
-            placeholder={copy.vote.walletFeePlaceholder}
-            onChange={(event) => onWalletFeeTargetChange(event.target.value)}
-          />
-        </label>
-        <div className="button-row">
-          <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupWalletFee}>
-            {fees.walletFeeLoading ? copy.vote.feesLoading : copy.vote.walletFeeCheck}
-          </button>
-          {connectedAddress && onLookupConnectedWalletFee && (
-            <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupConnectedWalletFee}>
-              {copy.vote.walletFeeConnected}
+          <span>{copy.vote.walletFeeText}</span>
+        </summary>
+        <div className="wallet-fee-lookup-body">
+          <label>
+            {copy.vote.targetWallet}
+            <input
+              value={fees.walletFeeTarget}
+              placeholder={copy.vote.walletFeePlaceholder}
+              onChange={(event) => onWalletFeeTargetChange(event.target.value)}
+            />
+          </label>
+          <div className="button-row">
+            <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupWalletFee}>
+              {fees.walletFeeLoading ? copy.vote.feesLoading : copy.vote.walletFeeCheck}
             </button>
-          )}
-        </div>
-        {fees.walletFeeError && <p className="field-error">{fees.walletFeeError}</p>}
-        {fees.walletFee && (
-          <div className={fees.walletFee.isSet ? 'wallet-fee-result is-set' : 'wallet-fee-result'}>
-            <strong>{fees.walletFee.isSet ? copy.vote.walletFeeRuleFound : copy.vote.walletFeeNoRule}</strong>
-            {fees.walletFee.isSet && (
-              <div className="current-fee-grid">
-                <article className="current-fee-card">
-                  <span>{copy.vote.walletFeeBuy}</span>
-                  <strong>{formatPercentValue(fees.walletFee.buyFeePercent)}%</strong>
-                </article>
-                <article className="current-fee-card">
-                  <span>{copy.vote.walletFeeSell}</span>
-                  <strong>{formatPercentValue(fees.walletFee.sellFeePercent)}%</strong>
-                </article>
-              </div>
+            {connectedAddress && onLookupConnectedWalletFee && (
+              <button className="secondary-action" type="button" disabled={fees.walletFeeLoading} onClick={onLookupConnectedWalletFee}>
+                {copy.vote.walletFeeConnected}
+              </button>
             )}
           </div>
-        )}
-      </div>
+          {fees.walletFeeError && <p className="field-error">{fees.walletFeeError}</p>}
+          {fees.walletFee && (
+            <div className={fees.walletFee.isSet ? 'wallet-fee-result is-set' : 'wallet-fee-result'}>
+              <strong>{fees.walletFee.isSet ? copy.vote.walletFeeRuleFound : copy.vote.walletFeeNoRule}</strong>
+              {fees.walletFee.isSet && (
+                <div className="current-fee-grid">
+                  <article className="current-fee-card">
+                    <span>{copy.vote.walletFeeBuy}</span>
+                    <strong>{formatPercentValue(fees.walletFee.buyFeePercent)}%</strong>
+                  </article>
+                  <article className="current-fee-card">
+                    <span>{copy.vote.walletFeeSell}</span>
+                    <strong>{formatPercentValue(fees.walletFee.sellFeePercent)}%</strong>
+                  </article>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </details>
     </section>
   );
 }
@@ -1635,7 +1643,7 @@ function ProposalTable({
             <p>{copy.vote.emptyQuestionsText}</p>
           </div>
         ) : proposals.map((proposal) => {
-          const proposalDisplay = getProposalDisplay(copy, proposal);
+          const listTitle = proposal.target === 'feeController' ? copy.vote.globalFeesShort : copy.vote.walletFeesShort;
           return (
             <button
               key={proposal.id}
@@ -1644,16 +1652,17 @@ function ProposalTable({
               onClick={() => onSelect(proposal.id)}
             >
               <span className="proposal-main">
-                <strong>#{proposal.id} {proposalDisplay.title}</strong>
-                <small>{proposalDisplay.summary}</small>
+                <strong>#{proposal.id} {listTitle}</strong>
+                <span className="proposal-row-meta">
+                  <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
+                  <span className="proposal-meta">
+                    <Clock3 size={14} />
+                    {formatProposalTiming(proposal, language)}
+                  </span>
+                </span>
               </span>
-              <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
               <ProposedFees copy={copy} proposal={proposal} compact />
               <VoteBars proposal={proposal} />
-              <span className="proposal-meta">
-                <Clock3 size={15} />
-                {formatProposalTiming(proposal, language)}
-              </span>
             </button>
           );
         })}
@@ -1792,13 +1801,15 @@ function VotePanel({
           ))}
         </div>
       )}
-      <div className="selected-proposal">
-        <strong>
-          #{proposal.id} {proposalDisplay.title}
-        </strong>
-        <small>{proposalDisplay.execution}</small>
+      <div className="vote-context-card">
+        <div className="selected-proposal">
+          <strong>
+            #{proposal.id} {proposalDisplay.title}
+          </strong>
+          <small>{proposalDisplay.execution}</small>
+        </div>
+        <ProposedFees copy={copy} proposal={proposal} compact />
       </div>
-      <ProposedFees copy={copy} proposal={proposal} />
       {connectedAddress ? (
         <div className="balance-card">
           <div className={`wallet-strip wallet-strip-${walletBinding}`}>
@@ -1812,7 +1823,6 @@ function VotePanel({
                 ? copy.vote.balanceUnavailable
                 : copy.vote.balanceEmpty}
           </strong>
-          <small className="wallet-address">{shortAddress(connectedAddress)}</small>
         </div>
       ) : (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
@@ -1864,13 +1874,11 @@ function VotePanel({
         <div className="impact-grid">
           <div>
             <span>{copy.vote.currentWeight}</span>
-            <strong>{copy.sides[1]} {formatPercent(preview.currentForPercent)}</strong>
-            <small>{copy.sides[2]} {formatPercent(preview.currentAgainstPercent)}</small>
+            <strong>{copy.sides[1]} {formatPercent(preview.currentForPercent)} / {copy.sides[2]} {formatPercent(preview.currentAgainstPercent)}</strong>
           </div>
           <div>
             <span>{copy.vote.afterVote}</span>
-            <strong>{copy.sides[1]} {formatPercent(preview.nextForPercent)}</strong>
-            <small>{copy.sides[2]} {formatPercent(preview.nextAgainstPercent)}</small>
+            <strong>{copy.sides[1]} {formatPercent(preview.nextForPercent)} / {copy.sides[2]} {formatPercent(preview.nextAgainstPercent)}</strong>
           </div>
         </div>
         <div className="impact-totals">
