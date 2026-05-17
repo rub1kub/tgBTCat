@@ -192,7 +192,7 @@ const copyByLanguage = {
         {
           phase: '03',
           title: 'Token launch',
-          status: 'Queued',
+          status: 'Preparing',
           detail: 'Publish final metadata, seed liquidity, connect socials, and route new holders into the vote page.',
         },
         {
@@ -282,7 +282,6 @@ const copyByLanguage = {
       buyProposed: 'Buy',
       sellProposed: 'Sell',
       createTitle: 'Create a fee question',
-      createIntro: 'Choose what the question changes. The site prepares the transaction, the wallet shows it, and holders vote after it is created.',
       globalRoute: 'For all buys and sells',
       walletRoute: 'For a specific wallet',
       proposalKindGlobal: 'All buys and sells',
@@ -293,7 +292,6 @@ const copyByLanguage = {
       targetWalletPlaceholder: 'Paste TON wallet address',
       targetWalletInvalid: 'Paste a valid TON wallet address.',
       fixedDuration: 'voting lasts exactly 30 minutes',
-      fixedDurationDetail: 'the site cannot change it, and a manual transaction cannot make the vote shorter or longer.',
       proposalFee: 'Question fee: {amount} tgBTCat',
       proposalFeeDetail: 'This token payment is not returned. It makes spam expensive.',
       proposalFeeTooHigh: 'You need at least {amount} tgBTCat to create a question.',
@@ -305,10 +303,6 @@ const copyByLanguage = {
       sellFee: 'Sell fee %',
       feePreviewTitle: 'Fee preview',
       feePreviewText: 'For a 1,000 tgBTCat trade: buy fee {buy} tgBTCat, sell fee {sell} tgBTCat.',
-      dexPreviewTitle: 'DEX route preview',
-      dexPreviewText: 'STON.fi and DeDust use regular jetton transfers. tgBTCat takes the fee during transfer, so the router, vault, and buyer work with the amount after the fee.',
-      dexSellPreview: 'Sell: DEX receives {net} tgBTCat, treasury {fee}.',
-      dexBuyPreview: 'Buy: buyer receives {net} tgBTCat, treasury {fee}.',
       votePrepared: 'Vote is ready for wallet signature',
       voteSent: 'Vote was sent from the wallet. It should appear on-chain shortly.',
       proposalPrepared: 'Question is ready for wallet signature',
@@ -321,10 +315,10 @@ const copyByLanguage = {
       text: 'Public addresses for users who want to verify the project in a TON explorer.',
     },
     status: {
-      open: 'Open',
-      passed: 'Passed',
-      queued: 'Queued',
-      executed: 'Executed',
+      open: 'Voting',
+      passed: 'Ready',
+      queued: 'Ready',
+      executed: 'Applied',
     } satisfies Record<ProposalStatus, string>,
     sides: {
       1: 'FOR',
@@ -452,7 +446,7 @@ const copyByLanguage = {
         {
           phase: '03',
           title: 'Запуск токена',
-          status: 'В очереди',
+          status: 'Готовится',
           detail: 'Публикуем финальные метаданные, запускаем ликвидность, подключаем соцсети и ведем держателей на страницу голосования.',
         },
         {
@@ -542,7 +536,6 @@ const copyByLanguage = {
       buyProposed: 'покупка',
       sellProposed: 'продажа',
       createTitle: 'Создать вопрос про комиссии',
-      createIntro: 'Выберите, что меняет вопрос. Сайт подготовит транзакцию, кошелек покажет ее, а держатели смогут голосовать после создания.',
       globalRoute: 'Для всех покупок и продаж',
       walletRoute: 'для конкретного кошелька',
       proposalKindGlobal: 'Все покупки и продажи',
@@ -553,7 +546,6 @@ const copyByLanguage = {
       targetWalletPlaceholder: 'Вставьте TON-адрес кошелька',
       targetWalletInvalid: 'Вставьте корректный TON-адрес кошелька.',
       fixedDuration: 'голосование длится ровно 30 минут',
-      fixedDurationDetail: 'сайт не может это изменить, и вручную собранная транзакция не сделает голосование короче или длиннее.',
       proposalFee: 'плата за вопрос: {amount} tgbtcat',
       proposalFeeDetail: 'эта оплата токенами не возвращается. так спамить вопросами становится дорого.',
       proposalFeeTooHigh: 'нужно минимум {amount} tgbtcat, чтобы создать вопрос.',
@@ -565,10 +557,6 @@ const copyByLanguage = {
       sellFee: 'Комиссия продажи, %',
       feePreviewTitle: 'Предпросмотр комиссии',
       feePreviewText: 'На сделке 1 000 tgBTCat: комиссия покупки {buy} tgBTCat, комиссия продажи {sell} tgBTCat.',
-      dexPreviewTitle: 'как это пройдет через dex',
-      dexPreviewText: 'ston.fi и dedust используют обычные переводы токена. tgbtcat забирает комиссию во время перевода, поэтому роутер, контракт dedust и покупатель работают уже с суммой после комиссии.',
-      dexSellPreview: 'продажа: dex получает {net} tgbtcat, в казну {fee}.',
-      dexBuyPreview: 'покупка: покупатель получает {net} tgbtcat, в казну {fee}.',
       votePrepared: 'Голос готов к подписи в кошельке',
       voteSent: 'Голос отправлен из кошелька. Скоро он появится ончейн.',
       proposalPrepared: 'Вопрос готов к подписи в кошельке',
@@ -581,10 +569,10 @@ const copyByLanguage = {
       text: 'Публичные адреса для тех, кто хочет проверить проект в обозревателе TON.',
     },
     status: {
-      open: 'Открыто',
-      passed: 'Принято',
-      queued: 'В очереди',
-      executed: 'Исполнено',
+      open: 'идет голосование',
+      passed: 'готово',
+      queued: 'готово',
+      executed: 'исполнено',
     } satisfies Record<ProposalStatus, string>,
     sides: {
       1: 'за',
@@ -1650,6 +1638,7 @@ function ProposalTable({
           </div>
         ) : proposals.map((proposal) => {
           const listTitle = proposal.target === 'feeController' ? copy.vote.globalFeesShort : copy.vote.walletFeesShort;
+          const timing = formatProposalTiming(proposal, language);
           return (
             <button
               key={proposal.id}
@@ -1661,10 +1650,12 @@ function ProposalTable({
                 <strong>#{proposal.id} {listTitle}</strong>
                 <span className="proposal-row-meta">
                   <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
-                  <span className="proposal-meta">
-                    <Clock3 size={14} />
-                    {formatProposalTiming(proposal, language)}
-                  </span>
+                  {timing && (
+                    <span className="proposal-meta">
+                      <Clock3 size={14} />
+                      {timing}
+                    </span>
+                  )}
                 </span>
               </span>
               <ProposedFees copy={copy} proposal={proposal} compact />
@@ -1976,7 +1967,6 @@ function ProposalBuilder({
         <h2>{copy.vote.createTitle}</h2>
         <span className="status status-queued">{form.kind === 'wallet' ? copy.vote.walletRoute : copy.vote.globalRoute}</span>
       </div>
-      <p className="form-intro">{copy.vote.createIntro}</p>
       <div className="create-scenarios" aria-label={copy.vote.createTitle}>
         {(['global', 'wallet'] as const).map((kind) => (
           <button
@@ -2007,7 +1997,6 @@ function ProposalBuilder({
         <Clock3 size={17} />
         <span>{copy.vote.fixedDuration}</span>
       </div>
-      <p className="field-hint">{copy.vote.fixedDurationDetail}</p>
       <div className="proposal-fee-note">
         <Wallet size={17} />
         <span>{copy.vote.proposalFee.replace('{amount}', PROPOSAL_CREATE_JETTONS)}</span>
@@ -2024,7 +2013,6 @@ function ProposalBuilder({
         <strong>{copy.vote.feePreviewTitle}</strong>
         <p>{copy.vote.feePreviewText.replace('{buy}', buyPreview).replace('{sell}', sellPreview)}</p>
       </div>
-      <DexFeePreview copy={copy} buyFeePercent={form.buyFeePercent} sellFeePercent={form.sellFeePercent} />
       {!connectedAddress && (
         <button className="connect-wallet-panel" type="button" onClick={onConnectWallet}>
           <Wallet size={18} />
@@ -2044,35 +2032,6 @@ function ProposalBuilder({
       </div>
       {createDisabledReason && <p className="field-error create-disabled-reason">{createDisabledReason}</p>}
     </section>
-  );
-}
-
-function DexFeePreview({
-  copy,
-  buyFeePercent,
-  sellFeePercent,
-}: {
-  copy: AppCopy;
-  buyFeePercent: string;
-  sellFeePercent: string;
-}) {
-  const buy = feePreviewBreakdown(buyFeePercent);
-  const sell = feePreviewBreakdown(sellFeePercent);
-
-  return (
-    <div className="dex-fee-preview">
-      <div className="dex-fee-heading">
-        <span>
-          <Activity size={17} />
-          {copy.vote.dexPreviewTitle}
-        </span>
-      </div>
-      <p>{copy.vote.dexPreviewText}</p>
-      <div className="dex-preview-grid">
-        <div>{copy.vote.dexSellPreview.replace('{net}', sell.net).replace('{fee}', sell.fee)}</div>
-        <div>{copy.vote.dexBuyPreview.replace('{net}', buy.net).replace('{fee}', buy.fee)}</div>
-      </div>
-    </div>
   );
 }
 
@@ -2250,14 +2209,6 @@ function feePreviewAmount(value: string): string {
   return formatPreviewAmount(feePreviewNumeric(value));
 }
 
-function feePreviewBreakdown(value: string): { fee: string; net: string } {
-  const fee = feePreviewNumeric(value);
-  return {
-    fee: formatPreviewAmount(fee),
-    net: formatPreviewAmount(1000 - fee),
-  };
-}
-
 function feePreviewNumeric(value: string): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) {
@@ -2283,11 +2234,8 @@ function formatPercentValue(value: number): string {
 }
 
 function formatProposalTiming(proposal: ProposalRow, language: LanguageKey): string {
-  if (proposal.status === 'executed') {
-    return language === 'ru' ? 'исполнено' : 'executed';
-  }
   if (proposal.status !== 'open' || !proposal.votingEndsAt) {
-    return language === 'ru' ? 'закрыто' : 'closed';
+    return '';
   }
 
   const seconds = Math.max(0, proposal.votingEndsAt - Math.floor(Date.now() / 1000));
