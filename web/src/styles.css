@@ -972,6 +972,37 @@ main {
   margin-top: 20px;
 }
 
+.proposal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.compact-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--soft-line);
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.compact-action:hover:not(:disabled) {
+  border-color: rgba(0, 152, 234, 0.58);
+  color: var(--ink);
+}
+
+.compact-action:disabled {
+  opacity: 0.56;
+  cursor: wait;
+}
+
 .proposal-empty-state {
   display: grid;
   gap: 10px;

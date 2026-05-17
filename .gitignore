@@ -8,6 +8,8 @@ lcov.info
 coverage.txt
 libraries.toml
 global.libraries.toml
+__pycache__/
+*.pyc
 
 # Mnemonic and wallet files
 .env

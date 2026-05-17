@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { CHAIN, useTonAddress, useTonConnectModal, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Activity,
@@ -12,6 +12,7 @@ import {
   Gauge,
   Landmark,
   Plus,
+  RefreshCw,
   Send,
   ShieldCheck,
   SlidersHorizontal,
@@ -223,6 +224,8 @@ const copyByLanguage = {
       emptyCount: '0 questions',
       loadingQuestions: 'Loading on-chain questions...',
       questionsLoadError: 'Could not load on-chain questions. Try again in a minute.',
+      refreshQuestions: 'Refresh',
+      refreshingQuestions: 'Refreshing...',
       currentFeesTitle: 'current fees',
       currentFeesText: 'these values are read from the live contracts before you vote or create a question.',
       currentFeesLive: 'live on-chain',
@@ -478,6 +481,8 @@ const copyByLanguage = {
       emptyCount: '0 вопросов',
       loadingQuestions: 'загружаю вопросы из блокчейна...',
       questionsLoadError: 'не удалось загрузить вопросы из блокчейна. попробуйте через минуту.',
+      refreshQuestions: 'обновить',
+      refreshingQuestions: 'обновляю...',
       currentFeesTitle: 'актуальные комиссии',
       currentFeesText: 'эти значения читаются из живых контрактов перед голосованием или созданием вопроса.',
       currentFeesLive: 'онлайн из блокчейна',
@@ -623,7 +628,7 @@ export default function App() {
   const [language, setLanguage] = useState<LanguageKey>(() => detectLanguage());
   const [isScrolled, setIsScrolled] = useState(false);
   const [governanceMode, setGovernanceMode] = useState<GovernanceMode>('cast');
-  const [selectedProposalId, setSelectedProposalId] = useState(0);
+  const [selectedProposalId, setSelectedProposalId] = useState(-1);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [lastExplorerHref, setLastExplorerHref] = useState('');
@@ -633,6 +638,9 @@ export default function App() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState('');
+  const [proposalReloadNonce, setProposalReloadNonce] = useState(0);
+  const selectedProposalIdRef = useRef(selectedProposalId);
+  const selectNewestProposalOnRefresh = useRef(false);
   const [globalFees, setGlobalFees] = useState<GlobalFeeState | null>(null);
   const [globalFeesLoading, setGlobalFeesLoading] = useState(false);
   const [globalFeesError, setGlobalFeesError] = useState('');
@@ -679,6 +687,10 @@ export default function App() {
   );
 
   useEffect(() => {
+    selectedProposalIdRef.current = selectedProposalId;
+  }, [selectedProposalId]);
+
+  useEffect(() => {
     tonConnectUI.setConnectionNetwork(CHAIN.MAINNET);
   }, [tonConnectUI]);
 
@@ -720,8 +732,23 @@ export default function App() {
         if (cancelled) {
           return;
         }
+        const currentProposalId = selectedProposalIdRef.current;
+        const shouldSelectNewest = selectNewestProposalOnRefresh.current;
+        const nextProposalId =
+          rows.length > 0 && (shouldSelectNewest || !rows.some((proposal) => proposal.id === currentProposalId))
+            ? rows[0].id
+            : currentProposalId;
+
         setProposals(rows);
-        setSelectedProposalId((current) => (rows.some((proposal) => proposal.id === current) ? current : rows[0]?.id ?? 0));
+        selectedProposalIdRef.current = nextProposalId;
+        setSelectedProposalId(nextProposalId);
+        if (nextProposalId >= 0) {
+          setVoteForm((current) => ({ ...current, proposalId: String(nextProposalId) }));
+        }
+        if (shouldSelectNewest && rows.length > 0) {
+          setGovernanceMode('cast');
+          selectNewestProposalOnRefresh.current = false;
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -740,7 +767,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [addressBook.addresses.governor, network]);
+  }, [addressBook.addresses.governor, network, proposalReloadNonce]);
 
   useEffect(() => {
     const feeControllerAddress = addressBook.addresses.feeController;
@@ -832,7 +859,10 @@ export default function App() {
         governorAddress,
         responseAddress,
       });
-      await sendPreparedTransaction(transaction, t.vote.voteSent);
+      const sent = await sendPreparedTransaction(transaction, t.vote.voteSent);
+      if (sent) {
+        requestProposalRefresh();
+      }
     } catch (error) {
       setErrorMessage(formatError(error));
     }
@@ -864,7 +894,10 @@ export default function App() {
               targetWallet: proposalForm.targetWallet,
             })
           : buildGlobalFeeProposalTransaction(baseInput);
-      await sendPreparedTransaction(transaction, t.vote.proposalSent);
+      const sent = await sendPreparedTransaction(transaction, t.vote.proposalSent);
+      if (sent) {
+        requestProposalRefresh({ selectNewest: true });
+      }
     } catch (error) {
       setErrorMessage(formatError(error));
     }
@@ -912,9 +945,21 @@ export default function App() {
         setLastExplorerHref(`${addressBook.explorerBaseUrl}/transaction/${signedHash}`);
       }
       setStatusMessage(success);
+      return true;
     } catch (error) {
       setErrorMessage(formatError(error));
+      return false;
     }
+  };
+
+  const requestProposalRefresh = (options: { selectNewest?: boolean } = {}) => {
+    if (options.selectNewest) {
+      selectNewestProposalOnRefresh.current = true;
+    }
+    setProposalReloadNonce((current) => current + 1);
+    [5_000, 12_000, 22_000].forEach((delay) => {
+      window.setTimeout(() => setProposalReloadNonce((current) => current + 1), delay);
+    });
   };
 
   const clearFeedback = () => {
@@ -1026,6 +1071,7 @@ export default function App() {
               }}
               selectedProposalId={selectedProposalId}
               onSelectProposal={(proposalId) => {
+                selectedProposalIdRef.current = proposalId;
                 setSelectedProposalId(proposalId);
                 setVoteForm((current) => ({ ...current, proposalId: String(proposalId) }));
               }}
@@ -1048,6 +1094,7 @@ export default function App() {
               onLookupConnectedWalletFee={
                 connectedAddress ? () => void lookupWalletFee(connectedAddress) : undefined
               }
+              onRefreshProposals={() => requestProposalRefresh()}
               onSendVote={sendVote}
               onSendProposal={sendProposal}
             />
@@ -1267,6 +1314,7 @@ function VotePage({
   onWalletFeeTargetChange,
   onLookupWalletFee,
   onLookupConnectedWalletFee,
+  onRefreshProposals,
   onSendVote,
   onSendProposal,
 }: {
@@ -1297,6 +1345,7 @@ function VotePage({
   onWalletFeeTargetChange: (value: string) => void;
   onLookupWalletFee: () => void;
   onLookupConnectedWalletFee?: () => void;
+  onRefreshProposals: () => void;
   onSendVote: () => void;
   onSendProposal: () => void;
 }) {
@@ -1344,6 +1393,7 @@ function VotePage({
           error={proposalsError}
           selectedProposalId={selectedProposalId}
           onSelect={onSelectProposal}
+          onRefresh={onRefreshProposals}
         />
         <div className="governance-workspace">
           {governanceMode === 'cast' && selectedProposal ? (
@@ -1543,6 +1593,7 @@ function ProposalTable({
   error,
   selectedProposalId,
   onSelect,
+  onRefresh,
 }: {
   language: LanguageKey;
   copy: AppCopy;
@@ -1551,14 +1602,21 @@ function ProposalTable({
   error: string;
   selectedProposalId: number;
   onSelect: (proposalId: number) => void;
+  onRefresh: () => void;
 }) {
   return (
     <section className="panel proposal-panel">
       <div className="section-header">
         <h2>{copy.vote.votesTitle}</h2>
-        <span className="quiet-count">
-          {proposals.length > 0 ? `${proposals.length} ${copy.vote.routes}` : copy.vote.emptyCount}
-        </span>
+        <div className="proposal-header-actions">
+          <span className="quiet-count">
+            {proposals.length > 0 ? `${proposals.length} ${copy.vote.routes}` : copy.vote.emptyCount}
+          </span>
+          <button className="compact-action" type="button" disabled={loading} onClick={onRefresh}>
+            <RefreshCw size={15} />
+            {loading ? copy.vote.refreshingQuestions : copy.vote.refreshQuestions}
+          </button>
+        </div>
       </div>
       <div className="proposal-list">
         {loading ? (
@@ -1577,7 +1635,7 @@ function ProposalTable({
             <p>{copy.vote.emptyQuestionsText}</p>
           </div>
         ) : proposals.map((proposal) => {
-          const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
+          const proposalDisplay = getProposalDisplay(copy, proposal);
           return (
             <button
               key={proposal.id}
@@ -1586,8 +1644,8 @@ function ProposalTable({
               onClick={() => onSelect(proposal.id)}
             >
               <span className="proposal-main">
-                <strong>{proposalCopy?.title ?? proposal.title}</strong>
-                <small>{proposalCopy?.summary ?? proposal.route}</small>
+                <strong>#{proposal.id} {proposalDisplay.title}</strong>
+                <small>{proposalDisplay.summary}</small>
               </span>
               <span className={`status status-${proposal.status}`}>{copy.status[proposal.status]}</span>
               <ProposedFees copy={copy} proposal={proposal} compact />
@@ -1618,6 +1676,30 @@ function EmptyVotePanel({ copy, onCreateQuestion }: { copy: AppCopy; onCreateQue
       </button>
     </section>
   );
+}
+
+function getProposalDisplay(copy: AppCopy, proposal: ProposalRow) {
+  if (proposal.target === 'walletFeeRegistry') {
+    return {
+      title: copy.vote.proposalKindWallet,
+      summary: copy.vote.scenarioWallet,
+      execution: copy.proposals[1]?.execution ?? proposal.execution,
+    };
+  }
+
+  if (proposal.target === 'feeController') {
+    return {
+      title: copy.vote.proposalKindGlobal,
+      summary: copy.vote.scenarioGlobal,
+      execution: copy.proposals[0]?.execution ?? proposal.execution,
+    };
+  }
+
+  return {
+    title: proposal.title,
+    summary: proposal.route,
+    execution: proposal.execution,
+  };
 }
 
 function ProposedFees({
@@ -1681,7 +1763,7 @@ function VotePanel({
   onChange: (patch: Partial<VoteFormState>) => void;
   onSend: () => void;
 }) {
-  const proposalCopy = copy.proposals[proposal.id as keyof typeof copy.proposals];
+  const proposalDisplay = getProposalDisplay(copy, proposal);
   const bindingText =
     walletBinding === 'ready' && !tokenBalance
       ? copy.vote.bindingAddressReady
@@ -1712,9 +1794,9 @@ function VotePanel({
       )}
       <div className="selected-proposal">
         <strong>
-          #{proposal.id} {proposalCopy?.title ?? proposal.title}
+          #{proposal.id} {proposalDisplay.title}
         </strong>
-        <small>{proposalCopy?.execution ?? proposal.execution}</small>
+        <small>{proposalDisplay.execution}</small>
       </div>
       <ProposedFees copy={copy} proposal={proposal} />
       {connectedAddress ? (

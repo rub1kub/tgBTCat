@@ -71,7 +71,7 @@ export async function fetchGovernanceProposals(
     }
   }
 
-  return proposals;
+  return proposals.reverse();
 }
 
 export async function fetchGlobalFees(
