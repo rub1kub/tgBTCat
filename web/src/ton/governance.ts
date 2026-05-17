@@ -1,5 +1,6 @@
 import { Address, beginCell, Cell } from '@ton/core';
 import type { ProposalRow, ProposalStatus } from '../data/proposals';
+import { getToncenterRunGetMethodEndpoint } from './rpc';
 import { shortAddress, type ResolveJettonWalletInput } from './transactions';
 
 type NetworkKey = ResolveJettonWalletInput['network'];
@@ -54,7 +55,6 @@ const JETTON_SCALE = 1_000_000_000;
 const MAX_PROPOSALS = 20;
 const PUBLIC_RATE_LIMIT_DELAY_MS = 1100;
 const MAX_READ_ATTEMPTS = 4;
-const TONCENTER_V3_ENDPOINT = 'https://toncenter.com/api/v3/runGetMethod';
 
 export async function fetchGovernanceProposals(
   input: FetchGovernanceProposalsInput,
@@ -148,7 +148,7 @@ async function runGetMethod(
   stack: ToncenterStackItem[],
   attempt = 1,
 ): Promise<RunGetMethodResponse> {
-  const response = await fetch(TONCENTER_V3_ENDPOINT, {
+  const response = await fetch(getToncenterRunGetMethodEndpoint(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

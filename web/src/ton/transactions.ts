@@ -2,6 +2,7 @@ import { Address, beginCell, Cell, toNano } from '@ton/core';
 import { TgBtcCatGovernor } from '../../../wrappers-ts/TgBtcCatGovernor.gen';
 import { TgBtcCatJettonWallet } from '../../../wrappers-ts/TgBtcCatJettonWallet.gen';
 import type { NetworkKey } from './contracts';
+import { getToncenterRunGetMethodEndpoint } from './rpc';
 
 export type VoteSide = 1 | 2;
 
@@ -64,7 +65,6 @@ const JETTON_DECIMALS = 9;
 const MAX_RPC_ATTEMPTS = 4;
 const RPC_RETRY_DELAY_MS = 900;
 const TON_CONNECT_MAINNET = '-239';
-const TONCENTER_V3_ENDPOINT = 'https://toncenter.com/api/v3/runGetMethod';
 
 export function buildVoteTransaction(input: VoteTransactionInput): TonConnectTransaction {
   const votePayload = beginCell()
@@ -328,7 +328,7 @@ async function runToncenterGetMethod({
   stack?: unknown[];
   error?: string;
 }> {
-  const response = await fetch(TONCENTER_V3_ENDPOINT, {
+  const response = await fetch(getToncenterRunGetMethodEndpoint(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
