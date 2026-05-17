@@ -63,6 +63,22 @@ tc-root * {
   text-transform: none;
 }
 
+#tc-widget-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+}
+
+#tc-widget-root tc-root,
+#tc-widget-root [data-tc-modal="true"] {
+  pointer-events: auto;
+}
+
+#tc-widget-root [data-tc-modal="true"] {
+  z-index: 2147483000 !important;
+}
+
 body::before {
   position: fixed;
   inset: 0;

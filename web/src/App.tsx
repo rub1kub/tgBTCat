@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { CHAIN, useTonAddress, useTonConnectModal, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
+import { CHAIN, useTonAddress, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Activity,
   AlertCircle,
@@ -655,7 +655,6 @@ export default function App() {
   const [walletFeeLoading, setWalletFeeLoading] = useState(false);
   const [walletFeeError, setWalletFeeError] = useState('');
   const [tonConnectUI] = useTonConnectUI();
-  const { open: openConnectModal } = useTonConnectModal();
   const wallet = useTonWallet();
   const connectedAddress = useTonAddress();
 
@@ -972,6 +971,13 @@ export default function App() {
     setErrorMessage('');
     setStatusMessage('');
     setLastExplorerHref('');
+  };
+
+  const openConnectModal = () => {
+    clearFeedback();
+    void tonConnectUI.openModal().catch((error) => {
+      setErrorMessage(formatError(error));
+    });
   };
 
   return (
